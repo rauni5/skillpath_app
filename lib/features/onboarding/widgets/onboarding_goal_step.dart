@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:provider/provider.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/loading_view.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../career/providers/career_provider.dart';
+import '../../career/widgets/role_card.dart';
+
+class OnboardingGoalStep extends StatefulWidget {
+  const OnboardingGoalStep({super.key, required this.onContinue});
+
+  final VoidCallback onContinue;
+
+  @override
+  State<OnboardingGoalStep> createState() => _OnboardingGoalStepState();
+}
+
+class _OnboardingGoalStepState extends State<OnboardingGoalStep> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CareerProvider>().loadRoles();
+    });
+  }
+
+  Future<void> _select(int roleId) async {
+    HapticFeedback.selectionClick();
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+    final career = context.read<CareerProvider>();
+    final ok = await career.setGoal(userId, roleId);
+    if (ok) {
+      widget.onContinue();
+    } else if (mounted && career.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(career.errorMessage!)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final career = context.watch<CareerProvider>();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Where are you headed?',
+              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          const Text(
+            "Pick a target role — we'll build a dependency-ordered roadmap and show you exactly what's missing.",
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted, height: 1.4),
+          ),
+          const SizedBox(height: 22),
+          Expanded(
+            child: career.rolesState == CareerLoadState.loading
+                ? const LoadingView()
+                : career.rolesState == CareerLoadState.error
+                    ? ErrorView(
+                        message: career.errorMessage ?? 'Could not load career roles.',
+                        onRetry: () => context.read<CareerProvider>().loadRoles(),
+                      )
+                    : ListView(
+                        children: [
+                          for (final role in career.roles)
+                            RoleCard(
+                              role: role,
+                              isSelected: false,
+                              onTap: career.isSubmitting ? () {} : () => _select(role.id),
+                            ),
+                          if (career.isSubmitting)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.indigo)),
+                            ),
+                        ],
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
