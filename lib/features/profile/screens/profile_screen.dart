@@ -1,0 +1,168 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+
+/// Profile screen: view the synced profile, jump into skill management
+/// and career-goal/gap-analysis, and sign out.
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final user = auth.currentUser;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profile')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Center(
+            child: CircleAvatar(
+              radius: 32,
+              backgroundColor: AppColors.indigoLight,
+              child: Text(
+                user?.initials ?? '?',
+                style: const TextStyle(color: AppColors.indigo, fontSize: 20, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              user?.name ?? '',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
+          ),
+          Center(
+            child: Text(
+              user?.email ?? '',
+              style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _row('Experience', user?.experienceLevel.name ?? '—'),
+                  const Divider(height: 20),
+                  _row('Availability', (user?.availability ?? false) ? 'Available' : 'Not available'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: Column(
+              children: [
+                _navRow(
+                  context,
+                  icon: Icons.psychology_outlined,
+                  label: 'Your skills',
+                  onTap: () => context.push('/profile/skills'),
+                ),
+                const Divider(height: 1),
+                _navRow(
+                  context,
+                  icon: Icons.flag_outlined,
+                  label: 'Career goal & gap analysis',
+                  onTap: () => context.push('/profile/career-goal'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          _ThemeModeSection(),
+          const SizedBox(height: 24),
+          OutlinedButton(
+            onPressed: () => context.read<AuthProvider>().signOut(),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _navRow(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: AppColors.indigo),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+            ),
+            const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
+        Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+      ],
+    );
+  }
+}
+
+/// Light / Dark / System appearance toggle. Styled via `Theme.of(context)`
+/// (not the hardcoded `AppColors` constants the rest of this screen uses)
+/// so the control itself always renders correctly in whichever mode is
+/// currently active.
+class _ThemeModeSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final textTheme = Theme.of(context).textTheme;
+    final mutedColor = Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.dark_mode_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Appearance', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto, size: 16)),
+                ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined, size: 16)),
+                ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined, size: 16)),
+              ],
+              selected: {themeProvider.mode},
+              onSelectionChanged: (selection) => themeProvider.setMode(selection.first),
+              showSelectedIcon: false,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Follows your device setting by default.',
+              style: textTheme.bodySmall?.copyWith(fontSize: 11, color: mutedColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
