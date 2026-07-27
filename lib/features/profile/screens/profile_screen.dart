@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
-/// Profile screen: view the synced profile, jump into skill management
-/// and career-goal/gap-analysis, and sign out.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
 
@@ -24,10 +23,14 @@ class ProfileScreen extends StatelessWidget {
           Center(
             child: CircleAvatar(
               radius: 32,
-              backgroundColor: AppColors.indigoLight,
+              backgroundColor: p.indigoLight,
               child: Text(
                 user?.initials ?? '?',
-                style: const TextStyle(color: AppColors.indigo, fontSize: 20, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: p.indigo,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -35,13 +38,17 @@ class ProfileScreen extends StatelessWidget {
           Center(
             child: Text(
               user?.name ?? '',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: p.textPrimary,
+              ),
             ),
           ),
           Center(
             child: Text(
               user?.email ?? '',
-              style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12.5, color: p.textMuted),
             ),
           ),
           const SizedBox(height: 24),
@@ -51,9 +58,15 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _row('Experience', user?.experienceLevel.name ?? '—'),
+                  _row(p, 'Experience', user?.experienceLevel.name ?? '—'),
                   const Divider(height: 20),
-                  _row('Availability', (user?.availability ?? false) ? 'Available' : 'Not available'),
+                  _row(
+                    p,
+                    'Availability',
+                    (user?.availability ?? false)
+                        ? 'Available'
+                        : 'Not available',
+                  ),
                 ],
               ),
             ),
@@ -75,11 +88,18 @@ class ProfileScreen extends StatelessWidget {
                   label: 'Career goal & gap analysis',
                   onTap: () => context.push('/profile/career-goal'),
                 ),
+                const Divider(height: 1),
+                _navRow(
+                  context,
+                  icon: Icons.groups_outlined,
+                  label: 'Projects',
+                  onTap: () => context.go('/projects'),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          _ThemeModeSection(),
+          const _ThemeModeSection(),
           const SizedBox(height: 24),
           OutlinedButton(
             onPressed: () => context.read<AuthProvider>().signOut(),
@@ -90,46 +110,65 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _navRow(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _navRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final p = AppPalette.of(context);
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: AppColors.indigo),
+            Icon(icon, size: 20, color: p.indigo),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: p.textPrimary,
+                ),
+              ),
             ),
-            const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
+            Icon(Icons.chevron_right, size: 20, color: p.textMuted),
           ],
         ),
       ),
     );
   }
 
-  Widget _row(String label, String value) {
+  Widget _row(AppPalette p, String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
-        Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+        Text(label, style: TextStyle(fontSize: 12.5, color: p.textMuted)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: p.textPrimary,
+          ),
+        ),
       ],
     );
   }
 }
 
-/// Light / Dark / System appearance toggle. Styled via `Theme.of(context)`
-/// (not the hardcoded `AppColors` constants the rest of this screen uses)
-/// so the control itself always renders correctly in whichever mode is
-/// currently active.
 class _ThemeModeSection extends StatelessWidget {
+  const _ThemeModeSection();
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final textTheme = Theme.of(context).textTheme;
-    final mutedColor = Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6);
+    final mutedColor = Theme.of(
+      context,
+    ).textTheme.bodySmall?.color?.withOpacity(0.6);
 
     return Card(
       child: Padding(
@@ -139,26 +178,51 @@ class _ThemeModeSection extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.dark_mode_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Icons.dark_mode_outlined,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
-                Text('Appearance', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  'Appearance',
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             SegmentedButton<ThemeMode>(
               segments: const [
-                ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto, size: 16)),
-                ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined, size: 16)),
-                ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined, size: 16)),
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  label: Text('System'),
+                  icon: Icon(Icons.brightness_auto, size: 16),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  label: Text('Light'),
+                  icon: Icon(Icons.light_mode_outlined, size: 16),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  label: Text('Dark'),
+                  icon: Icon(Icons.dark_mode_outlined, size: 16),
+                ),
               ],
               selected: {themeProvider.mode},
-              onSelectionChanged: (selection) => themeProvider.setMode(selection.first),
+              onSelectionChanged: (selection) =>
+                  themeProvider.setMode(selection.first),
               showSelectedIcon: false,
             ),
             const SizedBox(height: 6),
             Text(
               'Follows your device setting by default.',
-              style: textTheme.bodySmall?.copyWith(fontSize: 11, color: mutedColor),
+              style: textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+                color: mutedColor,
+              ),
             ),
           ],
         ),
