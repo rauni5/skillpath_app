@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../../../core/models/skill.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_palette.dart';
 
 /// Opens a bottom sheet asking the user to pick a proficiency level for
 /// [skill], returning the chosen level (or null if dismissed). Replaces a
@@ -22,19 +22,23 @@ class _AddSkillSheet extends StatelessWidget {
   final Skill skill;
 
   static const _descriptions = {
-    SkillProficiency.beginner: "I've done some tutorials or small exercises with this.",
-    SkillProficiency.intermediate: "I've built real things with this and I'm comfortable using it.",
-    SkillProficiency.advanced: "I could mentor someone else or debug this at a deep level.",
+    SkillProficiency.beginner:
+        "I've done some tutorials or small exercises with this.",
+    SkillProficiency.intermediate:
+        "I've built real things with this and I'm comfortable using it.",
+    SkillProficiency.advanced:
+        "I could mentor someone else or debug this at a deep level.",
   };
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(10),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
         decoration: BoxDecoration(
-          color: AppColors.surface2,
+          color: p.surface2,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
@@ -45,22 +49,34 @@ class _AddSkillSheet extends StatelessWidget {
               child: Container(
                 width: 36,
                 height: 4,
-                decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: p.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(skill.category.icon, size: 18, color: AppColors.indigo),
+                Icon(skill.category.icon, size: 18, color: p.indigo),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(skill.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  child: Text(
+                    skill.name,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: p.textPrimary,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            const Text('How comfortable are you with this?',
-                style: TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
+            Text(
+              'How comfortable are you with this?',
+              style: TextStyle(fontSize: 12.5, color: p.textMuted),
+            ),
             const SizedBox(height: 16),
             for (final level in SkillProficiency.values)
               Padding(
@@ -74,7 +90,7 @@ class _AddSkillSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(13),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: p.border),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -83,13 +99,27 @@ class _AddSkillSheet extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(level.label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                              Text(
+                                level.label,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.textPrimary,
+                                ),
+                              ),
                               const SizedBox(height: 2),
-                              Text(_descriptions[level]!, style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted, height: 1.3)),
+                              Text(
+                                _descriptions[level]!,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: p.textMuted,
+                                  height: 1.3,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
+                        Icon(Icons.chevron_right, size: 18, color: p.textMuted),
                       ],
                     ),
                   ),
