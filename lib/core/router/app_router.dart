@@ -7,6 +7,9 @@ import '../../features/career/screens/career_goal_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/projects/screens/create_project_screen.dart';
+import '../../features/projects/screens/project_detail_screen.dart';
+import '../../features/projects/screens/projects_list_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
 import '../../features/skills/screens/skills_screen.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -63,6 +66,26 @@ GoRouter buildRouter(AuthProvider authProvider) {
               GoRoute(
                 path: '/roadmap',
                 builder: (context, state) => const RoadmapScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/projects',
+                builder: (context, state) => const ProjectsListScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (context, state) => const CreateProjectScreen(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) => ProjectDetailScreen(
+                      projectId: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
