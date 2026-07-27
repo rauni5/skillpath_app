@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../../../core/models/skill.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_palette.dart';
 
 class CategoryFilterRow extends StatelessWidget {
-  const CategoryFilterRow({super.key, required this.selected, required this.onSelect});
+  const CategoryFilterRow({
+    super.key,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final SkillCategory? selected;
   final void Function(SkillCategory?) onSelect;
@@ -24,6 +28,7 @@ class CategoryFilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return SizedBox(
       height: 32,
       child: ListView.separated(
@@ -41,14 +46,14 @@ class CategoryFilterRow extends StatelessWidget {
               HapticFeedback.selectionClick();
               onSelect(category);
             },
-            selectedColor: AppColors.indigoLight,
-            backgroundColor: AppColors.surface1,
+            selectedColor: p.indigoLight,
+            backgroundColor: p.surface1,
             labelStyle: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: isSelected ? AppColors.indigo : AppColors.textSecondary,
+              color: isSelected ? p.indigo : p.textSecondary,
             ),
-            side: BorderSide(color: isSelected ? AppColors.indigo : Colors.transparent),
+            side: BorderSide(color: isSelected ? p.indigo : Colors.transparent),
             padding: const EdgeInsets.symmetric(horizontal: 4),
           );
         },

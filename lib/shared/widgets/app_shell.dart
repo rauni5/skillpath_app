@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_colors.dart';
-
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -30,13 +28,16 @@ class AppShell extends StatelessWidget {
             label: 'Roadmap',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.groups_outlined),
+            activeIcon: Icon(Icons.groups),
+            label: 'Projects',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
             label: 'Profile',
           ),
         ],
-        selectedItemColor: AppColors.indigo,
-        unselectedItemColor: AppColors.textMuted,
       ),
     );
   }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_palette.dart';
 import '../widgets/onboarding_about_step.dart';
 import '../widgets/onboarding_goal_step.dart';
 import '../widgets/onboarding_progress_bar.dart';
@@ -20,7 +20,13 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   static const _totalSteps = 4;
-  static const _stepTitles = ['About you', 'Your skills', 'Career goal', 'Summary'];
+  static const _stepTitles = [
+    'About you',
+    'Your skills',
+    'Career goal',
+    'Summary',
+  ];
+
   final _pageController = PageController();
   int _step = 0;
 
@@ -32,7 +38,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _goTo(int step) {
     setState(() => _step = step);
-    _pageController.animateToPage(step, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+    _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
   }
 
   void _next() => _goTo((_step + 1).clamp(0, _totalSteps - 1));
@@ -40,6 +50,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -59,7 +70,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   else
                     const SizedBox(width: 24),
                   const SizedBox(width: 12),
-                  Expanded(child: OnboardingProgressBar(step: _step, totalSteps: _totalSteps)),
+                  Expanded(
+                    child: OnboardingProgressBar(
+                      step: _step,
+                      totalSteps: _totalSteps,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -72,7 +88,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Text(
                     'Step ${_step + 1} of $_totalSteps · ${_stepTitles[_step]}',
                     key: ValueKey(_step),
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: p.textMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),

@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:skillpath_app/core/models/skill.dart';
 
 import '../../../core/models/roadmap_step.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_palette.dart';
 
-/// A single roadmap step. Tap the row to expand it and see its category;
-/// the very next incomplete step is visually called out as "Up next" so
-/// it's always obvious what to tackle. Completing a step animates the dot
-/// filling in rather than snapping instantly.
 class RoadmapStepTile extends StatefulWidget {
   const RoadmapStepTile({
     super.key,
@@ -33,14 +29,19 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final step = widget.step;
     final isDone = step.status == RoadmapStepStatus.done;
+    final isUpNext = widget.isUpNext && !isDone;
 
-    final dotColor = isDone
-        ? AppColors.green
-        : widget.isUpNext
-        ? AppColors.indigo
-        : AppColors.border;
+    final dotColor = isDone ? p.green : (isUpNext ? p.indigo : p.border);
+
+    final cardColor = isUpNext
+        ? p.indigoLight
+        : isDone
+        ? p.surface1
+        : p.surface2;
+    final cardBorder = isUpNext ? p.indigo.withOpacity(0.35) : p.border;
 
     return IntrinsicHeight(
       child: Row(
@@ -52,15 +53,24 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
               AnimatedContainer(
                 duration: const Duration(milliseconds: 350),
                 curve: Curves.easeOutBack,
-                width: widget.isUpNext && !isDone ? 20 : 16,
-                height: widget.isUpNext && !isDone ? 20 : 16,
-                margin: const EdgeInsets.only(top: 2),
+                width: isUpNext ? 20 : 16,
+                height: isUpNext ? 20 : 16,
+                margin: const EdgeInsets.only(top: 14),
                 decoration: BoxDecoration(
                   color: dotColor,
                   shape: BoxShape.circle,
                   border: isDone
                       ? null
-                      : Border.all(color: AppColors.border, width: 1.5),
+                      : Border.all(color: p.border, width: 1.5),
+                  boxShadow: isUpNext
+                      ? [
+                          BoxShadow(
+                            color: p.indigo.withOpacity(0.35),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
@@ -75,161 +85,176 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                 ),
               ),
               if (!widget.isLast)
-                Expanded(child: Container(width: 2, color: AppColors.border)),
+                Expanded(child: Container(width: 2, color: p.border)),
             ],
           ),
           const SizedBox(width: 12),
-          // Content
+          // Content card
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.only(bottom: 12),
               child: InkWell(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 onTap: () => setState(() => _expanded = !_expanded),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: widget.isUpNext && !isDone
-                        ? AppColors.indigoLight
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    border: widget.isUpNext && !isDone
-                        ? Border.all(color: AppColors.indigo.withOpacity(0.25))
-                        : null,
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: cardBorder,
+                      width: isUpNext ? 1.25 : 0.75,
+                    ),
                   ),
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Step ${step.stepOrder}',
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    color: AppColors.textMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                if (widget.isUpNext && !isDone) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.indigo,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'UP NEXT',
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Step ${step.stepOrder}',
                                       style: TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.3,
+                                        fontSize: 10.5,
+                                        color: p.textMuted,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              step.skillName,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: isDone
-                                    ? AppColors.textMuted
-                                    : AppColors.textPrimary,
-                                decoration: isDone
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  step.skillCategory.icon,
-                                  size: 12,
-                                  color: AppColors.indigo,
-                                ),
-                                const SizedBox(width: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 7,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.indigoLight,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    step.skillCategory.label,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.indigo,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 200),
-                              child: _expanded
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(top: 8),
-                                      child: Text(
-                                        isDone && step.completedAt != null
-                                            ? 'Completed ${_formatDate(step.completedAt!)}'
-                                            : 'Part of the ${step.skillCategory.label} track — complete the steps above it first if this feels out of order.',
-                                        style: const TextStyle(
-                                          fontSize: 11.5,
-                                          color: AppColors.textSecondary,
-                                          height: 1.4,
+                                    if (isUpNext) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: p.indigo,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'UP NEXT',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.3,
+                                          ),
                                         ),
                                       ),
-                                    )
-                                  : const SizedBox.shrink(),
+                                    ],
+                                    if (isDone) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        Icons.check_circle,
+                                        size: 12,
+                                        color: p.green,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  step.skillName,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDone ? p.textMuted : p.textPrimary,
+                                    decoration: isDone
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      step.skillCategory.icon,
+                                      size: 12,
+                                      color: p.indigo,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: p.indigoLight,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        step.skillCategory.label,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: p.indigo,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            _expanded ? Icons.expand_less : Icons.expand_more,
+                            size: 18,
+                            color: p.textMuted,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      if (!isDone)
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 200),
+                        child: _expanded
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  isDone && step.completedAt != null
+                                      ? 'Completed ${_formatDate(step.completedAt!)}'
+                                      : 'Part of the ${step.skillCategory.label} track — complete the steps above it first if this feels out of order.',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: p.textSecondary,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      if (!isDone) ...[
+                        const SizedBox(height: 10),
                         SizedBox(
-                          height: 30,
+                          width: double.infinity,
+                          height: 32,
                           child: widget.isPending
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8),
+                              ? Center(
                                   child: SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppColors.indigo,
+                                      color: p.indigo,
                                     ),
                                   ),
                                 )
                               : FilledButton(
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: widget.isUpNext
-                                        ? AppColors.indigo
-                                        : AppColors.surface2,
-                                    foregroundColor: widget.isUpNext
+                                    backgroundColor: isUpNext
+                                        ? p.indigo
+                                        : p.surface2,
+                                    foregroundColor: isUpNext
                                         ? Colors.white
-                                        : AppColors.textPrimary,
+                                        : p.textPrimary,
                                     minimumSize: Size.zero,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -238,17 +263,16 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w600,
                                     ),
-                                    side: widget.isUpNext
+                                    side: isUpNext
                                         ? null
-                                        : const BorderSide(
-                                            color: AppColors.border,
-                                          ),
+                                        : BorderSide(color: p.border),
                                     elevation: 0,
                                   ),
                                   onPressed: widget.onMarkDone,
                                   child: const Text('Mark done'),
                                 ),
                         ),
+                      ],
                     ],
                   ),
                 ),
