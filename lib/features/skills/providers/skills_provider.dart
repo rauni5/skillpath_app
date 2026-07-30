@@ -7,7 +7,8 @@ import '../data/skills_repository.dart';
 enum SkillsLoadState { initial, loading, loaded, error }
 
 class SkillsProvider extends ChangeNotifier {
-  SkillsProvider({SkillsRepository? repository}) : _repo = repository ?? SkillsRepository();
+  SkillsProvider({SkillsRepository? repository})
+    : _repo = repository ?? SkillsRepository();
 
   final SkillsRepository _repo;
 
@@ -56,7 +57,9 @@ class SkillsProvider extends ChangeNotifier {
       catalog = await _repo.getAllSkills();
       catalogState = SkillsLoadState.loaded;
     } catch (e) {
-      errorMessage = e is ApiException ? e.message : 'Could not load the skill catalog.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not load the skill catalog.';
       catalogState = SkillsLoadState.error;
     }
     notifyListeners();
@@ -69,7 +72,9 @@ class SkillsProvider extends ChangeNotifier {
       userSkills = await _repo.getUserSkills(userId);
       userSkillsState = SkillsLoadState.loaded;
     } catch (e) {
-      errorMessage = e is ApiException ? e.message : 'Could not load your skills.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not load your skills.';
       userSkillsState = SkillsLoadState.error;
     }
     notifyListeners();
@@ -80,17 +85,25 @@ class SkillsProvider extends ChangeNotifier {
   }
 
   /// Optimistically adds [skill] to the user's inventory, rolling back if
-  /// the request fails.
-  Future<bool> addSkill(int userId, Skill skill, SkillProficiency proficiency) async {
+  /// the request fails. On success, re-syncs from the server since adding a
+  /// skill may also auto-add its prerequisites (e.g. Spring Boot -> Java).
+  Future<bool> addSkill(
+    int userId,
+    Skill skill,
+    SkillProficiency proficiency,
+  ) async {
     pendingSkillIds.add(skill.id);
     userSkills = [...userSkills, skill];
     notifyListeners();
     try {
       await _repo.addSkill(userId, skill.id, proficiency);
+      await loadUserSkills(userId);
       return true;
     } catch (e) {
       userSkills = userSkills.where((s) => s.id != skill.id).toList();
-      errorMessage = e is ApiException ? e.message : 'Could not add that skill.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not add that skill.';
       return false;
     } finally {
       pendingSkillIds.remove(skill.id);
@@ -108,7 +121,9 @@ class SkillsProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       userSkills = [...userSkills, removed];
-      errorMessage = e is ApiException ? e.message : 'Could not remove that skill.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not remove that skill.';
       return false;
     } finally {
       pendingSkillIds.remove(skillId);
