@@ -18,6 +18,16 @@ class AuthRepository {
   Stream<User?> get firebaseUserChanges => _firebaseAuth.authStateChanges();
   User? get currentFirebaseUser => _firebaseAuth.currentUser;
 
+  bool get isEmailVerified {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return true;
+    final signedInWithPassword = user.providerData.any(
+      (p) => p.providerId == 'password',
+    );
+    if (!signedInWithPassword) return true;
+    return user.emailVerified;
+  }
+
   Future<void> signInWithEmail(String email, String password) async {
     try {
       await _firebaseAuth.signInWithEmailAndPassword(
@@ -30,7 +40,6 @@ class AuthRepository {
   }
 
   Future<AppUser> registerWithEmail({
-    required String name,
     required String email,
     required String password,
     required ExperienceLevel experienceLevel,
@@ -44,9 +53,46 @@ class AuthRepository {
       throw ApiException(_mapFirebaseError(e));
     }
 
-    await sync();
+    try {
+      await _firebaseAuth.currentUser?.sendEmailVerification();
+    } catch (_) {
+      // Non-fatal — the user can request another one from the
+      // verify-email screen.
+    }
 
-    return updateProfile(name: name, experienceLevel: experienceLevel);
+    final synced = await sync();
+    return updateProfile(name: synced.name, experienceLevel: experienceLevel);
+  }
+
+  /// Resends the verification link to the currently signed-in user.
+  Future<void> sendEmailVerification() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) throw ApiException('Not signed in.');
+    try {
+      await user.sendEmailVerification();
+    } on FirebaseAuthException catch (e) {
+      throw ApiException(_mapFirebaseError(e));
+    }
+  }
+
+  Future<bool> reloadAndCheckVerified() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return false;
+    try {
+      await user.reload();
+    } on FirebaseAuthException catch (e) {
+      throw ApiException(_mapFirebaseError(e));
+    }
+    return isEmailVerified;
+  }
+
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') return;
+      throw ApiException(_mapFirebaseError(e));
+    }
   }
 
   Future<void> signInWithGoogle() async {
