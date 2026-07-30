@@ -105,7 +105,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? 'At least 6 characters'
                         : null,
                   ),
-                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => context.go('/forgot-password'),
+                      child: const Text('Forgot password?'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: auth.isLoading ? null : _submit,
                     child: auth.isLoading

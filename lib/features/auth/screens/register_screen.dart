@@ -17,14 +17,12 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   ExperienceLevel _level = ExperienceLevel.beginner;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -34,7 +32,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final ok = await auth.register(
-      name: _nameCtrl.text.trim(),
       email: _emailCtrl.text.trim(),
       password: _passwordCtrl.text,
       experienceLevel: _level,
@@ -74,6 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AuthTextField(
+<<<<<<< Updated upstream
                   label: 'Full name',
                   controller: _nameCtrl,
                   validator: (v) => (v == null || v.trim().isEmpty)
@@ -82,6 +80,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 12),
                 AuthTextField(
+=======
+>>>>>>> Stashed changes
                   label: 'Email',
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,

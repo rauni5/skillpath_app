@@ -15,8 +15,8 @@ enum AuthStatus { unknown, authenticated, unauthenticated }
 /// (e.g. login <-> dashboard <-> onboarding) whenever auth state changes.
 class AuthProvider extends ChangeNotifier {
   AuthProvider({AuthRepository? repository, CareerRepository? careerRepository})
-      : _repo = repository ?? AuthRepository(),
-        _careerRepo = careerRepository ?? CareerRepository() {
+    : _repo = repository ?? AuthRepository(),
+      _careerRepo = careerRepository ?? CareerRepository() {
     _sub = _repo.firebaseUserChanges.listen(_onFirebaseUserChanged);
   }
 
@@ -34,14 +34,20 @@ class AuthProvider extends ChangeNotifier {
   /// false = onboarding is done, the main app is unlocked.
   bool? needsOnboarding;
 
+  /// True if the signed-in user registered with email/password and hasn't
+  /// clicked the verification link yet. Always false for Google sign-in.
+  bool needsEmailVerification = false;
+
   Future<void> _onFirebaseUserChanged(User? firebaseUser) async {
     if (firebaseUser == null) {
       status = AuthStatus.unauthenticated;
       currentUser = null;
       needsOnboarding = null;
+      needsEmailVerification = false;
       notifyListeners();
       return;
     }
+    needsEmailVerification = !_repo.isEmailVerified;
     try {
       currentUser = await _repo.sync();
       status = AuthStatus.authenticated;
@@ -50,7 +56,9 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       // Firebase says signed in but backend sync failed (e.g. API down).
       status = AuthStatus.unauthenticated;
-      errorMessage = e is ApiException ? e.message : 'Could not reach SkillPath servers.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not reach SkillPath servers.';
       notifyListeners();
     }
   }
@@ -78,23 +86,41 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> signIn(String email, String password) => _run(() => _repo.signInWithEmail(email, password));
+  Future<bool> signIn(String email, String password) =>
+      _run(() => _repo.signInWithEmail(email, password));
 
   Future<bool> signInWithGoogle() => _run(() => _repo.signInWithGoogle());
 
   Future<bool> register({
-    required String name,
     required String email,
     required String password,
     required ExperienceLevel experienceLevel,
   }) => _run(() async {
-        currentUser = await _repo.registerWithEmail(
-          name: name,
-          email: email,
-          password: password,
-          experienceLevel: experienceLevel,
-        );
-      });
+    currentUser = await _repo.registerWithEmail(
+      email: email,
+      password: password,
+      experienceLevel: experienceLevel,
+    );
+    needsEmailVerification = !_repo.isEmailVerified;
+  });
+
+  /// Sends a password reset email. Always reports success to the caller
+  /// (even for unknown emails) so the UI can't be used to enumerate
+  /// registered accounts.
+  Future<bool> sendPasswordResetEmail(String email) =>
+      _run(() => _repo.sendPasswordReset(email));
+
+  Future<bool> resendVerificationEmail() =>
+      _run(() => _repo.sendEmailVerification());
+
+  /// Re-checks verification status with Firebase. Called when the user taps
+  /// "I've verified my email" on the verify-email screen.
+  Future<bool> checkEmailVerified() async {
+    final verified = await _repo.reloadAndCheckVerified();
+    needsEmailVerification = !verified;
+    notifyListeners();
+    return verified;
+  }
 
   /// Used by the onboarding "About you" step to confirm/edit the name,
   /// bio, and experience level (Google sign-in never collects these).
@@ -103,8 +129,12 @@ class AuthProvider extends ChangeNotifier {
     String? bio,
     ExperienceLevel? experienceLevel,
   }) => _run(() async {
-        currentUser = await _repo.updateProfile(name: name, bio: bio, experienceLevel: experienceLevel);
-      });
+    currentUser = await _repo.updateProfile(
+      name: name,
+      bio: bio,
+      experienceLevel: experienceLevel,
+    );
+  });
 
   Future<void> signOut() async {
     await _repo.signOut();
@@ -118,7 +148,9 @@ class AuthProvider extends ChangeNotifier {
       await action();
       return true;
     } catch (e) {
-      errorMessage = e is ApiException ? e.message : 'Something went wrong. Please try again.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Something went wrong. Please try again.';
       return false;
     } finally {
       isLoading = false;
