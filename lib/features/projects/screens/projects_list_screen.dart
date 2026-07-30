@@ -7,6 +7,7 @@ import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../dashboard/widgets/project_card.dart';
 import '../providers/projects_provider.dart';
+import '../widgets/project_filter_sheet.dart';
 
 class ProjectsListScreen extends StatefulWidget {
   const ProjectsListScreen({super.key});
@@ -16,10 +17,18 @@ class ProjectsListScreen extends StatefulWidget {
 }
 
 class _ProjectsListScreenState extends State<ProjectsListScreen> {
+  final _searchCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   void _load() => context.read<ProjectsProvider>().loadProjects();
@@ -34,9 +43,32 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
         title: const Text('Projects'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Create project',
-            onPressed: () => context.push('/projects/new'),
+            tooltip: 'My Projects',
+            onPressed: () => context.push('/projects/mine'),
+            icon: const Icon(Icons.folder_outlined),
+          ),
+          IconButton(
+            tooltip: 'Filter',
+            onPressed: () => showProjectFilterSheet(context),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.tune),
+                if (projects.hasActiveFilters)
+                  Positioned(
+                    right: -1,
+                    top: -1,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: p.indigo,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -44,14 +76,49 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
         onPressed: () => context.push('/projects/new'),
         child: const Icon(Icons.add),
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _buildBody(context, p, projects),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) {
+                context.read<ProjectsProvider>().setSearchQuery(v);
+                setState(() {});
+              },
+              decoration: InputDecoration(
+                hintText: 'Search projects…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchCtrl.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          context.read<ProjectsProvider>().setSearchQuery('');
+                          setState(() {});
+                        },
+                      ),
+                isDense: true,
+              ),
+            ),
+          ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _buildBody(context, p, projects),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context, AppPalette p, ProjectsProvider projects) {
+  Widget _buildBody(
+    BuildContext context,
+    AppPalette p,
+    ProjectsProvider projects,
+  ) {
     switch (projects.listState) {
       case ProjectsLoadState.initial:
       case ProjectsLoadState.loading:
@@ -64,27 +131,39 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
         );
       case ProjectsLoadState.loaded:
         if (projects.projects.isEmpty) {
+          final hasQuery = projects.searchQuery.trim().isNotEmpty;
+          final filtered = hasQuery || projects.hasActiveFilters;
           return RefreshIndicator(
             key: const ValueKey('empty'),
             onRefresh: () async => _load(),
             child: ListView(
               children: [
                 const SizedBox(height: 100),
-                Icon(Icons.rocket_launch_outlined, size: 40, color: p.textMuted),
+                Icon(
+                  Icons.rocket_launch_outlined,
+                  size: 40,
+                  color: p.textMuted,
+                ),
                 const SizedBox(height: 14),
                 Text(
-                  'No open projects yet.\nBe the first to create one.',
+                  filtered
+                      ? 'No projects match this search.'
+                      : 'No open projects yet.\nTap + to create one.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: p.textMuted, fontSize: 13),
                 ),
-                const SizedBox(height: 16),
-                Center(
-                  child: FilledButton.icon(
-                    onPressed: () => context.push('/projects/new'),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Create a project'),
+                if (filtered) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton(
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        projects.clearSearchAndFilters();
+                      },
+                      child: const Text('Clear search & filters'),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           );
@@ -94,7 +173,8 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
           onRefresh: () async => _load(),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200) {
+              if (notification.metrics.pixels >=
+                  notification.metrics.maxScrollExtent - 200) {
                 projects.loadMore();
               }
               return false;
@@ -112,7 +192,10 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                         width: 18,
                         height: 18,
                         child: projects.isLoadingMore
-                            ? CircularProgressIndicator(strokeWidth: 2, color: p.indigo)
+                            ? CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: p.indigo,
+                              )
                             : const SizedBox.shrink(),
                       ),
                     ),
