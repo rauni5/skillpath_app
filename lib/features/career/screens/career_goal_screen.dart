@@ -7,6 +7,8 @@ import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../dashboard/providers/dashboard_provider.dart';
+import '../../roadmap/providers/roadmap_provider.dart';
 import '../providers/career_provider.dart';
 import '../widgets/gap_summary_card.dart';
 import '../widgets/role_card.dart';
@@ -42,6 +44,14 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
     final ok = await career.setGoal(userId, roleId);
     if (ok) {
       setState(() => _changingGoal = false);
+      // Career goal changed -> the backend already rebuilt the roadmap for the
+      // new role. Refresh both providers now so Dashboard/Roadmap screens show
+      // the new data as soon as the user navigates there, instead of stale
+      // cached state from the previous role.
+      if (mounted) {
+        context.read<DashboardProvider>().load(userId);
+        context.read<RoadmapProvider>().load(userId);
+      }
     } else if (mounted && career.errorMessage != null) {
       ScaffoldMessenger.of(
         context,
