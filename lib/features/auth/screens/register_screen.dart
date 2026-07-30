@@ -71,17 +71,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AuthTextField(
-<<<<<<< Updated upstream
-                  label: 'Full name',
-                  controller: _nameCtrl,
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Enter your name'
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                AuthTextField(
-=======
->>>>>>> Stashed changes
                   label: 'Email',
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
