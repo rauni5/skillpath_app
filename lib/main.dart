@@ -2,13 +2,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/career/providers/career_provider.dart';
 import 'features/dashboard/providers/dashboard_provider.dart';
+import 'features/projects/providers/project_management_provider.dart';
+import 'features/projects/providers/projects_provider.dart';
 import 'features/roadmap/providers/roadmap_provider.dart';
 import 'features/skills/providers/skills_provider.dart';
 import 'firebase_options.dart';
@@ -31,6 +32,8 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RoadmapProvider()),
         ChangeNotifierProvider(create: (_) => SkillsProvider()),
         ChangeNotifierProvider(create: (_) => CareerProvider()),
+        ChangeNotifierProvider(create: (_) => ProjectsProvider()),
+        ChangeNotifierProvider(create: (_) => ProjectManagementProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _RouterHost(),
@@ -38,12 +41,8 @@ class SkillPathApp extends StatelessWidget {
   }
 }
 
-/// Separated out so `buildRouter` gets a stable [AuthProvider] instance
-/// from context without rebuilding the GoRouter on every auth notification
-/// (GoRouter listens to it directly via `refreshListenable`).
 class _RouterHost extends StatefulWidget {
   const _RouterHost();
-
   @override
   State<_RouterHost> createState() => _RouterHostState();
 }

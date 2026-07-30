@@ -1,15 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/models/project.dart';
-import '../../../core/models/recommended_member.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/projects_repository.dart';
 
 enum ProjectsLoadState { initial, loading, loaded, error }
+
 enum ProjectDetailLoadState { initial, loading, loaded, error }
 
 class ProjectsProvider extends ChangeNotifier {
-  ProjectsProvider({ProjectsRepository? repository}) : _repo = repository ?? ProjectsRepository();
+  ProjectsProvider({ProjectsRepository? repository})
+    : _repo = repository ?? ProjectsRepository();
 
   final ProjectsRepository _repo;
 
@@ -21,12 +24,64 @@ class ProjectsProvider extends ChangeNotifier {
   bool hasMore = true;
   bool isLoadingMore = false;
 
+  // --- Name search ---
+  String searchQuery = '';
+  Timer? _searchDebounce;
+
+  void setSearchQuery(String query) {
+    searchQuery = query;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), loadProjects);
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  // --- Filters ---
+  String? filterDifficulty;
+  final Set<int> filterSkillIds = {};
+
+  bool get hasActiveFilters =>
+      filterDifficulty != null || filterSkillIds.isNotEmpty;
+
+  void setDifficultyFilter(String? difficulty) {
+    filterDifficulty = difficulty;
+    loadProjects();
+  }
+
+  void toggleSkillFilter(int skillId) {
+    if (!filterSkillIds.remove(skillId)) filterSkillIds.add(skillId);
+    loadProjects();
+  }
+
+  void clearFilters() {
+    filterDifficulty = null;
+    filterSkillIds.clear();
+    loadProjects();
+  }
+
+  void clearSearchAndFilters() {
+    _searchDebounce?.cancel();
+    searchQuery = '';
+    filterDifficulty = null;
+    filterSkillIds.clear();
+    loadProjects();
+  }
+
   Future<void> loadProjects() async {
     listState = ProjectsLoadState.loading;
     _page = 0;
     notifyListeners();
     try {
-      final result = await _repo.getProjects(page: 0);
+      final result = await _repo.getProjects(
+        page: 0,
+        difficulty: filterDifficulty,
+        skillIds: filterSkillIds.isEmpty ? null : filterSkillIds.toList(),
+        q: searchQuery,
+      );
       projects = result.content;
       hasMore = !result.last;
       listState = ProjectsLoadState.loaded;
@@ -43,7 +98,12 @@ class ProjectsProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final nextPage = _page + 1;
-      final result = await _repo.getProjects(page: nextPage);
+      final result = await _repo.getProjects(
+        page: nextPage,
+        difficulty: filterDifficulty,
+        skillIds: filterSkillIds.isEmpty ? null : filterSkillIds.toList(),
+        q: searchQuery,
+      );
       projects = [...projects, ...result.content];
       hasMore = !result.last;
       _page = nextPage;
@@ -60,7 +120,6 @@ class ProjectsProvider extends ChangeNotifier {
   ProjectDetailLoadState detailState = ProjectDetailLoadState.initial;
   String? detailError;
   Project? selectedProject;
-  List<RecommendedMember> recommendedMembers = [];
   final Set<int> pendingJoinIds = {};
   final Set<int> joinedIds = {};
 
@@ -69,16 +128,11 @@ class ProjectsProvider extends ChangeNotifier {
     notifyListeners();
     try {
       selectedProject = await _repo.getProject(id);
-      // Best-effort — recommended members is a nice-to-have, don't fail
-      // the whole detail screen if this particular call errors.
-      try {
-        recommendedMembers = await _repo.getRecommendedMembers(id);
-      } catch (_) {
-        recommendedMembers = [];
-      }
       detailState = ProjectDetailLoadState.loaded;
     } catch (e) {
-      detailError = e is ApiException ? e.message : 'Could not load this project.';
+      detailError = e is ApiException
+          ? e.message
+          : 'Could not load this project.';
       detailState = ProjectDetailLoadState.error;
     }
     notifyListeners();
@@ -92,7 +146,9 @@ class ProjectsProvider extends ChangeNotifier {
       joinedIds.add(id);
       return true;
     } catch (e) {
-      detailError = e is ApiException ? e.message : 'Could not join this project.';
+      detailError = e is ApiException
+          ? e.message
+          : 'Could not join this project.';
       return false;
     } finally {
       pendingJoinIds.remove(id);
@@ -126,7 +182,9 @@ class ProjectsProvider extends ChangeNotifier {
       projects = [created, ...projects];
       return created;
     } catch (e) {
-      createError = e is ApiException ? e.message : 'Could not create this project.';
+      createError = e is ApiException
+          ? e.message
+          : 'Could not create this project.';
       return null;
     } finally {
       isCreating = false;

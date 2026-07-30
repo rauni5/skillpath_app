@@ -8,7 +8,9 @@ import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/projects/screens/create_project_screen.dart';
+import '../../features/projects/screens/my_projects_screen.dart';
 import '../../features/projects/screens/project_detail_screen.dart';
+import '../../features/projects/screens/project_manage_screen.dart';
 import '../../features/projects/screens/projects_list_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
 import '../../features/skills/screens/skills_screen.dart';
@@ -78,6 +80,18 @@ GoRouter buildRouter(AuthProvider authProvider) {
                   GoRoute(
                     path: 'new',
                     builder: (context, state) => const CreateProjectScreen(),
+                  ),
+                  GoRoute(
+                    path: 'mine',
+                    builder: (context, state) => const MyProjectsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: ':id',
+                        builder: (context, state) => ProjectManageScreen(
+                          projectId: int.parse(state.pathParameters['id']!),
+                        ),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: ':id',
