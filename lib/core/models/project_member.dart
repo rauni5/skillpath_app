@@ -44,6 +44,46 @@ class ProjectMember {
     );
   }
 }
+
+class ProjectInvite {
+  final int projectId;
+  final String projectName;
+  final String? difficulty;
+  final int? teamSize;
+
+  ProjectInvite({
+    required this.projectId,
+    required this.projectName,
+    this.difficulty,
+    this.teamSize,
+  });
+
+  factory ProjectInvite.fromJson(Map<String, dynamic> json) {
+    return ProjectInvite(
+      projectId: json['projectId'] as int,
+      projectName: json['projectName'] as String? ?? '',
+      difficulty: json['difficulty'] as String?,
+      teamSize: json['teamSize'] as int?,
+    );
+  }
+}
+
+class MembershipStatusEntry {
+  final int projectId;
+  final String projectName;
+  final MemberStatus status;
+
+  MembershipStatusEntry({
+    required this.projectId,
+    required this.projectName,
+    required this.status,
+  });
+
+  factory MembershipStatusEntry.fromJson(Map<String, dynamic> json) {
+    return MembershipStatusEntry(
+      projectId: json['projectId'] as int,
+      projectName: json['projectName'] as String? ?? '',
+      status: memberStatusFromString(json['status'] as String?),
     );
   }
 }
