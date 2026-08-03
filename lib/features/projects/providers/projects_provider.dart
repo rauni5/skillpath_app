@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/models/project.dart';
+import '../../../core/models/project_member.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/projects_repository.dart';
 
@@ -43,9 +44,12 @@ class ProjectsProvider extends ChangeNotifier {
   // --- Filters ---
   String? filterDifficulty;
   final Set<int> filterSkillIds = {};
+  final Set<int> filterRoleIds = {};
 
   bool get hasActiveFilters =>
-      filterDifficulty != null || filterSkillIds.isNotEmpty;
+      filterDifficulty != null ||
+      filterSkillIds.isNotEmpty ||
+      filterRoleIds.isNotEmpty;
 
   void setDifficultyFilter(String? difficulty) {
     filterDifficulty = difficulty;
@@ -57,9 +61,15 @@ class ProjectsProvider extends ChangeNotifier {
     loadProjects();
   }
 
+  void toggleRoleFilter(int roleId) {
+    if (!filterRoleIds.remove(roleId)) filterRoleIds.add(roleId);
+    loadProjects();
+  }
+
   void clearFilters() {
     filterDifficulty = null;
     filterSkillIds.clear();
+    filterRoleIds.clear();
     loadProjects();
   }
 
@@ -68,6 +78,7 @@ class ProjectsProvider extends ChangeNotifier {
     searchQuery = '';
     filterDifficulty = null;
     filterSkillIds.clear();
+    filterRoleIds.clear();
     loadProjects();
   }
 
@@ -80,6 +91,7 @@ class ProjectsProvider extends ChangeNotifier {
         page: 0,
         difficulty: filterDifficulty,
         skillIds: filterSkillIds.isEmpty ? null : filterSkillIds.toList(),
+        roleIds: filterRoleIds.isEmpty ? null : filterRoleIds.toList(),
         q: searchQuery,
       );
       projects = result.content;
@@ -102,6 +114,7 @@ class ProjectsProvider extends ChangeNotifier {
         page: nextPage,
         difficulty: filterDifficulty,
         skillIds: filterSkillIds.isEmpty ? null : filterSkillIds.toList(),
+        roleIds: filterRoleIds.isEmpty ? null : filterRoleIds.toList(),
         q: searchQuery,
       );
       projects = [...projects, ...result.content];
@@ -121,14 +134,21 @@ class ProjectsProvider extends ChangeNotifier {
   String? detailError;
   Project? selectedProject;
   final Set<int> pendingJoinIds = {};
-  final Set<int> joinedIds = {};
+
+  // --- Team (accepted members only, includes owner + emails) ---
+  List<ProjectMember> team = [];
+  bool teamLoading = false;
 
   Future<void> loadProjectDetail(int id) async {
     detailState = ProjectDetailLoadState.loading;
+    team = [];
     notifyListeners();
     try {
       selectedProject = await _repo.getProject(id);
       detailState = ProjectDetailLoadState.loaded;
+      if (selectedProject!.viewerMembershipStatus == MemberStatus.accepted) {
+        _loadTeam(id);
+      }
     } catch (e) {
       detailError = e is ApiException
           ? e.message
@@ -138,12 +158,26 @@ class ProjectsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _loadTeam(int projectId) async {
+    teamLoading = true;
+    notifyListeners();
+    try {
+      team = await _repo.getTeam(projectId);
+    } catch (_) {
+      team = [];
+    } finally {
+      teamLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> joinProject(int id) async {
     pendingJoinIds.add(id);
     notifyListeners();
     try {
       await _repo.joinProject(id);
-      joinedIds.add(id);
+      // Re-fetch so viewerMembershipStatus reflects the real server state.
+      await loadProjectDetail(id);
       return true;
     } catch (e) {
       detailError = e is ApiException
@@ -164,8 +198,10 @@ class ProjectsProvider extends ChangeNotifier {
     required String name,
     String? description,
     String? difficulty,
+    String? link,
     required int teamSize,
     required List<int> requiredSkillIds,
+    List<int>? requiredRoleIds,
   }) async {
     isCreating = true;
     createError = null;
@@ -174,9 +210,11 @@ class ProjectsProvider extends ChangeNotifier {
       final created = await _repo.createProject(
         name: name,
         description: description,
-        difficulty: difficulty,
+        difficulty: difficulty?.toUpperCase(),
+        link: link,
         teamSize: teamSize,
         requiredSkillIds: requiredSkillIds,
+        requiredRoleIds: requiredRoleIds,
       );
       // New project should show up at the top of the list immediately.
       projects = [created, ...projects];

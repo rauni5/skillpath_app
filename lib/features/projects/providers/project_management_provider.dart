@@ -10,6 +10,8 @@ enum OwnedProjectsLoadState { initial, loading, loaded, error }
 
 enum ManageLoadState { initial, loading, loaded, error }
 
+enum MyInvitesLoadState { initial, loading, loaded, error }
+
 class ProjectManagementProvider extends ChangeNotifier {
   ProjectManagementProvider({ProjectsRepository? repository})
     : _repo = repository ?? ProjectsRepository();
@@ -45,10 +47,34 @@ class ProjectManagementProvider extends ChangeNotifier {
   List<RecommendedMember> recommendedMembers = [];
   final Set<int> pendingActionUserIds = {};
 
-  List<ProjectMember> get pendingRequests =>
-      members.where((m) => m.status == MemberStatus.pending).toList();
+  List<ProjectMember> get pendingRequests => members
+      .where((m) => m.status == MemberStatus.pending && !m.invitedByOwner)
+      .toList();
+  List<ProjectMember> get pendingInvites => members
+      .where((m) => m.status == MemberStatus.pending && m.invitedByOwner)
+      .toList();
   List<ProjectMember> get acceptedMembers =>
       members.where((m) => m.status == MemberStatus.accepted).toList();
+
+  // --- Invites (owner -> recommended candidate) ---
+  final Set<int> invitedUserIds = {};
+
+  Future<bool> invite(int projectId, int userId) async {
+    invitedUserIds.add(userId);
+    notifyListeners();
+    try {
+      await _repo.inviteMember(projectId, userId);
+      await loadManageData(projectId);
+      return true;
+    } catch (e) {
+      invitedUserIds.remove(userId);
+      manageError = e is ApiException
+          ? e.message
+          : 'Could not send that invite.';
+      notifyListeners();
+      return false;
+    }
+  }
 
   Future<void> loadManageData(int projectId) async {
     manageState = ManageLoadState.loading;
@@ -75,6 +101,45 @@ class ProjectManagementProvider extends ChangeNotifier {
       manageState = ManageLoadState.error;
     }
     notifyListeners();
+  }
+
+  bool isUpdating = false;
+  String? updateError;
+
+  Future<bool> updateProject({
+    required int projectId,
+    required String name,
+    String? description,
+    String? difficulty,
+    String? link,
+    required int teamSize,
+    required List<int> requiredSkillIds,
+    List<int>? requiredRoleIds,
+  }) async {
+    isUpdating = true;
+    updateError = null;
+    notifyListeners();
+    try {
+      managedProject = await _repo.updateProject(
+        projectId: projectId,
+        name: name,
+        description: description,
+        difficulty: difficulty,
+        link: link,
+        teamSize: teamSize,
+        requiredSkillIds: requiredSkillIds,
+        requiredRoleIds: requiredRoleIds,
+      );
+      return true;
+    } catch (e) {
+      updateError = e is ApiException
+          ? e.message
+          : 'Could not update this project.';
+      return false;
+    } finally {
+      isUpdating = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> acceptRequest(int projectId, int userId) =>
@@ -114,6 +179,54 @@ class ProjectManagementProvider extends ChangeNotifier {
       return false;
     } finally {
       pendingActionUserIds.remove(userId);
+      notifyListeners();
+    }
+  }
+
+  // --- My Invites (invites I've received, as the invitee) ---
+  MyInvitesLoadState myInvitesState = MyInvitesLoadState.initial;
+  String? myInvitesError;
+  List<ProjectInvite> myInvites = [];
+  final Set<int> respondingProjectIds = {};
+
+  Future<void> loadMyInvites(int userId) async {
+    myInvitesState = MyInvitesLoadState.loading;
+    notifyListeners();
+    try {
+      myInvites = await _repo.getMyInvites(userId);
+      myInvitesState = MyInvitesLoadState.loaded;
+    } catch (e) {
+      myInvitesError = e is ApiException
+          ? e.message
+          : 'Could not load your invites.';
+      myInvitesState = MyInvitesLoadState.error;
+    }
+    notifyListeners();
+  }
+
+  Future<bool> acceptInvite(int userId, int projectId) =>
+      _respondToInvite(userId, projectId, 'ACCEPTED');
+  Future<bool> declineInvite(int userId, int projectId) =>
+      _respondToInvite(userId, projectId, 'REJECTED');
+
+  Future<bool> _respondToInvite(
+    int userId,
+    int projectId,
+    String status,
+  ) async {
+    respondingProjectIds.add(projectId);
+    notifyListeners();
+    try {
+      await _repo.respondToInvite(userId, projectId, status);
+      myInvites = myInvites.where((i) => i.projectId != projectId).toList();
+      return true;
+    } catch (e) {
+      myInvitesError = e is ApiException
+          ? e.message
+          : 'Could not respond to that invite.';
+      return false;
+    } finally {
+      respondingProjectIds.remove(projectId);
       notifyListeners();
     }
   }
