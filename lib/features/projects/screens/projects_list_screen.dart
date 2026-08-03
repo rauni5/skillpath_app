@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/models/project_member.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../dashboard/widgets/project_card.dart';
+import '../data/membership_alert_service.dart';
+import '../providers/project_management_provider.dart';
 import '../providers/projects_provider.dart';
 import '../widgets/project_filter_sheet.dart';
 
@@ -18,11 +22,18 @@ class ProjectsListScreen extends StatefulWidget {
 
 class _ProjectsListScreenState extends State<ProjectsListScreen> {
   final _searchCtrl = TextEditingController();
+  final _alertService = MembershipAlertService();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _checkAlerts();
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      if (userId != null)
+        context.read<ProjectManagementProvider>().loadMyInvites(userId);
+    });
   }
 
   @override
@@ -33,15 +44,69 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
 
   void _load() => context.read<ProjectsProvider>().loadProjects();
 
+  Future<void> _checkAlerts() async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+    final changes = await _alertService.checkForChanges(userId);
+    if (!mounted) return;
+    for (final c in changes) {
+      final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Your request to join "${c.projectName}" was $verb.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final projects = context.watch<ProjectsProvider>();
+    final invitesCount = context
+        .watch<ProjectManagementProvider>()
+        .myInvites
+        .length;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Projects'),
         actions: [
+          IconButton(
+            tooltip: 'My Invites',
+            onPressed: () => context.push('/projects/invites'),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.mail_outline),
+                if (invitesCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: p.indigo,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 15),
+                      child: Text(
+                        '$invitesCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           IconButton(
             tooltip: 'My Projects',
             onPressed: () => context.push('/projects/mine'),
@@ -206,7 +271,19 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: ProjectCard(
                     project: project,
-                    onTap: () => context.push('/projects/${project.id}'),
+                    onTap: () {
+                      final userId = context
+                          .read<AuthProvider>()
+                          .currentUser
+                          ?.id;
+                      final isMine =
+                          userId != null && userId == project.ownerId;
+                      context.push(
+                        isMine
+                            ? '/projects/mine/${project.id}'
+                            : '/projects/${project.id}',
+                      );
+                    },
                   ),
                 );
               },

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/models/project_member.dart';
 import '../../../core/theme/app_palette.dart';
-
 import '../../auth/providers/auth_provider.dart';
 import '../../../shared/widgets/animated_progress_bar.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../projects/data/membership_alert_service.dart';
 import '../providers/dashboard_provider.dart';
 import '../widgets/progress_ring.dart';
 import '../widgets/project_card.dart';
@@ -22,15 +23,28 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final _alertService = MembershipAlertService();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  void _load() {
+  Future<void> _load() async {
     final userId = context.read<AuthProvider>().currentUser?.id;
-    if (userId != null) context.read<DashboardProvider>().load(userId);
+    if (userId == null) return;
+    await context.read<DashboardProvider>().load(userId);
+    final changes = await _alertService.checkForChanges(userId);
+    if (!mounted) return;
+    for (final c in changes) {
+      final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Your request to join "${c.projectName}" was $verb.'),
+        ),
+      );
+    }
   }
 
   @override
