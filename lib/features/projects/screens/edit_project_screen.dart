@@ -5,16 +5,18 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../career/providers/career_provider.dart';
 import '../../skills/providers/skills_provider.dart';
-import '../providers/projects_provider.dart';
+import '../providers/project_management_provider.dart';
 
-class CreateProjectScreen extends StatefulWidget {
-  const CreateProjectScreen({super.key});
+class EditProjectScreen extends StatefulWidget {
+  const EditProjectScreen({super.key, required this.projectId});
+
+  final int projectId;
 
   @override
-  State<CreateProjectScreen> createState() => _CreateProjectScreenState();
+  State<EditProjectScreen> createState() => _EditProjectScreenState();
 }
 
-class _CreateProjectScreenState extends State<CreateProjectScreen> {
+class _EditProjectScreenState extends State<EditProjectScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
@@ -24,18 +26,46 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   int _teamSize = 3;
   final Set<int> _selectedSkillIds = {};
   final Set<int> _selectedRoleIds = {};
+  bool _prefilled = false;
 
   static const _difficulties = ['Beginner', 'Intermediate', 'Advanced'];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final skills = context.read<SkillsProvider>();
       if (skills.catalog.isEmpty) skills.loadCatalog();
       final career = context.read<CareerProvider>();
       if (career.roles.isEmpty) career.loadRoles();
+
+      final mgmt = context.read<ProjectManagementProvider>();
+      // Re-fetch to be safe, in case this screen was opened via a direct
+      // link rather than from the already-loaded Manage screen.
+      await mgmt.loadManageData(widget.projectId);
+      _prefill(mgmt);
     });
+  }
+
+  void _prefill(ProjectManagementProvider mgmt) {
+    final project = mgmt.managedProject;
+    if (project == null || _prefilled) return;
+    _nameCtrl.text = project.name;
+    _descriptionCtrl.text = project.description ?? '';
+    _linkCtrl.text = project.link ?? '';
+    _teamSize = project.teamSize;
+    _difficulty = _difficulties.firstWhere(
+      (d) => d.toUpperCase() == (project.difficulty ?? '').toUpperCase(),
+      orElse: () => '',
+    );
+    if (_difficulty!.isEmpty) _difficulty = null;
+    _selectedSkillIds
+      ..clear()
+      ..addAll(project.requiredSkills.map((s) => s.id));
+    _selectedRoleIds
+      ..clear()
+      ..addAll(project.requiredRoles.map((r) => r.id));
+    setState(() => _prefilled = true);
   }
 
   @override
@@ -49,8 +79,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final projects = context.read<ProjectsProvider>();
-    final created = await projects.createProject(
+    final mgmt = context.read<ProjectManagementProvider>();
+    final ok = await mgmt.updateProject(
+      projectId: widget.projectId,
       name: _nameCtrl.text.trim(),
       description: _descriptionCtrl.text.trim(),
       difficulty: _difficulty,
@@ -60,21 +91,31 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       requiredRoleIds: _selectedRoleIds.toList(),
     );
     if (!mounted) return;
-    if (created != null) {
+    if (ok) {
       context.pop();
-    } else if (projects.createError != null) {
+    } else if (mgmt.updateError != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(projects.createError!)));
+      ).showSnackBar(SnackBar(content: Text(mgmt.updateError!)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final projects = context.watch<ProjectsProvider>();
+    final mgmt = context.watch<ProjectManagementProvider>();
     final skills = context.watch<SkillsProvider>();
     final career = context.watch<CareerProvider>();
+
+    if (!_prefilled) {
+      if (mgmt.managedProject != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _prefill(mgmt));
+      }
+      return Scaffold(
+        appBar: AppBar(title: const Text('Edit project')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     final filteredCatalog = _skillSearchCtrl.text.trim().isEmpty
         ? skills.catalog
@@ -87,7 +128,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
               .toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create project')),
+      appBar: AppBar(title: const Text('Edit project')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -309,13 +350,13 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                 ),
               const SizedBox(height: 28),
               FilledButton(
-                onPressed: projects.isCreating ? null : _submit,
+                onPressed: mgmt.isUpdating ? null : _submit,
                 style: FilledButton.styleFrom(
                   backgroundColor: p.indigo,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
                 ),
-                child: projects.isCreating
+                child: mgmt.isUpdating
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -324,7 +365,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Create project'),
+                    : const Text('Save changes'),
               ),
             ],
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../career/providers/career_provider.dart';
 import '../../skills/providers/skills_provider.dart';
 import '../providers/projects_provider.dart';
 
@@ -9,6 +10,8 @@ import '../providers/projects_provider.dart';
 Future<void> showProjectFilterSheet(BuildContext context) {
   final skills = context.read<SkillsProvider>();
   if (skills.catalog.isEmpty) skills.loadCatalog();
+  final career = context.read<CareerProvider>();
+  if (career.roles.isEmpty) career.loadRoles();
 
   return showModalBottomSheet(
     context: context,
@@ -40,6 +43,7 @@ class _ProjectFilterSheetState extends State<_ProjectFilterSheet> {
     final p = AppPalette.of(context);
     final projects = context.watch<ProjectsProvider>();
     final skills = context.watch<SkillsProvider>();
+    final career = context.watch<CareerProvider>();
 
     final query = _skillSearchCtrl.text.trim().toLowerCase();
     final filteredCatalog = query.isEmpty
@@ -165,6 +169,46 @@ class _ProjectFilterSheetState extends State<_ProjectFilterSheet> {
                     }).toList(),
                   ),
                 ),
+              ),
+            const SizedBox(height: 20),
+            Text(
+              'REQUIRED ROLES',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: p.textMuted,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (career.rolesState == CareerLoadState.loading)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: p.indigo,
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: career.roles.map((r) {
+                  final selected = projects.filterRoleIds.contains(r.id);
+                  return FilterChip(
+                    label: Text(r.name),
+                    selected: selected,
+                    onSelected: (_) => projects.toggleRoleFilter(r.id),
+                    selectedColor: p.indigoLight,
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      color: selected ? p.indigo : p.textSecondary,
+                    ),
+                    side: BorderSide(color: selected ? p.indigo : p.border),
+                  );
+                }).toList(),
               ),
             const SizedBox(height: 20),
             FilledButton(

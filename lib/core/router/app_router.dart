@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/providers/auth_provider.dart';
@@ -8,6 +9,8 @@ import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/projects/screens/create_project_screen.dart';
+import '../../features/projects/screens/edit_project_screen.dart';
+import '../../features/projects/screens/my_invites_screen.dart';
 import '../../features/projects/screens/my_projects_screen.dart';
 import '../../features/projects/screens/project_detail_screen.dart';
 import '../../features/projects/screens/project_manage_screen.dart';
@@ -82,6 +85,10 @@ GoRouter buildRouter(AuthProvider authProvider) {
                     builder: (context, state) => const CreateProjectScreen(),
                   ),
                   GoRoute(
+                    path: 'invites',
+                    builder: (context, state) => const MyInvitesScreen(),
+                  ),
+                  GoRoute(
                     path: 'mine',
                     builder: (context, state) => const MyProjectsScreen(),
                     routes: [
@@ -90,6 +97,14 @@ GoRouter buildRouter(AuthProvider authProvider) {
                         builder: (context, state) => ProjectManageScreen(
                           projectId: int.parse(state.pathParameters['id']!),
                         ),
+                        routes: [
+                          GoRoute(
+                            path: 'edit',
+                            builder: (context, state) => EditProjectScreen(
+                              projectId: int.parse(state.pathParameters['id']!),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

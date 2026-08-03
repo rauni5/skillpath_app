@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, HapticFeedback;
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/project.dart';
 import '../../../core/models/project_member.dart';
+import '../../../core/models/recommended_member.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/project_management_provider.dart';
 import '../widgets/difficulty_badge.dart';
-import '../widgets/recommended_member_tile.dart';
 
 class ProjectManageScreen extends StatefulWidget {
   const ProjectManageScreen({super.key, required this.projectId});
@@ -38,7 +41,18 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
     final mgmt = context.watch<ProjectManagementProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Project')),
+      appBar: AppBar(
+        title: const Text('Manage Project'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit project',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: mgmt.managedProject == null
+                ? null
+                : () => context.push('/projects/mine/${widget.projectId}/edit'),
+          ),
+        ],
+      ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         child: _buildBody(context, p, mgmt),
@@ -85,11 +99,38 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
                   Icon(Icons.groups_outlined, size: 14, color: p.textMuted),
                   const SizedBox(width: 4),
                   Text(
-                    '${mgmt.acceptedMembers.length}/${project.teamSize} members',
+                    '${mgmt.acceptedMembers.length + 1}/${project.teamSize} members',
                     style: TextStyle(fontSize: 12, color: p.textMuted),
                   ),
                 ],
               ),
+              if (project.requiredRoles.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: project.requiredRoles.map((r) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: p.indigoLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        r.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: p.indigo,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
               const SizedBox(height: 24),
               SectionHeader(
                 label: 'PENDING REQUESTS (${mgmt.pendingRequests.length})',
@@ -110,22 +151,31 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
                 ),
               const SizedBox(height: 24),
               SectionHeader(
-                label: 'TEAM (${mgmt.acceptedMembers.length})',
+                label: 'TEAM (${mgmt.acceptedMembers.length + 1})',
                 icon: Icons.groups_2_outlined,
               ),
               const SizedBox(height: 10),
-              if (mgmt.acceptedMembers.isEmpty)
-                Text(
-                  'No members yet.',
-                  style: TextStyle(fontSize: 12.5, color: p.textMuted),
-                )
-              else
-                ...mgmt.acceptedMembers.map(
-                  (m) => _AcceptedMemberTile(
-                    projectId: widget.projectId,
-                    member: m,
-                  ),
+              Builder(
+                builder: (context) {
+                  final me = context.watch<AuthProvider>().currentUser;
+                  if (me == null) return const SizedBox.shrink();
+                  return _OwnerTile(name: me.name, email: me.email);
+                },
+              ),
+              ...mgmt.acceptedMembers.map(
+                (m) =>
+                    _AcceptedMemberTile(projectId: widget.projectId, member: m),
+              ),
+              if (mgmt.pendingInvites.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                SectionHeader(
+                  label:
+                      'INVITED — AWAITING RESPONSE (${mgmt.pendingInvites.length})',
+                  icon: Icons.mail_outline,
                 ),
+                const SizedBox(height: 10),
+                ...mgmt.pendingInvites.map((m) => _InvitedTile(member: m)),
+              ],
               if (mgmt.recommendedMembers.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 SectionHeader(
@@ -134,7 +184,10 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
                 ),
                 const SizedBox(height: 10),
                 ...mgmt.recommendedMembers.map(
-                  (m) => RecommendedMemberTile(member: m),
+                  (m) => _RecommendedInviteTile(
+                    projectId: widget.projectId,
+                    member: m,
+                  ),
                 ),
               ],
             ],
@@ -239,13 +292,20 @@ class _AcceptedMemberTile extends StatelessWidget {
           _avatar(p, member.name),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              member.name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: p.textPrimary,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  member.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: p.textPrimary,
+                  ),
+                ),
+                if (member.email != null && member.email!.isNotEmpty)
+                  _CopyableEmail(email: member.email!),
+              ],
             ),
           ),
           if (isPending)
@@ -301,6 +361,100 @@ class _AcceptedMemberTile extends StatelessWidget {
   }
 }
 
+class _CopyableEmail extends StatelessWidget {
+  const _CopyableEmail({required this.email});
+  final String email;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            email,
+            style: TextStyle(fontSize: 11.5, color: p.textMuted),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: email));
+            HapticFeedback.selectionClick();
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Email copied.')));
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Icon(Icons.copy, size: 13, color: p.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OwnerTile extends StatelessWidget {
+  const _OwnerTile({required this.name, required this.email});
+  final String name;
+  final String email;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: p.surface2,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.border),
+      ),
+      child: Row(
+        children: [
+          _avatar(p, name),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$name (You)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: p.textPrimary,
+                  ),
+                ),
+                _CopyableEmail(email: email),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: p.amberLight,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'Owner',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: p.amberText,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 Widget _avatar(AppPalette p, String name) {
   final initials = name.trim().isEmpty
       ? '?'
@@ -323,4 +477,125 @@ Widget _avatar(AppPalette p, String name) {
       ),
     ),
   );
+}
+
+class _InvitedTile extends StatelessWidget {
+  const _InvitedTile({required this.member});
+  final ProjectMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: p.surface2,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.border),
+      ),
+      child: Row(
+        children: [
+          _avatar(p, member.name),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              member.name,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: p.textPrimary,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: p.amberLight,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Pending',
+              style: TextStyle(
+                fontSize: 11,
+                color: p.amberText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendedInviteTile extends StatelessWidget {
+  const _RecommendedInviteTile({required this.projectId, required this.member});
+
+  final int projectId;
+  final RecommendedMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final mgmt = context.watch<ProjectManagementProvider>();
+    final alreadyInvited =
+        mgmt.invitedUserIds.contains(member.userId) ||
+        mgmt.members.any((m) => m.userId == member.userId);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: p.surface2,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.border),
+      ),
+      child: Row(
+        children: [
+          _avatar(p, member.name),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  member.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: p.textPrimary,
+                  ),
+                ),
+                Text(
+                  '${member.matchScore.clamp(0, 100).round()}% match',
+                  style: TextStyle(fontSize: 11, color: p.textMuted),
+                ),
+              ],
+            ),
+          ),
+          if (alreadyInvited)
+            Text(
+              'Invited',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: p.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            TextButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                context.read<ProjectManagementProvider>().invite(
+                  projectId,
+                  member.userId,
+                );
+              },
+              child: const Text('Invite'),
+            ),
+        ],
+      ),
+    );
+  }
 }
