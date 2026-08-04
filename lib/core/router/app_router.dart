@@ -1,9 +1,15 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/screens/admin_blocked_screen.dart';
+import '../../features/admin/screens/admin_home_screen.dart';
+import '../../features/admin/screens/admin_users_screen.dart';
+import '../../features/admin/widgets/admin_shell.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
+import '../../features/auth/screens/verify_email_screen.dart';
 import '../../features/career/screens/career_goal_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -25,8 +31,12 @@ GoRouter buildRouter(AuthProvider authProvider) {
     refreshListenable: authProvider,
     redirect: (context, state) {
       final loc = state.matchedLocation;
-      final onAuthScreens = loc == '/login' || loc == '/register';
+      final onAuthScreens =
+          loc == '/login' || loc == '/register' || loc == '/forgot-password';
       final onOnboarding = loc == '/onboarding';
+      final onVerifyEmail = loc == '/verify-email';
+      final onAdminBlocked = loc == '/admin-blocked';
+      final onAdmin = loc.startsWith('/admin');
 
       if (authProvider.status == AuthStatus.unknown) return null;
 
@@ -34,14 +44,36 @@ GoRouter buildRouter(AuthProvider authProvider) {
         return onAuthScreens ? null : '/login';
       }
 
+      if (authProvider.needsEmailVerification) {
+        return onVerifyEmail ? null : '/verify-email';
+      }
+
+      final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+
+      if (isAdmin) {
+        if (!kIsWeb) {
+          return onAdminBlocked ? null : '/admin-blocked';
+        }
+        if (onAuthScreens ||
+            onVerifyEmail ||
+            onOnboarding ||
+            onAdminBlocked ||
+            !onAdmin) {
+          return '/admin';
+        }
+        return null;
+      }
+
+      if (onAdmin || onAdminBlocked) return '/dashboard';
+
       final needsOnboarding = authProvider.needsOnboarding;
-      if (needsOnboarding == null) return null;
+      if (needsOnboarding == null) return onVerifyEmail ? '/login' : null;
 
       if (needsOnboarding) {
         return onOnboarding ? null : '/onboarding';
       }
 
-      if (onOnboarding || onAuthScreens) return '/dashboard';
+      if (onOnboarding || onAuthScreens || onVerifyEmail) return '/dashboard';
       return null;
     },
     routes: [
@@ -51,8 +83,33 @@ GoRouter buildRouter(AuthProvider authProvider) {
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        builder: (context, state) => const VerifyEmailScreen(),
+      ),
+      GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/admin-blocked',
+        builder: (context, state) => const AdminBlockedScreen(),
+      ),
+      ShellRoute(
+        builder: (context, state, child) => AdminShell(child: child),
+        routes: [
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminHomeScreen(),
+          ),
+          GoRoute(
+            path: '/admin/users',
+            builder: (context, state) => const AdminUsersScreen(),
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
