@@ -22,7 +22,7 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
   final _descCtrl = TextEditingController();
   SkillCategory _category = SkillCategory.backend;
   final _formKey = GlobalKey<FormState>();
-  bool _hydrated = false;
+  int? _loadedSkillId;
 
   @override
   void initState() {
@@ -42,11 +42,13 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
   }
 
   void _hydrate(Skill skill) {
-    if (_hydrated) return;
+    if (_loadedSkillId == skill.id) return;
+    _loadedSkillId = skill.id;
     _nameCtrl.text = skill.name;
     _descCtrl.text = skill.description ?? '';
-    _category = skill.category;
-    _hydrated = true;
+    setState(() {
+      _category = skill.category;
+    });
   }
 
   @override

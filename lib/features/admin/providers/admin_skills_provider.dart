@@ -77,6 +77,9 @@ class AdminSkillsProvider extends ChangeNotifier {
 
   Future<void> loadDetail(int skillId) async {
     detailState = AdminSkillDetailLoadState.loading;
+    detailError = null;
+    selectedSkill = null;
+    dependencies = [];
     notifyListeners();
     try {
       final results = await Future.wait([
@@ -92,6 +95,7 @@ class AdminSkillsProvider extends ChangeNotifier {
           : 'Could not load this skill.';
       detailState = AdminSkillDetailLoadState.error;
     }
+
     notifyListeners();
   }
 

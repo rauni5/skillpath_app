@@ -78,6 +78,11 @@ class AdminRolesProvider extends ChangeNotifier {
 
   Future<void> loadDetail(int roleId) async {
     detailState = AdminRoleDetailLoadState.loading;
+    detailState = AdminRoleDetailLoadState.loading;
+    detailError = null;
+    selectedRole = null;
+    requirements = [];
+    notifyListeners();
     notifyListeners();
     try {
       final results = await Future.wait([

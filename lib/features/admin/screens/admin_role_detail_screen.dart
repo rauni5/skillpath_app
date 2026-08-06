@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:skillpath_app/core/models/career_role.dart';
 
 import '../../../core/models/role_requirement.dart';
 import '../../../core/theme/app_palette.dart';
@@ -22,7 +23,7 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _hydrated = false;
+  int? _loadedRoleId;
 
   @override
   void initState() {
@@ -41,11 +42,12 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
     super.dispose();
   }
 
-  void _hydrate(dynamic role) {
-    if (_hydrated) return;
+  void _hydrate(CareerRole role) {
+    if (_loadedRoleId == role.id) return;
+    _loadedRoleId = role.id;
     _nameCtrl.text = role.name;
     _descCtrl.text = role.description ?? '';
-    _hydrated = true;
+    setState(() {});
   }
 
   @override
@@ -196,7 +198,7 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, dynamic role) async {
+  Future<void> _confirmDelete(BuildContext context, CareerRole role) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
