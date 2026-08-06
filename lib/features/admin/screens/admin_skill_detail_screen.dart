@@ -282,10 +282,11 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
         context.go('/admin/skills');
       } else if (context.mounted) {
         final err = context.read<AdminSkillsProvider>().detailError;
-        if (err != null)
+        if (err != null) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(err)));
+        }
       }
     }
   }

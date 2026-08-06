@@ -10,8 +10,9 @@ class DifficultyBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (difficulty == null || difficulty!.isEmpty)
+    if (difficulty == null || difficulty!.isEmpty) {
       return const SizedBox.shrink();
+    }
     final p = AppPalette.of(context);
     final (bg, fg) = switch (difficulty!.toLowerCase()) {
       'beginner' => (p.greenLight, p.greenText),

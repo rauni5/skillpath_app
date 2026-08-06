@@ -4,7 +4,6 @@ import 'package:flutter/services.dart'
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/models/project.dart';
 import '../../../core/models/project_member.dart';
 import '../../../core/models/recommended_member.dart';
 import '../../../core/theme/app_palette.dart';

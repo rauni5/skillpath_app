@@ -132,8 +132,9 @@ class _SkillsScreenState extends State<SkillsScreen> {
                                   onRemove: () {
                                     HapticFeedback.lightImpact();
                                     final userId = _userId;
-                                    if (userId != null)
+                                    if (userId != null) {
                                       skills.removeSkill(userId, s.id);
+                                    }
                                   },
                                 ),
                               ),
@@ -201,8 +202,9 @@ class _SkillsScreenState extends State<SkillsScreen> {
                           onAdd: (proficiency) {
                             HapticFeedback.selectionClick();
                             final userId = _userId;
-                            if (userId != null)
+                            if (userId != null) {
                               skills.addSkill(userId, s, proficiency);
+                            }
                           },
                         ),
                       ),

@@ -124,7 +124,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         ? 'Tap to choose a career goal'
                                         : 'Career progress toward this role',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.85),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
                                       fontSize: 11.5,
                                     ),
                                   ),

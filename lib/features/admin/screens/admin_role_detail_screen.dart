@@ -226,10 +226,11 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
         context.go('/admin/roles');
       } else if (context.mounted) {
         final err = context.read<AdminRolesProvider>().detailError;
-        if (err != null)
+        if (err != null) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(err)));
+        }
       }
     }
   }

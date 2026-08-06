@@ -112,8 +112,9 @@ class _OnboardingSkillsStepState extends State<OnboardingSkillsStep> {
                     skill: s,
                     isPending: skills.pendingSkillIds.contains(s.id),
                     onAdd: (proficiency) {
-                      if (userId != null)
+                      if (userId != null) {
                         skills.addSkill(userId, s, proficiency);
+                      }
                     },
                   ),
                 )

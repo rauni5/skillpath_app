@@ -113,7 +113,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             itemCount: filtered.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
               final role = filtered[i];
               return Material(
@@ -228,8 +228,9 @@ class _AdminRolesScreenState extends State<AdminRolesScreen> {
                           name: nameCtrl.text.trim(),
                           description: descCtrl.text.trim(),
                         );
-                        if (created != null && ctx.mounted)
+                        if (created != null && ctx.mounted) {
                           Navigator.of(ctx).pop();
+                        }
                       },
                 child: roles.isCreating
                     ? const SizedBox(

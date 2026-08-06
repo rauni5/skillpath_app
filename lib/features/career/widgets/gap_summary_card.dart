@@ -68,7 +68,7 @@ class GapSummaryCard extends StatelessWidget {
                 '${gap.knownSkillCount} of ${gap.requiredSkillCount} required skills covered',
 
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 12,
                 ),
               ),
@@ -76,7 +76,7 @@ class GapSummaryCard extends StatelessWidget {
               AnimatedProgressBar(
                 value: gap.progressPercent.clamp(0, 100) / 100,
                 height: 8,
-                backgroundColor: Colors.white.withOpacity(0.25),
+                backgroundColor: Colors.white.withValues(alpha: 0.25),
                 valueColor: Colors.white,
               ),
               const SizedBox(height: 6),
