@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class _AdminNavItem {
@@ -16,18 +16,8 @@ class _AdminNavItem {
 const _navItems = [
   _AdminNavItem('/admin', Icons.dashboard_outlined, 'Overview'),
   _AdminNavItem('/admin/users', Icons.people_outline, 'Users'),
-  _AdminNavItem(
-    '/admin/skills',
-    Icons.psychology_outlined,
-    'Skills',
-    enabled: false,
-  ),
-  _AdminNavItem(
-    '/admin/roles',
-    Icons.badge_outlined,
-    'Career Roles',
-    enabled: false,
-  ),
+  _AdminNavItem('/admin/skills', Icons.psychology_outlined, 'Skills'),
+  _AdminNavItem('/admin/roles', Icons.badge_outlined, 'Career Roles'),
 ];
 
 class AdminShell extends StatelessWidget {
@@ -39,7 +29,11 @@ class AdminShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final location = GoRouterState.of(context).matchedLocation;
-    int selectedIndex = _navItems.indexWhere((d) => d.path == location);
+    int selectedIndex = _navItems.indexWhere(
+      (d) =>
+          location == d.path ||
+          (d.path != '/admin' && location.startsWith('${d.path}/')),
+    );
     if (selectedIndex < 0) selectedIndex = 0;
 
     return Scaffold(

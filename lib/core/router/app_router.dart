@@ -3,6 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/admin/screens/admin_blocked_screen.dart';
 import '../../features/admin/screens/admin_home_screen.dart';
+import '../../features/admin/screens/admin_role_detail_screen.dart';
+import '../../features/admin/screens/admin_roles_screen.dart';
+import '../../features/admin/screens/admin_skill_detail_screen.dart';
+import '../../features/admin/screens/admin_skills_screen.dart';
 import '../../features/admin/screens/admin_users_screen.dart';
 import '../../features/admin/widgets/admin_shell.dart';
 import '../../features/auth/providers/auth_provider.dart';
@@ -44,6 +48,7 @@ GoRouter buildRouter(AuthProvider authProvider) {
         return onAuthScreens ? null : '/login';
       }
 
+      // Signed in from here on — email verification gates everything else.
       if (authProvider.needsEmailVerification) {
         return onVerifyEmail ? null : '/verify-email';
       }
@@ -51,6 +56,8 @@ GoRouter buildRouter(AuthProvider authProvider) {
       final isAdmin = authProvider.currentUser?.isAdmin ?? false;
 
       if (isAdmin) {
+        // Admins never go through onboarding or the normal student app —
+        // web takes them straight to the admin panel, mobile is blocked.
         if (!kIsWeb) {
           return onAdminBlocked ? null : '/admin-blocked';
         }
@@ -64,6 +71,7 @@ GoRouter buildRouter(AuthProvider authProvider) {
         return null;
       }
 
+      // Non-admin users should never reach admin-only routes.
       if (onAdmin || onAdminBlocked) return '/dashboard';
 
       final needsOnboarding = authProvider.needsOnboarding;
@@ -108,6 +116,26 @@ GoRouter buildRouter(AuthProvider authProvider) {
           GoRoute(
             path: '/admin/users',
             builder: (context, state) => const AdminUsersScreen(),
+          ),
+          GoRoute(
+            path: '/admin/skills',
+            builder: (context, state) => const AdminSkillsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/skills/:id',
+            builder: (context, state) => AdminSkillDetailScreen(
+              skillId: int.parse(state.pathParameters['id']!),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/roles',
+            builder: (context, state) => const AdminRolesScreen(),
+          ),
+          GoRoute(
+            path: '/admin/roles/:id',
+            builder: (context, state) => AdminRoleDetailScreen(
+              roleId: int.parse(state.pathParameters['id']!),
+            ),
           ),
         ],
       ),

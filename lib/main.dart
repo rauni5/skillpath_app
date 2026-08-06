@@ -2,10 +2,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'features/admin/providers/admin_users_provider.dart';
+
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'features/admin/providers/admin_roles_provider.dart';
+import 'features/admin/providers/admin_skills_provider.dart';
+import 'features/admin/providers/admin_users_provider.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/career/providers/career_provider.dart';
 import 'features/dashboard/providers/dashboard_provider.dart';
@@ -35,8 +38,10 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CareerProvider()),
         ChangeNotifierProvider(create: (_) => ProjectsProvider()),
         ChangeNotifierProvider(create: (_) => ProjectManagementProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AdminUsersProvider()),
+        ChangeNotifierProvider(create: (_) => AdminSkillsProvider()),
+        ChangeNotifierProvider(create: (_) => AdminRolesProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _RouterHost(),
     );
@@ -45,6 +50,7 @@ class SkillPathApp extends StatelessWidget {
 
 class _RouterHost extends StatefulWidget {
   const _RouterHost();
+
   @override
   State<_RouterHost> createState() => _RouterHostState();
 }

@@ -84,6 +84,29 @@ SkillCategory skillCategoryFromString(String? value) {
   }
 }
 
+String skillCategoryToApiString(SkillCategory category) {
+  switch (category) {
+    case SkillCategory.frontend:
+      return 'FRONTEND';
+    case SkillCategory.backend:
+      return 'BACKEND';
+    case SkillCategory.mobile:
+      return 'MOBILE';
+    case SkillCategory.devops:
+      return 'DEVOPS';
+    case SkillCategory.cloud:
+      return 'CLOUD';
+    case SkillCategory.database:
+      return 'DATABASE';
+    case SkillCategory.dataEngineering:
+      return 'DATA_ENGINEERING';
+    case SkillCategory.uiUx:
+      return 'UI_UX';
+    case SkillCategory.unknown:
+      return 'BACKEND';
+  }
+}
+
 extension SkillCategoryLabel on SkillCategory {
   String get label {
     switch (this) {
