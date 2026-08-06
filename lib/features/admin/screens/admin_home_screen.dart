@@ -26,13 +26,13 @@ class AdminHomeScreen extends StatelessWidget {
               icon: Icons.psychology_outlined,
               title: 'Skills',
               subtitle: 'Manage the skill catalogue and dependencies.',
-              enabled: false,
+              onTap: () => context.go('/admin/skills'),
             ),
             _AdminCard(
               icon: Icons.badge_outlined,
               title: 'Career Roles',
               subtitle: 'Manage roles and their required skills.',
-              enabled: false,
+              onTap: () => context.go('/admin/roles'),
             ),
           ],
         ),
@@ -47,14 +47,12 @@ class _AdminCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onTap,
-    this.enabled = true,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +64,7 @@ class _AdminCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: enabled ? onTap : null,
+          onTap: onTap,
           child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -76,7 +74,7 @@ class _AdminCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: enabled ? p.indigo : p.textMuted, size: 26),
+                Icon(icon, color: p.indigo, size: 26),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -88,27 +86,6 @@ class _AdminCard extends StatelessWidget {
                         color: p.textPrimary,
                       ),
                     ),
-                    if (!enabled) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: p.amberLight,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Soon',
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            color: p.amberText,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 6),
