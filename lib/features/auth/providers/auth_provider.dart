@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_exception.dart';
 import '../../career/data/career_repository.dart';
+import '../../notifications/data/notification_service.dart';
 import '../data/auth_repository.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -52,6 +53,9 @@ class AuthProvider extends ChangeNotifier {
       currentUser = await _repo.sync();
       status = AuthStatus.authenticated;
       notifyListeners();
+      // Best-effort: register this device for push notifications now that
+      // we know who's signed in. Never blocks or fails sign-in itself.
+      unawaited(NotificationService.instance.registerForUser(currentUser!.id));
       await refreshOnboardingStatus();
     } catch (e) {
       // Firebase says signed in but backend sync failed (e.g. API down).
@@ -137,6 +141,7 @@ class AuthProvider extends ChangeNotifier {
   });
 
   Future<void> signOut() async {
+    await NotificationService.instance.handleSignOut();
     await _repo.signOut();
   }
 

@@ -28,9 +28,11 @@ import '../../features/projects/screens/projects_list_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
 import '../../features/skills/screens/skills_screen.dart';
 import '../../shared/widgets/app_shell.dart';
+import 'navigation_keys.dart';
 
 GoRouter buildRouter(AuthProvider authProvider) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/login',
     refreshListenable: authProvider,
     redirect: (context, state) {
