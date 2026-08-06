@@ -25,8 +25,9 @@ class _MyInvitesScreenState extends State<MyInvitesScreen> {
 
   void _load() {
     final userId = context.read<AuthProvider>().currentUser?.id;
-    if (userId != null)
+    if (userId != null) {
       context.read<ProjectManagementProvider>().loadMyInvites(userId);
+    }
   }
 
   @override
@@ -83,7 +84,7 @@ class _MyInvitesScreenState extends State<MyInvitesScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: mgmt.myInvites.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) => _InviteCard(invite: mgmt.myInvites[i]),
           ),
         );

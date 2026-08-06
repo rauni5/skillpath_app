@@ -136,7 +136,7 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                         child: Text(
                           'through your path',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 12,
                           ),
                         ),
@@ -147,7 +147,7 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                   AnimatedProgressBar(
                     value: total == 0 ? 0 : completed / total,
                     valueColor: Colors.white,
-                    backgroundColor: Colors.white.withOpacity(0.25),
+                    backgroundColor: Colors.white.withValues(alpha: 0.25),
                     height: 7,
                   ),
                   const SizedBox(height: 12),
@@ -192,7 +192,7 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

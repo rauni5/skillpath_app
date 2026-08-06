@@ -25,8 +25,9 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
 
   void _load() {
     final userId = context.read<AuthProvider>().currentUser?.id;
-    if (userId != null)
+    if (userId != null) {
       context.read<ProjectManagementProvider>().loadOwnedProjects(userId);
+    }
   }
 
   @override

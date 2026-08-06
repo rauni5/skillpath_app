@@ -140,11 +140,11 @@ class AuthRepository {
         '/api/v1/users/${current.id}',
         data: {
           'name': name,
-          if (bio != null) 'bio': bio,
+          'bio': ?bio,
           if (experienceLevel != null)
             'experienceLevel': experienceLevelToApiString(experienceLevel),
-          if (availability != null) 'availability': availability,
-          if (avatarUrl != null) 'avatarUrl': avatarUrl,
+          'availability': ?availability,
+          'avatarUrl': ?avatarUrl,
         },
       ),
       (data) => AppUser.fromJson(data as Map<String, dynamic>),

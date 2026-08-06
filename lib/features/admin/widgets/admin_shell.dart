@@ -6,6 +6,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class _AdminNavItem {
+  // ignore: unused_element_parameter
   const _AdminNavItem(this.path, this.icon, this.label, {this.enabled = true});
   final String path;
   final IconData icon;
@@ -87,13 +88,17 @@ class AdminShell extends StatelessWidget {
                   (d) => NavigationRailDestination(
                     icon: Icon(
                       d.icon,
-                      color: d.enabled ? null : p.textMuted.withOpacity(0.4),
+                      color: d.enabled
+                          ? null
+                          : p.textMuted.withValues(alpha: 0.4),
                     ),
                     label: Text(
                       d.label,
                       style: d.enabled
                           ? null
-                          : TextStyle(color: p.textMuted.withOpacity(0.4)),
+                          : TextStyle(
+                              color: p.textMuted.withValues(alpha: 0.4),
+                            ),
                     ),
                   ),
                 )

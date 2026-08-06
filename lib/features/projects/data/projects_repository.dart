@@ -101,7 +101,7 @@ class ProjectsRepository {
           if (link != null && link.trim().isNotEmpty) 'link': link.trim(),
           'teamSize': teamSize,
           'requiredSkillIds': requiredSkillIds,
-          if (requiredRoleIds != null) 'requiredRoleIds': requiredRoleIds,
+          'requiredRoleIds': ?requiredRoleIds,
         },
       ),
       (data) => Project.fromJson(data as Map<String, dynamic>),

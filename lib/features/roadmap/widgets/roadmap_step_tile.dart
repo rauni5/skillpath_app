@@ -41,7 +41,7 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
         : isDone
         ? p.surface1
         : p.surface2;
-    final cardBorder = isUpNext ? p.indigo.withOpacity(0.35) : p.border;
+    final cardBorder = isUpNext ? p.indigo.withValues(alpha: 0.35) : p.border;
 
     return IntrinsicHeight(
       child: Row(
@@ -65,7 +65,7 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                   boxShadow: isUpNext
                       ? [
                           BoxShadow(
-                            color: p.indigo.withOpacity(0.35),
+                            color: p.indigo.withValues(alpha: 0.35),
                             blurRadius: 8,
                             spreadRadius: 1,
                           ),

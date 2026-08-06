@@ -31,8 +31,9 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
       _load();
       _checkAlerts();
       final userId = context.read<AuthProvider>().currentUser?.id;
-      if (userId != null)
+      if (userId != null) {
         context.read<ProjectManagementProvider>().loadMyInvites(userId);
+      }
     });
   }
 
