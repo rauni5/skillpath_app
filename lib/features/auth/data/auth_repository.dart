@@ -158,6 +158,32 @@ class AuthRepository {
     await _firebaseAuth.signOut();
   }
 
+  /// PUT /api/v1/users/{userId}/device-token — registers this device's FCM
+  /// token so push notifications (invite received/accepted/rejected, join
+  /// request received/accepted/rejected) can reach it.
+  Future<void> registerDeviceToken(int userId, String token, String platform) {
+    return _api.unwrap(
+      (dio) => dio.put(
+        '/api/v1/users/$userId/device-token',
+        data: {'token': token, 'platform': platform},
+      ),
+      (_) {},
+    );
+  }
+
+  /// DELETE /api/v1/users/{userId}/device-token?token=... — called on
+  /// sign-out so a shared/reinstalled device stops receiving this user's
+  /// notifications.
+  Future<void> unregisterDeviceToken(int userId, String token) {
+    return _api.unwrap(
+      (dio) => dio.delete(
+        '/api/v1/users/$userId/device-token',
+        queryParameters: {'token': token},
+      ),
+      (_) {},
+    );
+  }
+
   String _mapFirebaseError(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
