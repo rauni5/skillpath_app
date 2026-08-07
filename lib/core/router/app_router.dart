@@ -27,6 +27,8 @@ import '../../features/projects/screens/project_manage_screen.dart';
 import '../../features/projects/screens/projects_list_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
 import '../../features/skills/screens/skills_screen.dart';
+import '../../features/tutor/screen/skill_check_screen.dart';
+import '../../features/tutor/screen/tutor_chat_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import 'navigation_keys.dart';
 
@@ -158,6 +160,22 @@ GoRouter buildRouter(AuthProvider authProvider) {
               GoRoute(
                 path: '/roadmap',
                 builder: (context, state) => const RoadmapScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'skill/:skillId/chat',
+                    builder: (context, state) => TutorChatScreen(
+                      skillId: int.parse(state.pathParameters['skillId']!),
+                      skillName: state.extra as String? ?? 'Skill',
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'skill/:skillId/skill-check',
+                    builder: (context, state) => SkillCheckScreen(
+                      skillId: int.parse(state.pathParameters['skillId']!),
+                      skillName: state.extra as String? ?? 'Skill',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

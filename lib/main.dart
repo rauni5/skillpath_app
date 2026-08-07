@@ -16,6 +16,8 @@ import 'features/projects/providers/project_management_provider.dart';
 import 'features/projects/providers/projects_provider.dart';
 import 'features/roadmap/providers/roadmap_provider.dart';
 import 'features/skills/providers/skills_provider.dart';
+import 'features/tutor/providers/skill_check_provider.dart';
+import 'features/tutor/providers/tutor_chat_provider.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -42,6 +44,8 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminSkillsProvider()),
         ChangeNotifierProvider(create: (_) => AdminRolesProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => TutorChatProvider()),
+        ChangeNotifierProvider(create: (_) => SkillCheckProvider()),
       ],
       child: const _RouterHost(),
     );

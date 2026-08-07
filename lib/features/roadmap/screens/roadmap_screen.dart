@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/roadmap_step.dart';
@@ -32,10 +32,19 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
     if (userId != null) context.read<RoadmapProvider>().load(userId);
   }
 
-  Future<void> _markDone(RoadmapProvider roadmap, int stepId) async {
-    HapticFeedback.lightImpact();
-    final userId = _userId;
-    if (userId != null) await roadmap.markDone(userId, stepId);
+  void _openChat(RoadmapStep step) {
+    context.push('/roadmap/skill/${step.skillId}/chat', extra: step.skillName);
+  }
+
+  Future<void> _openSkillCheck(RoadmapStep step) async {
+    // The skill-check screen pops with `true` when the attempt was passed
+    // (and the step therefore just flipped to done), so the roadmap only
+    // needs to reload in that case.
+    final passed = await context.push<bool>(
+      '/roadmap/skill/${step.skillId}/skill-check',
+      extra: step.skillName,
+    );
+    if (passed == true) _load();
   }
 
   @override
@@ -151,18 +160,18 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                     height: 7,
                   ),
                   const SizedBox(height: 12),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       _statPill(
                         icon: Icons.check_circle_outline,
                         label: '$completed done',
                       ),
-                      const SizedBox(width: 8),
                       _statPill(
                         icon: Icons.hourglass_empty,
                         label: '$remaining left',
                       ),
-                      const SizedBox(width: 8),
                       _statPill(
                         icon: Icons.category_outlined,
                         label: '$categories tracks',
@@ -177,11 +186,11 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
               RoadmapStepTile(
                 step: roadmap.steps[i],
                 isLast: i == roadmap.steps.length - 1,
-                isPending: roadmap.pendingStepIds.contains(roadmap.steps[i].id),
                 isUpNext:
                     roadmap.steps[i].id == upNext.id &&
                     upNext.status != RoadmapStepStatus.done,
-                onMarkDone: () => _markDone(roadmap, roadmap.steps[i].id),
+                onChat: () => _openChat(roadmap.steps[i]),
+                onSkillCheck: () => _openSkillCheck(roadmap.steps[i]),
               ),
           ],
         );

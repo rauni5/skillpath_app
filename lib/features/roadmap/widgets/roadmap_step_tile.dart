@@ -9,16 +9,16 @@ class RoadmapStepTile extends StatefulWidget {
     super.key,
     required this.step,
     required this.isLast,
-    required this.isPending,
     required this.isUpNext,
-    required this.onMarkDone,
+    required this.onChat,
+    required this.onSkillCheck,
   });
 
   final RoadmapStep step;
   final bool isLast;
-  final bool isPending;
   final bool isUpNext;
-  final VoidCallback onMarkDone;
+  final VoidCallback onChat;
+  final VoidCallback onSkillCheck;
 
   @override
   State<RoadmapStepTile> createState() => _RoadmapStepTileState();
@@ -107,173 +107,232 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                       width: isUpNext ? 1.25 : 0.75,
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                  child: ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Step ${step.stepOrder}',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            color: p.textMuted,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        if (isUpNext) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: p.indigo,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: const Text(
+                                              'UP NEXT',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        if (isDone) ...[
+                                          const SizedBox(width: 6),
+                                          Icon(
+                                            Icons.check_circle,
+                                            size: 12,
+                                            color: p.green,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
                                     Text(
-                                      'Step ${step.stepOrder}',
+                                      step.skillName,
                                       style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: p.textMuted,
+                                        fontSize: 14.5,
                                         fontWeight: FontWeight.w600,
+                                        color: isDone
+                                            ? p.textMuted
+                                            : p.textPrimary,
+                                        decoration: isDone
+                                            ? TextDecoration.lineThrough
+                                            : null,
                                       ),
                                     ),
-                                    if (isUpNext) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          step.skillCategory.icon,
+                                          size: 12,
+                                          color: p.indigo,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: p.indigoLight,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            step.skillCategory.label,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: p.indigo,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                _expanded
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 18,
+                                color: p.textMuted,
+                              ),
+                            ],
+                          ),
+                          if (_expanded)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                isDone && step.completedAt != null
+                                    ? 'Completed ${_formatDate(step.completedAt!)}'
+                                    : 'Part of the ${step.skillCategory.label} track — complete the steps above it first if this feels out of order.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: p.textSecondary,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          if (!isDone) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 32,
+                                    child: OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: p.textPrimary,
+                                        side: BorderSide(color: p.border),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
-                                          vertical: 1,
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: p.indigo,
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'UP NEXT',
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.3,
-                                          ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    ],
-                                    if (isDone) ...[
-                                      const SizedBox(width: 6),
-                                      Icon(
-                                        Icons.check_circle,
-                                        size: 12,
-                                        color: p.green,
+                                      onPressed: widget.onChat,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.chat_bubble_outline,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Flexible(
+                                            child: Text(
+                                              'Chat with Tutor',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  step.skillName,
-                                  style: TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDone ? p.textMuted : p.textPrimary,
-                                    decoration: isDone
-                                        ? TextDecoration.lineThrough
-                                        : null,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      step.skillCategory.icon,
-                                      size: 12,
-                                      color: p.indigo,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: p.indigoLight,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        step.skillCategory.label,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: p.indigo,
-                                          fontWeight: FontWeight.w500,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 32,
+                                    child: FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: isUpNext
+                                            ? p.indigo
+                                            : p.surface2,
+                                        foregroundColor: isUpNext
+                                            ? Colors.white
+                                            : p.textPrimary,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
                                         ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        side: isUpNext
+                                            ? null
+                                            : BorderSide(color: p.border),
+                                        elevation: 0,
+                                      ),
+                                      onPressed: widget.onSkillCheck,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.quiz_outlined,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Flexible(
+                                            child: Text(
+                                              'Skill Check',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            _expanded ? Icons.expand_less : Icons.expand_more,
-                            size: 18,
-                            color: p.textMuted,
-                          ),
+                          ],
                         ],
                       ),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 200),
-                        child: _expanded
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  isDone && step.completedAt != null
-                                      ? 'Completed ${_formatDate(step.completedAt!)}'
-                                      : 'Part of the ${step.skillCategory.label} track — complete the steps above it first if this feels out of order.',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: p.textSecondary,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                      if (!isDone) ...[
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 32,
-                          child: widget.isPending
-                              ? Center(
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: p.indigo,
-                                    ),
-                                  ),
-                                )
-                              : FilledButton(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: isUpNext
-                                        ? p.indigo
-                                        : p.surface2,
-                                    foregroundColor: isUpNext
-                                        ? Colors.white
-                                        : p.textPrimary,
-                                    minimumSize: Size.zero,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                    ),
-                                    textStyle: const TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    side: isUpNext
-                                        ? null
-                                        : BorderSide(color: p.border),
-                                    elevation: 0,
-                                  ),
-                                  onPressed: widget.onMarkDone,
-                                  child: const Text('Mark done'),
-                                ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               ),

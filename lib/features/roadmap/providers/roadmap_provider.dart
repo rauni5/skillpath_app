@@ -15,10 +15,6 @@ class RoadmapProvider extends ChangeNotifier {
   List<RoadmapStep> steps = [];
   String? errorMessage;
 
-  /// Step ids currently being marked done, so the UI can show a small
-  /// per-row spinner instead of blocking the whole screen.
-  final Set<int> pendingStepIds = {};
-
   Future<void> load(int userId) async {
     state = RoadmapLoadState.loading;
     notifyListeners();
@@ -30,21 +26,5 @@ class RoadmapProvider extends ChangeNotifier {
       state = RoadmapLoadState.error;
     }
     notifyListeners();
-  }
-
-  Future<void> markDone(int userId, int stepId) async {
-    pendingStepIds.add(stepId);
-    notifyListeners();
-    try {
-      final updated = await _repo.markDone(userId, stepId);
-      steps = [
-        for (final s in steps) if (s.id == updated.id) updated else s,
-      ];
-    } catch (_) {
-      // Silently ignore — the row simply won't flip to done, user can retry.
-    } finally {
-      pendingStepIds.remove(stepId);
-      notifyListeners();
-    }
   }
 }
