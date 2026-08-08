@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:skillpath_app/core/models/skill.dart';
-
 import '../../../core/models/roadmap_step.dart';
 import '../../../core/theme/app_palette.dart';
 
@@ -35,27 +34,35 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
     final isUpNext = widget.isUpNext && !isDone;
 
     final dotColor = isDone ? p.green : (isUpNext ? p.indigo : p.border);
-
     final cardColor = isUpNext
         ? p.indigoLight
         : isDone
         ? p.surface1
         : p.surface2;
     final cardBorder = isUpNext ? p.indigo.withValues(alpha: 0.35) : p.border;
+    final showDetailsAndButtons = !isDone || _expanded;
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Connector line + dot
-          Column(
-            children: [
-              AnimatedContainer(
+    return Stack(
+      children: [
+        // Vertical timeline line
+        if (!widget.isLast)
+          Positioned(
+            left: isUpNext ? 9 : 7,
+            top: 24,
+            bottom: 0,
+            child: Container(width: 2, color: p.border),
+          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Timeline Dot
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: AnimatedContainer(
                 duration: const Duration(milliseconds: 350),
                 curve: Curves.easeOutBack,
                 width: isUpNext ? 20 : 16,
                 height: isUpNext ? 20 : 16,
-                margin: const EdgeInsets.only(top: 14),
                 decoration: BoxDecoration(
                   color: dotColor,
                   shape: BoxShape.circle,
@@ -84,34 +91,31 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                       : const SizedBox.shrink(key: ValueKey('empty')),
                 ),
               ),
-              if (!widget.isLast)
-                Expanded(child: Container(width: 2, color: p.border)),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // Content card
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => setState(() => _expanded = !_expanded),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: cardBorder,
-                      width: isUpNext ? 1.25 : 0.75,
-                    ),
-                  ),
-                  child: ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
+            ),
+            const SizedBox(width: 12),
+
+            // Step Card
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Material(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: isDone
+                        ? () => setState(() => _expanded = !_expanded)
+                        : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: cardBorder,
+                          width: isUpNext ? 1.25 : 0.75,
+                        ),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -214,122 +218,141 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                _expanded
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 18,
-                                color: p.textMuted,
-                              ),
+
+                              // Expand arrow ONLY shown for collapshed steps
+                              if (isDone) ...[
+                                const SizedBox(width: 8),
+                                Icon(
+                                  _expanded
+                                      ? Icons.expand_less
+                                      : Icons.expand_more,
+                                  size: 18,
+                                  color: p.textMuted,
+                                ),
+                              ],
                             ],
                           ),
-                          if (_expanded)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                isDone && step.completedAt != null
-                                    ? 'Completed ${_formatDate(step.completedAt!)}'
-                                    : 'Part of the ${step.skillCategory.label} track — complete the steps above it first if this feels out of order.',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: p.textSecondary,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          if (!isDone) ...[
-                            const SizedBox(height: 10),
-                            Row(
+
+                          // Collapshed Body
+                          AnimatedCrossFade(
+                            duration: const Duration(milliseconds: 220),
+                            crossFadeState: showDetailsAndButtons
+                                ? CrossFadeState.showSecond
+                                : CrossFadeState.showFirst,
+                            firstChild: const SizedBox(width: double.infinity),
+                            secondChild: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 32,
-                                    child: OutlinedButton(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: p.textPrimary,
-                                        side: BorderSide(color: p.border),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      onPressed: widget.onChat,
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.chat_bubble_outline,
-                                            size: 14,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Flexible(
-                                            child: Text(
-                                              'Chat with Tutor',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  isDone && step.completedAt != null
+                                      ? 'Completed ${_formatDate(step.completedAt!)}'
+                                      : 'Part of the ${step.skillCategory.label} track — complete the steps above it first if this feels out of order.',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: p.textSecondary,
+                                    height: 1.4,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 32,
-                                    child: FilledButton(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: isUpNext
-                                            ? p.indigo
-                                            : p.surface2,
-                                        foregroundColor: isUpNext
-                                            ? Colors.white
-                                            : p.textPrimary,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        side: isUpNext
-                                            ? null
-                                            : BorderSide(color: p.border),
-                                        elevation: 0,
-                                      ),
-                                      onPressed: widget.onSkillCheck,
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.quiz_outlined,
-                                            size: 14,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Flexible(
-                                            child: Text(
-                                              'Skill Check',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 32,
+                                        child: OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: p.textPrimary,
+                                            side: BorderSide(color: p.border),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                        ],
+                                          onPressed: widget.onChat,
+                                          child: const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.chat_bubble_outline,
+                                                size: 14,
+                                              ),
+                                              SizedBox(width: 5),
+                                              Flexible(
+                                                child: Text(
+                                                  'Chat with Tutor',
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 32,
+                                        child: FilledButton(
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: isUpNext
+                                                ? p.indigo
+                                                : (isDone
+                                                      ? p.surface2
+                                                      : p.surface1),
+                                            foregroundColor: isUpNext
+                                                ? Colors.white
+                                                : p.textPrimary,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            side: isUpNext
+                                                ? null
+                                                : BorderSide(color: p.border),
+                                            elevation: 0,
+                                          ),
+                                          onPressed: widget.onSkillCheck,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(
+                                                Icons.quiz_outlined,
+                                                size: 14,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Flexible(
+                                                child: Text(
+                                                  isDone &&
+                                                          step.completedAt !=
+                                                              null
+                                                      ? 'Review Skill'
+                                                      : 'Skill Check',
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
@@ -337,9 +360,9 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
