@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_exception.dart';
 import '../../career/data/career_repository.dart';
+import '../../notifications/data/notification_preferences.dart';
 import '../../notifications/data/notification_service.dart';
 import '../data/auth_repository.dart';
 
@@ -54,8 +55,9 @@ class AuthProvider extends ChangeNotifier {
       status = AuthStatus.authenticated;
       notifyListeners();
       // Best-effort: register this device for push notifications now that
-      // we know who's signed in. Never blocks or fails sign-in itself.
-      unawaited(NotificationService.instance.registerForUser(currentUser!.id));
+      // we know who's signed in, unless the user previously turned pushes
+      // off on this device. Never blocks or fails sign-in itself.
+      unawaited(_registerForPushIfEnabled(currentUser!.id));
       await refreshOnboardingStatus();
     } catch (e) {
       // Firebase says signed in but backend sync failed (e.g. API down).
@@ -64,6 +66,13 @@ class AuthProvider extends ChangeNotifier {
           ? e.message
           : 'Could not reach SkillPath servers.';
       notifyListeners();
+    }
+  }
+
+  Future<void> _registerForPushIfEnabled(int userId) async {
+    final enabled = await NotificationPreferences.isEnabled();
+    if (enabled) {
+      await NotificationService.instance.registerForUser(userId);
     }
   }
 
@@ -126,17 +135,39 @@ class AuthProvider extends ChangeNotifier {
     return verified;
   }
 
-  /// Used by the onboarding "About you" step to confirm/edit the name,
-  /// bio, and experience level (Google sign-in never collects these).
+  /// True for accounts signed in with email/password — used to decide
+  /// whether to show a "change password" action (Google accounts manage
+  /// their password with Google, not us).
+  bool get isPasswordAccount =>
+      _repo.currentFirebaseUser?.providerData.any(
+        (p) => p.providerId == 'password',
+      ) ??
+      false;
+
+  /// Used by the onboarding "About you" step and by the Settings/Portfolio
+  /// screens to edit profile fields. Every param is optional so each
+  /// caller only sends what it actually edits.
   Future<bool> updateProfile({
     required String name,
+    String? phoneNumber,
+    String? githubUrl,
+    String? linkedinUrl,
+    String? location,
+    String? softSkills,
     String? bio,
     ExperienceLevel? experienceLevel,
+    bool? availability,
   }) => _run(() async {
     currentUser = await _repo.updateProfile(
       name: name,
+      phoneNumber: phoneNumber,
+      githubUrl: githubUrl,
+      linkedinUrl: linkedinUrl,
+      location: location,
+      softSkills: softSkills,
       bio: bio,
       experienceLevel: experienceLevel,
+      availability: availability,
     );
   });
 
