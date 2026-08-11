@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/screens/admin_achievement_form_screen.dart';
+import '../../features/admin/screens/admin_achievements_screen.dart';
 import '../../features/admin/screens/admin_blocked_screen.dart';
 import '../../features/admin/screens/admin_home_screen.dart';
 import '../../features/admin/screens/admin_role_detail_screen.dart';
@@ -142,6 +144,20 @@ GoRouter buildRouter(AuthProvider authProvider) {
             path: '/admin/roles/:id',
             builder: (context, state) => AdminRoleDetailScreen(
               roleId: int.parse(state.pathParameters['id']!),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/achievements',
+            builder: (context, state) => const AdminAchievementsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/achievements/new',
+            builder: (context, state) => const AdminAchievementFormScreen(),
+          ),
+          GoRoute(
+            path: '/admin/achievements/:id',
+            builder: (context, state) => AdminAchievementFormScreen(
+              achievementId: int.parse(state.pathParameters['id']!),
             ),
           ),
         ],
