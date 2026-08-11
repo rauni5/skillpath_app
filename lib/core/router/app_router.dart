@@ -25,7 +25,10 @@ import '../../features/projects/screens/my_projects_screen.dart';
 import '../../features/projects/screens/project_detail_screen.dart';
 import '../../features/projects/screens/project_manage_screen.dart';
 import '../../features/projects/screens/projects_list_screen.dart';
+import '../../features/roadmap/screens/roadmap_chat_screen.dart';
+import '../../features/roadmap/screens/roadmap_chat_sessions_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
+import '../../core/models/roadmap_chat_session.dart';
 import '../../features/skills/screens/skills_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
@@ -174,6 +177,19 @@ GoRouter buildRouter(AuthProvider authProvider) {
                       skillId: int.parse(state.pathParameters['skillId']!),
                       skillName: state.extra as String? ?? 'Skill',
                     ),
+                  ),
+                  GoRoute(
+                    path: 'chat',
+                    builder: (context, state) =>
+                        const RoadmapChatSessionsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'session',
+                        builder: (context, state) => RoadmapChatScreen(
+                          session: state.extra as RoadmapChatSession,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
