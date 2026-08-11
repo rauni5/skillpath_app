@@ -34,6 +34,12 @@ class AdminHomeScreen extends StatelessWidget {
               subtitle: 'Manage roles and their required skills.',
               onTap: () => context.go('/admin/roles'),
             ),
+            _AdminCard(
+              icon: Icons.emoji_events_outlined,
+              title: 'Achievements',
+              subtitle: 'Create and manage unlockable achievements.',
+              onTap: () => context.go('/admin/achievements'),
+            ),
           ],
         ),
       ),
