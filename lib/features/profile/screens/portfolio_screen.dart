@@ -1,0 +1,1269 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/models/portfolio.dart';
+import '../../../core/models/project.dart';
+import '../../../core/models/skill.dart';
+import '../../../core/models/user.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/animated_progress_bar.dart';
+import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/section_header.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../data/cv_generator.dart';
+import '../providers/portfolio_provider.dart';
+
+class PortfolioScreen extends StatefulWidget {
+  const PortfolioScreen({super.key});
+
+  @override
+  State<PortfolioScreen> createState() => _PortfolioScreenState();
+}
+
+class _PortfolioScreenState extends State<PortfolioScreen>
+    with WidgetsBindingObserver {
+  bool _generatingCv = false;
+  Timer? _refreshTimer;
+  static const _refreshInterval = Duration(seconds: 20);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _startRefreshTimer();
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) => _load());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Don't keep polling while the app is backgrounded.
+    if (state == AppLifecycleState.resumed) {
+      _load();
+      _startRefreshTimer();
+    } else {
+      _refreshTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+    await context.read<PortfolioProvider>().load(userId);
+  }
+
+  Future<void> _downloadCv(PortfolioData data) async {
+    setState(() => _generatingCv = true);
+    try {
+      final bytes = await buildCvPdf(data);
+      final fileName =
+          '${data.name.trim().isEmpty ? 'cv' : data.name.trim().replaceAll(' ', '_')}_CV.pdf';
+      await Printing.sharePdf(bytes: bytes, filename: fileName);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not generate your CV. Try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _generatingCv = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final portfolio = context.watch<PortfolioProvider>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Portfolio'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/profile/settings'),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: switch (portfolio.state) {
+          PortfolioLoadState.initial ||
+          PortfolioLoadState.loading => const LoadingView(),
+          PortfolioLoadState.error => ErrorView(
+            message: portfolio.errorMessage ?? 'Something went wrong.',
+            onRetry: _load,
+          ),
+          PortfolioLoadState.loaded => _PortfolioBody(
+            data: portfolio.data!,
+            generatingCv: _generatingCv,
+            onDownloadCv: () => _downloadCv(portfolio.data!),
+            onAddItem: _addItem,
+            onDeleteItem: _deleteItem,
+            onAddCertification: _addCertification,
+            onDeleteCertification: _deleteCertification,
+          ),
+        },
+      ),
+    );
+  }
+
+  Future<void> _addItem(List<Project> projects) async {
+    final result = await showModalBottomSheet<_NewPortfolioItem>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AddPortfolioItemSheet(projects: projects),
+    );
+    if (result == null || !mounted) return;
+
+    final ok = await context.read<PortfolioProvider>().addItem(
+      projectId: result.projectId,
+      githubUrl: result.githubUrl,
+      description: result.description,
+      userRole: result.userRole,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      final message = context.read<PortfolioProvider>().mutationError;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message ?? 'Could not add item.')));
+    }
+  }
+
+  Future<void> _deleteItem(int itemId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove portfolio item?'),
+        content: const Text('This can\'t be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final ok = await context.read<PortfolioProvider>().deleteItem(itemId);
+    if (!mounted) return;
+    if (!ok) {
+      final message = context.read<PortfolioProvider>().mutationError;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? 'Could not remove item.')),
+      );
+    }
+  }
+
+  Future<void> _addCertification() async {
+    final result = await showModalBottomSheet<_NewCertification>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _AddCertificationSheet(),
+    );
+    if (result == null || !mounted) return;
+
+    final ok = await context.read<PortfolioProvider>().addCertification(
+      name: result.name,
+      issuer: result.issuer,
+      credentialUrl: result.credentialUrl,
+      earnedOn: result.earnedOn,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      final message = context.read<PortfolioProvider>().mutationError;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? 'Could not add certification.')),
+      );
+    }
+  }
+
+  Future<void> _deleteCertification(int certId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove certification?'),
+        content: const Text('This can\'t be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final ok = await context.read<PortfolioProvider>().deleteCertification(
+      certId,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      final message = context.read<PortfolioProvider>().mutationError;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? 'Could not remove certification.')),
+      );
+    }
+  }
+}
+
+class _PortfolioBody extends StatelessWidget {
+  const _PortfolioBody({
+    required this.data,
+    required this.generatingCv,
+    required this.onDownloadCv,
+    required this.onAddItem,
+    required this.onDeleteItem,
+    required this.onAddCertification,
+    required this.onDeleteCertification,
+  });
+
+  final PortfolioData data;
+  final bool generatingCv;
+  final VoidCallback onDownloadCv;
+  final void Function(List<Project> projects) onAddItem;
+  final void Function(int itemId) onDeleteItem;
+  final VoidCallback onAddCertification;
+  final void Function(int certId) onDeleteCertification;
+
+  @override
+  Widget build(BuildContext context) {
+    final portfolio = context.watch<PortfolioProvider>();
+    final p = AppPalette.of(context);
+    final skillsByCategory = <String, List<SkillWithProficiency>>{};
+    for (final s in data.skills) {
+      skillsByCategory.putIfAbsent(s.category.label, () => []).add(s);
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // --- Header ---
+        Center(
+          child: CircleAvatar(
+            radius: 36,
+            backgroundColor: p.indigoLight,
+            child: Text(
+              data.initials,
+              style: TextStyle(
+                color: p.indigo,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: Text(
+            data.name,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: p.textPrimary,
+            ),
+          ),
+        ),
+        Center(
+          child: Text(
+            data.email,
+            style: TextStyle(fontSize: 12.5, color: p.textMuted),
+          ),
+        ),
+        if (data.phoneNumber != null && data.phoneNumber!.trim().isNotEmpty)
+          Center(
+            child: Text(
+              data.phoneNumber!,
+              style: TextStyle(fontSize: 12.5, color: p.textMuted),
+            ),
+          ),
+        if (data.location != null && data.location!.trim().isNotEmpty)
+          Center(
+            child: Text(
+              data.location!,
+              style: TextStyle(fontSize: 12.5, color: p.textMuted),
+            ),
+          ),
+        if ((data.githubUrl != null && data.githubUrl!.trim().isNotEmpty) ||
+            (data.linkedinUrl != null && data.linkedinUrl!.trim().isNotEmpty))
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Center(
+              child: Wrap(
+                spacing: 14,
+                alignment: WrapAlignment.center,
+                children: [
+                  if (data.githubUrl != null &&
+                      data.githubUrl!.trim().isNotEmpty)
+                    _LinkChip(
+                      icon: Icons.code,
+                      label: extractProfileUsername(data.githubUrl) ?? 'GitHub',
+                      url: data.githubUrl!,
+                    ),
+                  if (data.linkedinUrl != null &&
+                      data.linkedinUrl!.trim().isNotEmpty)
+                    _LinkChip(
+                      icon: Icons.business_center_outlined,
+                      label:
+                          extractProfileUsername(data.linkedinUrl) ??
+                          'LinkedIn',
+                      url: data.linkedinUrl!,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        if (data.bio != null && data.bio!.trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            data.bio!,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: p.textSecondary),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Center(
+          child: Wrap(
+            spacing: 8,
+            children: [
+              Chip(
+                label: Text(_experienceLabel(data.experienceLevel)),
+                visualDensity: VisualDensity.compact,
+              ),
+              Chip(
+                label: Text(data.availability ? 'Available' : 'Not available'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: data.availability ? p.greenLight : p.surface1,
+                labelStyle: TextStyle(
+                  color: data.availability ? p.greenText : p.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: generatingCv ? null : onDownloadCv,
+            icon: generatingCv
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_outlined, size: 18),
+            label: Text(generatingCv ? 'Preparing CV…' : 'Download CV'),
+          ),
+        ),
+        const SizedBox(height: 28),
+
+        // --- Career goal progress ---
+        if (data.careerGoalRoleName != null) ...[
+          SectionHeader(label: 'CAREER GOAL', icon: Icons.flag_outlined),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.careerGoalRoleName!,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  AnimatedProgressBar(
+                    value: data.careerProgressPercent / 100,
+                    backgroundColor: p.surface1,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${data.careerProgressPercent}% ready',
+                    style: TextStyle(fontSize: 11.5, color: p.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+
+        // --- Skills ---
+        SectionHeader(label: 'SKILLS', icon: Icons.psychology_outlined),
+        const SizedBox(height: 8),
+        if (skillsByCategory.isEmpty)
+          _emptyCard(p, 'No skills added yet.')
+        else
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final entry in skillsByCategory.entries) ...[
+                    if (entry.key != skillsByCategory.keys.first)
+                      const SizedBox(height: 12),
+                    Text(
+                      entry.key,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: entry.value
+                          .map((s) => _proficiencyChip(p, s))
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 24),
+
+        // --- Soft skills ---
+        if (data.softSkills.isNotEmpty) ...[
+          SectionHeader(label: 'SOFT SKILLS', icon: Icons.diversity_3_outlined),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: data.softSkills
+                    .map(
+                      (s) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.surface1,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          s,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: p.textSecondary,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+
+        // --- Projects ---
+        SectionHeader(label: 'PROJECTS', icon: Icons.groups_outlined),
+        const SizedBox(height: 8),
+        if (data.projects.isEmpty)
+          _emptyCard(
+            p,
+            'No projects yet — join or start one to build your portfolio.',
+          )
+        else
+          ...data.projects.map(
+            (project) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _PortfolioProjectTile(
+                project: project,
+                onTap: () => context.push('/projects/${project.id}'),
+              ),
+            ),
+          ),
+        const SizedBox(height: 24),
+
+        // --- Portfolio write-ups / links ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            SectionHeader(label: 'PORTFOLIO ITEMS', icon: Icons.link),
+            IconButton(
+              icon: portfolio.mutating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add_circle_outline),
+              tooltip: 'Add portfolio item',
+              onPressed: portfolio.mutating
+                  ? null
+                  : () => onAddItem(data.projects),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        if (data.portfolioItems.isEmpty)
+          _emptyCard(
+            p,
+            'Nothing here yet — add a link or write-up to show off your work.',
+          )
+        else
+          Card(
+            child: Column(
+              children: [
+                for (final item in data.portfolioItems) ...[
+                  if (item != data.portfolioItems.first)
+                    const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.projectName ??
+                                    item.userRole ??
+                                    'Portfolio item',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.textPrimary,
+                                ),
+                              ),
+                              if (item.description != null &&
+                                  item.description!.trim().isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.description!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: p.textMuted,
+                                  ),
+                                ),
+                              ],
+                              if (item.githubUrl != null &&
+                                  item.githubUrl!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.githubUrl!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: p.indigo,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 19,
+                            color: p.textMuted,
+                          ),
+                          tooltip: 'Remove',
+                          onPressed: () => onDeleteItem(item.id),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 24),
+
+        // --- Certifications ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            SectionHeader(
+              label: 'CERTIFICATIONS',
+              icon: Icons.verified_outlined,
+            ),
+            IconButton(
+              icon: portfolio.mutating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add_circle_outline),
+              tooltip: 'Add certification',
+              onPressed: portfolio.mutating ? null : onAddCertification,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        if (data.certifications.isEmpty)
+          _emptyCard(p, 'No certifications added yet.')
+        else
+          Card(
+            child: Column(
+              children: [
+                for (final cert in data.certifications) ...[
+                  if (cert != data.certifications.first)
+                    const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                cert.name,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.textPrimary,
+                                ),
+                              ),
+                              if ((cert.issuer != null &&
+                                      cert.issuer!.isNotEmpty) ||
+                                  cert.earnedOn != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  [
+                                    if (cert.issuer != null &&
+                                        cert.issuer!.isNotEmpty)
+                                      cert.issuer!,
+                                    if (cert.earnedOn != null)
+                                      _formatDate(cert.earnedOn!),
+                                  ].join('  ·  '),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: p.textMuted,
+                                  ),
+                                ),
+                              ],
+                              if (cert.credentialUrl != null &&
+                                  cert.credentialUrl!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                _InlineLink(url: cert.credentialUrl!),
+                              ],
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 19,
+                            color: p.textMuted,
+                          ),
+                          tooltip: 'Remove',
+                          onPressed: () => onDeleteCertification(cert.id),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime d) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[d.month - 1]} ${d.year}';
+  }
+
+  Widget _emptyCard(AppPalette p, String message) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          message,
+          style: TextStyle(fontSize: 12.5, color: p.textMuted),
+        ),
+      ),
+    );
+  }
+
+  Widget _proficiencyChip(AppPalette p, SkillWithProficiency s) {
+    final (bg, fg) = switch (s.proficiency) {
+      SkillProficiency.beginner => (p.surface1, p.textSecondary),
+      SkillProficiency.intermediate => (p.amberLight, p.amberText),
+      SkillProficiency.advanced => (p.greenLight, p.greenText),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '${s.name} · ${s.proficiency.shortLabel}',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: fg),
+      ),
+    );
+  }
+
+  String _experienceLabel(ExperienceLevel level) {
+    switch (level) {
+      case ExperienceLevel.beginner:
+        return 'Beginner';
+      case ExperienceLevel.intermediate:
+        return 'Intermediate';
+      case ExperienceLevel.advanced:
+        return 'Advanced';
+    }
+  }
+}
+
+// --- Add portfolio item ---
+
+class _NewPortfolioItem {
+  _NewPortfolioItem({
+    this.projectId,
+    this.githubUrl,
+    this.description,
+    this.userRole,
+  });
+  final int? projectId;
+  final String? githubUrl;
+  final String? description;
+  final String? userRole;
+}
+
+class _AddPortfolioItemSheet extends StatefulWidget {
+  const _AddPortfolioItemSheet({required this.projects});
+  final List<Project> projects;
+
+  @override
+  State<_AddPortfolioItemSheet> createState() => _AddPortfolioItemSheetState();
+}
+
+class _AddPortfolioItemSheetState extends State<_AddPortfolioItemSheet> {
+  int? _projectId;
+  final _urlController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _roleController = TextEditingController();
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _descriptionController.dispose();
+    _roleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add portfolio item',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          if (widget.projects.isNotEmpty) ...[
+            DropdownButtonFormField<int?>(
+              initialValue: _projectId,
+              decoration: const InputDecoration(
+                labelText: 'Link to a project (optional)',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem<int?>(value: null, child: Text('None')),
+                ...widget.projects.map(
+                  (p) => DropdownMenuItem<int?>(
+                    value: p.id,
+                    child: Text(p.name, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              onChanged: (v) => setState(() => _projectId = v),
+            ),
+            const SizedBox(height: 12),
+          ],
+          TextField(
+            controller: _roleController,
+            maxLength: 100,
+            decoration: const InputDecoration(
+              labelText: 'Your role (e.g. "Frontend developer")',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _urlController,
+            decoration: const InputDecoration(
+              labelText: 'Link (GitHub, live demo, write-up, etc.)',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.url,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _descriptionController,
+            maxLines: 3,
+            maxLength: 2000,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(onPressed: _submit, child: const Text('Add')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submit() {
+    if (!_canSubmit()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add a role, link, or description first.'),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(
+      _NewPortfolioItem(
+        projectId: _projectId,
+        githubUrl: _urlController.text.trim().isEmpty
+            ? null
+            : _urlController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        userRole: _roleController.text.trim().isEmpty
+            ? null
+            : _roleController.text.trim(),
+      ),
+    );
+  }
+
+  bool _canSubmit() {
+    return _roleController.text.trim().isNotEmpty ||
+        _urlController.text.trim().isNotEmpty ||
+        _descriptionController.text.trim().isNotEmpty;
+  }
+}
+
+/// Small tappable pill for an external profile link
+class _LinkChip extends StatelessWidget {
+  const _LinkChip({required this.icon, required this.label, required this.url});
+  final IconData icon;
+  final String label;
+  final String url;
+
+  Future<void> _open(BuildContext context) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !await canLaunchUrl(uri)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not open $label link.')));
+      }
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return InkWell(
+      onTap: () => _open(context),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: p.indigo),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: p.indigo,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A project card for the Portfolio screen
+class _PortfolioProjectTile extends StatelessWidget {
+  const _PortfolioProjectTile({required this.project, required this.onTap});
+  final Project project;
+  final VoidCallback onTap;
+
+  Future<void> _openLink(BuildContext context) async {
+    final link = project.link;
+    if (link == null || link.trim().isEmpty) return;
+    final uri = Uri.tryParse(link);
+    if (uri == null || !await canLaunchUrl(uri)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open that link.')),
+        );
+      }
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _statusBadge(AppPalette p) {
+    final (bg, fg, label) = switch (project.status) {
+      ProjectStatus.open => (p.greenLight, p.greenText, 'Open'),
+      ProjectStatus.full => (p.amberLight, p.amberText, 'Full'),
+      ProjectStatus.completed => (p.surface1, p.textSecondary, 'Completed'),
+      ProjectStatus.cancelled => (p.redLight, p.red, 'Cancelled'),
+      ProjectStatus.unknown => (p.surface1, p.textSecondary, '—'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final hasLink = project.link != null && project.link!.trim().isNotEmpty;
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: hasLink
+                        ? InkWell(
+                            onTap: () => _openLink(context),
+                            child: Text(
+                              project.name,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: p.indigo,
+                                decoration: TextDecoration.underline,
+                                decorationColor: p.indigo,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )
+                        : Text(
+                            project.name,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: p.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  _statusBadge(p),
+                ],
+              ),
+              if (project.description != null &&
+                  project.description!.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  project.description!,
+                  style: TextStyle(fontSize: 12, color: p.textMuted),
+                ),
+              ],
+              if (project.requiredSkills.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Technologies used: ',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: p.textSecondary,
+                        ),
+                      ),
+                      TextSpan(
+                        text: project.requiredSkills
+                            .map((s) => s.name)
+                            .join(', '),
+                        style: TextStyle(fontSize: 11.5, color: p.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Inline tappable URL text, used for the certification credential link.
+class _InlineLink extends StatelessWidget {
+  const _InlineLink({required this.url});
+  final String url;
+
+  Future<void> _open(BuildContext context) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !await canLaunchUrl(uri)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open that link.')),
+        );
+      }
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return InkWell(
+      onTap: () => _open(context),
+      child: Text(
+        extractProfileUsername(url) ?? url,
+        style: TextStyle(fontSize: 12, color: p.indigo),
+      ),
+    );
+  }
+}
+
+//add certification
+
+class _NewCertification {
+  _NewCertification({
+    required this.name,
+    this.issuer,
+    this.credentialUrl,
+    this.earnedOn,
+  });
+  final String name;
+  final String? issuer;
+  final String? credentialUrl;
+  final DateTime? earnedOn;
+}
+
+class _AddCertificationSheet extends StatefulWidget {
+  const _AddCertificationSheet();
+
+  @override
+  State<_AddCertificationSheet> createState() => _AddCertificationSheetState();
+}
+
+class _AddCertificationSheetState extends State<_AddCertificationSheet> {
+  final _nameController = TextEditingController();
+  final _issuerController = TextEditingController();
+  final _urlController = TextEditingController();
+  DateTime? _earnedOn;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _issuerController.dispose();
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _earnedOn ?? now,
+      firstDate: DateTime(1990),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _earnedOn = picked);
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Certification name is required.')),
+      );
+      return;
+    }
+    Navigator.of(context).pop(
+      _NewCertification(
+        name: name,
+        issuer: _issuerController.text.trim().isEmpty
+            ? null
+            : _issuerController.text.trim(),
+        credentialUrl: _urlController.text.trim().isEmpty
+            ? null
+            : _urlController.text.trim(),
+        earnedOn: _earnedOn,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add certification',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _nameController,
+            maxLength: 200,
+            decoration: const InputDecoration(
+              labelText: 'Name',
+              hintText: 'AWS Certified Cloud Practitioner',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _issuerController,
+            maxLength: 200,
+            decoration: const InputDecoration(
+              labelText: 'Issuer (optional)',
+              hintText: 'Amazon Web Services',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _urlController,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              labelText: 'Credential link (optional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: _pickDate,
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Date earned (optional)',
+                border: OutlineInputBorder(),
+              ),
+              child: Text(
+                _earnedOn == null
+                    ? 'Select a date'
+                    : '${_earnedOn!.year}-${_earnedOn!.month.toString().padLeft(2, '0')}-${_earnedOn!.day.toString().padLeft(2, '0')}',
+                style: TextStyle(
+                  color: _earnedOn == null ? p.textMuted : p.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(onPressed: _submit, child: const Text('Add')),
+          ),
+        ],
+      ),
+    );
+  }
+}
