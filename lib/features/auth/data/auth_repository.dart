@@ -125,6 +125,11 @@ class AuthRepository {
 
   Future<AppUser> updateProfile({
     required String name,
+    String? phoneNumber,
+    String? githubUrl,
+    String? linkedinUrl,
+    String? location,
+    String? softSkills,
     String? bio,
     ExperienceLevel? experienceLevel,
     bool? availability,
@@ -135,18 +140,21 @@ class AuthRepository {
 
     final current = await sync();
 
+    final body = <String, dynamic>{'name': name};
+    if (phoneNumber != null) body['phoneNumber'] = phoneNumber;
+    if (githubUrl != null) body['githubUrl'] = githubUrl;
+    if (linkedinUrl != null) body['linkedinUrl'] = linkedinUrl;
+    if (location != null) body['location'] = location;
+    if (softSkills != null) body['softSkills'] = softSkills;
+    if (bio != null) body['bio'] = bio;
+    if (experienceLevel != null) {
+      body['experienceLevel'] = experienceLevelToApiString(experienceLevel);
+    }
+    if (availability != null) body['availability'] = availability;
+    if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
+
     return _api.unwrap(
-      (dio) => dio.put(
-        '/api/v1/users/${current.id}',
-        data: {
-          'name': name,
-          'bio': ?bio,
-          if (experienceLevel != null)
-            'experienceLevel': experienceLevelToApiString(experienceLevel),
-          'availability': ?availability,
-          'avatarUrl': ?avatarUrl,
-        },
-      ),
+      (dio) => dio.put('/api/v1/users/${current.id}', data: body),
       (data) => AppUser.fromJson(data as Map<String, dynamic>),
     );
   }
