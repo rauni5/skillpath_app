@@ -12,6 +12,8 @@ import 'features/admin/providers/admin_users_provider.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/career/providers/career_provider.dart';
 import 'features/dashboard/providers/dashboard_provider.dart';
+import 'features/notifications/data/notification_service.dart';
+import 'features/profile/providers/portfolio_provider.dart';
 import 'features/projects/providers/project_management_provider.dart';
 import 'features/projects/providers/projects_provider.dart';
 import 'features/roadmap/providers/roadmap_provider.dart';
@@ -23,6 +25,7 @@ import 'firebase_options.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationService.instance.initialize();
   runApp(const SkillPathApp());
 }
 
@@ -35,6 +38,7 @@ class SkillPathApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(create: (_) => PortfolioProvider()),
         ChangeNotifierProvider(create: (_) => RoadmapProvider()),
         ChangeNotifierProvider(create: (_) => SkillsProvider()),
         ChangeNotifierProvider(create: (_) => CareerProvider()),

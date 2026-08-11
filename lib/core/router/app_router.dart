@@ -17,7 +17,9 @@ import '../../features/auth/screens/verify_email_screen.dart';
 import '../../features/career/screens/career_goal_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
-import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/portfolio_screen.dart';
+import '../../features/profile/screens/settings_screen.dart';
 import '../../features/projects/screens/create_project_screen.dart';
 import '../../features/projects/screens/edit_project_screen.dart';
 import '../../features/projects/screens/my_invites_screen.dart';
@@ -227,8 +229,18 @@ GoRouter buildRouter(AuthProvider authProvider) {
             routes: [
               GoRoute(
                 path: '/profile',
-                builder: (context, state) => const ProfileScreen(),
+                builder: (context, state) => const PortfolioScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'settings',
+                    builder: (context, state) => const SettingsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (context, state) => const EditProfileScreen(),
+                      ),
+                    ],
+                  ),
                   GoRoute(
                     path: 'skills',
                     builder: (context, state) => const SkillsScreen(),
