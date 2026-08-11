@@ -19,6 +19,11 @@ const _navItems = [
   _AdminNavItem('/admin/users', Icons.people_outline, 'Users'),
   _AdminNavItem('/admin/skills', Icons.psychology_outlined, 'Skills'),
   _AdminNavItem('/admin/roles', Icons.badge_outlined, 'Career Roles'),
+  _AdminNavItem(
+    '/admin/achievements',
+    Icons.emoji_events_outlined,
+    'Achievements',
+  ),
 ];
 
 class AdminShell extends StatelessWidget {

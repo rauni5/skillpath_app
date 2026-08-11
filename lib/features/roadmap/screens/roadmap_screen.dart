@@ -52,7 +52,16 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
     final roadmap = context.watch<RoadmapProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your roadmap')),
+      appBar: AppBar(
+        title: const Text('Your roadmap'),
+        actions: [
+          IconButton(
+            tooltip: 'Ask AI about your roadmap',
+            icon: const Icon(Icons.forum_outlined),
+            onPressed: () => context.push('/roadmap/chat'),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async => _load(),
         child: AnimatedSwitcher(

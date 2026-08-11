@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -10,10 +12,14 @@ import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../projects/data/membership_alert_service.dart';
+import '../providers/dashboard_ai_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/gamification_provider.dart';
+import '../widgets/achievements_section.dart';
+import '../widgets/ai_summary_card.dart';
 import '../widgets/progress_ring.dart';
 import '../widgets/project_card.dart';
-import '../widgets/skill_chip.dart';
+import '../widgets/streak_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -32,19 +38,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _load() async {
-    final userId = context.read<AuthProvider>().currentUser?.id;
+    final auth = context.read<AuthProvider>();
+    final dashboard = context.read<DashboardProvider>();
+    final dashboardAi = context.read<DashboardAiProvider>();
+    final gamification = context.read<GamificationProvider>();
+    final userId = auth.currentUser?.id;
     if (userId == null) return;
-    await context.read<DashboardProvider>().load(userId);
+    await dashboard.load(userId);
+    unawaited(dashboardAi.load(userId));
+    unawaited(gamification.load(userId));
+
     final changes = await _alertService.checkForChanges(userId);
     if (!mounted) return;
+    // Capture ScaffoldMessenger before any potential loop context usage
+    final messenger = ScaffoldMessenger.of(context);
     for (final c in changes) {
       final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Your request to join "${c.projectName}" was $verb.'),
         ),
       );
     }
+  }
+
+  Future<void> _generateSummary() async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+    await context.read<DashboardAiProvider>().generate(userId);
   }
 
   @override
@@ -193,28 +214,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     const SizedBox(height: 14),
 
-                    // Next skills to learn
-                    const SectionHeader(
-                      label: 'NEXT UP',
-                      icon: Icons.bolt_outlined,
-                    ),
-                    const SizedBox(height: 8),
-                    if (data.nextSkillsToLearn.isEmpty)
-                      Text(
-                        'You\'re all caught up on your roadmap 🎉',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: colors.textMuted,
-                        ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: data.nextSkillsToLearn
-                            .map((s) => SkillChipWidget(skill: s))
-                            .toList(),
+                    // AI-generated "what's next" summary (replaces the old
+                    // static "next up" skill list).
+                    Consumer<DashboardAiProvider>(
+                      builder: (context, ai, _) => AiSummaryCard(
+                        provider: ai,
+                        onRefresh: _generateSummary,
                       ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // Gamification: streak + achievements
+                    Consumer<GamificationProvider>(
+                      builder: (context, gami, _) {
+                        if (gami.state != GamificationLoadState.loaded) {
+                          return const SizedBox.shrink();
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (gami.streak != null) ...[
+                              StreakCard(streak: gami.streak!),
+                              const SizedBox(height: 18),
+                            ],
+                            AchievementsSection(
+                              achievements: gami.achievements,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
 
                     const SizedBox(height: 18),
 
