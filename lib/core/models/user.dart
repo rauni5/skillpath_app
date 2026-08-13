@@ -27,6 +27,11 @@ class AppUser {
   final int id;
   final String name;
   final String email;
+  final String? phoneNumber;
+  final String? githubUrl;
+  final String? linkedinUrl;
+  final String? location;
+  final String? softSkills;
   final String? bio;
   final ExperienceLevel experienceLevel;
   final bool availability;
@@ -38,6 +43,11 @@ class AppUser {
     required this.id,
     required this.name,
     required this.email,
+    this.phoneNumber,
+    this.githubUrl,
+    this.linkedinUrl,
+    this.location,
+    this.softSkills,
     this.bio,
     required this.experienceLevel,
     required this.availability,
@@ -51,6 +61,11 @@ class AppUser {
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
+      phoneNumber: json['phoneNumber'] as String?,
+      githubUrl: json['githubUrl'] as String?,
+      linkedinUrl: json['linkedinUrl'] as String?,
+      location: json['location'] as String?,
+      softSkills: json['softSkills'] as String?,
       bio: json['bio'] as String?,
       experienceLevel: experienceLevelFromString(
         json['experienceLevel'] as String?,

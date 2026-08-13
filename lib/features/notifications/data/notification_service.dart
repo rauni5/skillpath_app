@@ -147,6 +147,23 @@ class NotificationService {
     }
   }
 
+  Future<void> setPushEnabled(bool enabled, int userId) async {
+    if (enabled) {
+      await registerForUser(userId);
+      return;
+    }
+    _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = null;
+    try {
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await _authRepo.unregisterDeviceToken(userId, token);
+      }
+    } catch (e) {
+      debugPrint('Could not unregister device token: $e');
+    }
+  }
+
   void _onForegroundMessage(RemoteMessage message) {
     debugPrint('NotificationService: foreground message, data=${message.data}');
     final notification = message.notification;
@@ -243,7 +260,6 @@ class NotificationService {
     if (kIsWeb) return 'web';
     return defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
   }
-
   void disposeListeners() {
     _foregroundSub?.cancel();
     _openedAppSub?.cancel();

@@ -6,12 +6,14 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/project_member.dart';
 import '../../../core/models/recommended_member.dart';
+import '../../../core/models/user_search_result.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/project_management_provider.dart';
+import '../providers/user_search_provider.dart';
 import '../widgets/difficulty_badge.dart';
 
 class ProjectManageScreen extends StatefulWidget {
@@ -38,15 +40,30 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final mgmt = context.watch<ProjectManagementProvider>();
+    final project = mgmt.managedProject;
+    final myId = context.watch<AuthProvider>().currentUser?.id;
+    final isMember =
+        project != null &&
+        (project.ownerId == myId ||
+            project.viewerMembershipStatus == MemberStatus.accepted);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Project'),
         actions: [
+          if (project != null)
+            IconButton(
+              tooltip: 'Discussion',
+              icon: const Icon(Icons.forum_outlined),
+              onPressed: () => context.push(
+                '/projects/${project.id}/discussion',
+                extra: {'name': project.name, 'isMember': isMember},
+              ),
+            ),
           IconButton(
             tooltip: 'Edit project',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: mgmt.managedProject == null
+            onPressed: project == null
                 ? null
                 : () => context.push('/projects/mine/${widget.projectId}/edit'),
           ),
@@ -189,6 +206,13 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
                   ),
                 ),
               ],
+              const SizedBox(height: 24),
+              SectionHeader(
+                label: 'INVITE BY NAME OR EMAIL',
+                icon: Icons.person_search_outlined,
+              ),
+              const SizedBox(height: 10),
+              _SearchInviteSection(projectId: widget.projectId),
             ],
           ),
         );
@@ -589,6 +613,170 @@ class _RecommendedInviteTile extends StatelessWidget {
                 context.read<ProjectManagementProvider>().invite(
                   projectId,
                   member.userId,
+                );
+              },
+              child: const Text('Invite'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchInviteSection extends StatefulWidget {
+  const _SearchInviteSection({required this.projectId});
+  final int projectId;
+
+  @override
+  State<_SearchInviteSection> createState() => _SearchInviteSectionState();
+}
+
+class _SearchInviteSectionState extends State<_SearchInviteSection> {
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    context.read<UserSearchProvider>().clear();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final search = context.watch<UserSearchProvider>();
+    final mgmt = context.watch<ProjectManagementProvider>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _searchCtrl,
+          onChanged: (v) =>
+              context.read<UserSearchProvider>().onQueryChanged(v),
+          decoration: InputDecoration(
+            hintText: 'Search by name or email…',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            isDense: true,
+            suffixIcon: _searchCtrl.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      context.read<UserSearchProvider>().clear();
+                    },
+                  ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        switch (search.state) {
+          UserSearchLoadState.idle => Text(
+            'Type at least 2 characters to search.',
+            style: TextStyle(fontSize: 12, color: p.textMuted),
+          ),
+          UserSearchLoadState.loading => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+          UserSearchLoadState.error => Text(
+            search.error ?? 'Search failed.',
+            style: TextStyle(fontSize: 12, color: p.red),
+          ),
+          UserSearchLoadState.loaded when search.results.isEmpty => Text(
+            'No one found matching that search.',
+            style: TextStyle(fontSize: 12, color: p.textMuted),
+          ),
+          UserSearchLoadState.loaded => Column(
+            children: search.results
+                .map(
+                  (u) => _SearchResultTile(
+                    projectId: widget.projectId,
+                    user: u,
+                    alreadyInvited:
+                        mgmt.invitedUserIds.contains(u.id) ||
+                        mgmt.members.any((m) => m.userId == u.id),
+                  ),
+                )
+                .toList(),
+          ),
+        },
+      ],
+    );
+  }
+}
+
+class _SearchResultTile extends StatelessWidget {
+  const _SearchResultTile({
+    required this.projectId,
+    required this.user,
+    required this.alreadyInvited,
+  });
+
+  final int projectId;
+  final UserSearchResult user;
+  final bool alreadyInvited;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: p.surface2,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.border),
+      ),
+      child: Row(
+        children: [
+          _avatar(p, user.name),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: p.textPrimary,
+                  ),
+                ),
+                if (user.bio != null && user.bio!.isNotEmpty)
+                  Text(
+                    user.bio!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: p.textMuted),
+                  ),
+              ],
+            ),
+          ),
+          if (alreadyInvited)
+            Text(
+              'Invited',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: p.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            TextButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                context.read<ProjectManagementProvider>().invite(
+                  projectId,
+                  user.id,
                 );
               },
               child: const Text('Invite'),

@@ -1,0 +1,78 @@
+import 'package:flutter/material.dart' show IconData, Icons;
+
+class Achievement {
+  final String code;
+  final String title;
+  final String description;
+  final String icon;
+  final String category;
+  final bool unlocked;
+  final DateTime? unlockedAt;
+
+  Achievement({
+    required this.code,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.category,
+    required this.unlocked,
+    this.unlockedAt,
+  });
+
+  factory Achievement.fromJson(Map<String, dynamic> json) {
+    final unlockedAtRaw = json['unlockedAt'] as String?;
+    return Achievement(
+      code: json['code'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      icon: json['icon'] as String? ?? 'emoji_events',
+      category: json['category'] as String? ?? '',
+      unlocked: json['unlocked'] as bool? ?? false,
+      unlockedAt: unlockedAtRaw == null
+          ? null
+          : DateTime.tryParse(unlockedAtRaw),
+    );
+  }
+
+  /// Maps the backend's icon name (from the achievements catalog) to a
+  /// concrete Material icon. Falls back to a trophy if unrecognized. Shared
+  /// with the admin achievement picker so both stay in sync.
+  IconData get iconData => iconForName(icon);
+
+  static IconData iconForName(String icon) {
+    switch (icon) {
+      case 'flag':
+        return Icons.flag_outlined;
+      case 'trending_up':
+        return Icons.trending_up;
+      case 'rocket_launch':
+        return Icons.rocket_launch_outlined;
+      case 'timelapse':
+        return Icons.timelapse;
+      case 'emoji_events':
+        return Icons.emoji_events_outlined;
+      case 'quiz':
+        return Icons.quiz_outlined;
+      case 'workspace_premium':
+        return Icons.workspace_premium_outlined;
+      case 'local_fire_department':
+        return Icons.local_fire_department_outlined;
+      case 'whatshot':
+        return Icons.whatshot;
+      case 'bolt':
+        return Icons.bolt;
+      case 'groups':
+        return Icons.groups_outlined;
+      case 'campaign':
+        return Icons.campaign_outlined;
+      case 'forum':
+        return Icons.forum_outlined;
+      case 'star':
+        return Icons.star_outline;
+      case 'celebration':
+        return Icons.celebration_outlined;
+      default:
+        return Icons.emoji_events_outlined;
+    }
+  }
+}

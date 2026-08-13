@@ -1,4 +1,5 @@
 import '../../../core/models/branch_requirement.dart';
+import '../../../core/models/admin_achievement.dart';
 import '../../../core/models/career_role.dart';
 import '../../../core/models/role_branch.dart';
 import '../../../core/models/skill.dart';
@@ -301,6 +302,91 @@ class AdminRepository {
       (dio) =>
           dio.delete('/api/v1/admin/branches/$branchId/requirements/$skillId'),
       (_) {},
+    );
+  }
+
+  // --- Achievements ---
+
+  /// GET /api/v1/admin/achievements
+  Future<List<AdminAchievement>> getAchievements() {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/achievements'),
+      (data) => (data as List<dynamic>)
+          .map((e) => AdminAchievement.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  /// GET /api/v1/admin/achievements/{id}
+  Future<AdminAchievement> getAchievement(int id) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/achievements/$id'),
+      (data) => AdminAchievement.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// POST /api/v1/admin/achievements
+  Future<AdminAchievement> createAchievement({
+    required String code,
+    required String title,
+    required String description,
+    required String icon,
+    required String category,
+    required AchievementCriteriaType criteriaType,
+    required int criteriaValue,
+  }) {
+    return _api.unwrap(
+      (dio) => dio.post(
+        '/api/v1/admin/achievements',
+        data: {
+          'code': code,
+          'title': title,
+          'description': description,
+          'icon': icon,
+          'category': category,
+          'criteriaType': achievementCriteriaTypeToApiString(criteriaType),
+          'criteriaValue': criteriaValue,
+        },
+      ),
+      (data) => AdminAchievement.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// PUT /api/v1/admin/achievements/{id}
+  Future<AdminAchievement> updateAchievement(
+    int id, {
+    required String title,
+    required String description,
+    required String icon,
+    required String category,
+    required AchievementCriteriaType criteriaType,
+    required int criteriaValue,
+    required bool enabled,
+  }) {
+    return _api.unwrap(
+      (dio) => dio.put(
+        '/api/v1/admin/achievements/$id',
+        data: {
+          'title': title,
+          'description': description,
+          'icon': icon,
+          'category': category,
+          'criteriaType': achievementCriteriaTypeToApiString(criteriaType),
+          'criteriaValue': criteriaValue,
+          'enabled': enabled,
+        },
+      ),
+      (data) => AdminAchievement.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// DELETE /api/v1/admin/achievements/{id} — may disable instead of
+  /// deleting; see [AchievementDeletionResult].
+  Future<AchievementDeletionResult> deleteAchievement(int id) {
+    return _api.unwrap(
+      (dio) => dio.delete('/api/v1/admin/achievements/$id'),
+      (data) =>
+          AchievementDeletionResult.fromJson(data as Map<String, dynamic>),
     );
   }
 }

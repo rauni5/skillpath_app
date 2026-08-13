@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/screens/admin_achievement_form_screen.dart';
+import '../../features/admin/screens/admin_achievements_screen.dart';
 import '../../features/admin/screens/admin_blocked_screen.dart';
 import '../../features/admin/screens/admin_branch_detail_screen.dart';
 import '../../features/admin/screens/admin_home_screen.dart';
@@ -18,19 +20,28 @@ import '../../features/auth/screens/verify_email_screen.dart';
 import '../../features/career/screens/career_goal_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
-import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/portfolio_screen.dart';
+import '../../features/profile/screens/settings_screen.dart';
+import '../../features/projects/screens/create_post_screen.dart';
 import '../../features/projects/screens/create_project_screen.dart';
 import '../../features/projects/screens/edit_project_screen.dart';
 import '../../features/projects/screens/my_invites_screen.dart';
 import '../../features/projects/screens/my_projects_screen.dart';
+import '../../features/projects/screens/post_detail_screen.dart';
 import '../../features/projects/screens/project_detail_screen.dart';
+import '../../features/projects/screens/project_discussion_screen.dart';
 import '../../features/projects/screens/project_manage_screen.dart';
 import '../../features/projects/screens/projects_list_screen.dart';
+import '../../features/roadmap/screens/roadmap_chat_screen.dart';
+import '../../features/roadmap/screens/roadmap_chat_sessions_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
+import '../../core/models/roadmap_chat_session.dart';
 import '../../features/skills/screens/skills_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
 import '../../shared/widgets/app_shell.dart';
+import '../models/discussion_post.dart';
 import 'navigation_keys.dart';
 
 GoRouter buildRouter(AuthProvider authProvider) {
@@ -147,6 +158,17 @@ GoRouter buildRouter(AuthProvider authProvider) {
             builder: (context, state) => AdminBranchDetailScreen(
               roleId: int.parse(state.pathParameters['roleid']!),
               branchId: int.parse(state.pathParameters['id']!),
+            path: '/admin/achievements',
+            builder: (context, state) => const AdminAchievementsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/achievements/new',
+            builder: (context, state) => const AdminAchievementFormScreen(),
+          ),
+          GoRoute(
+            path: '/admin/achievements/:id',
+            builder: (context, state) => AdminAchievementFormScreen(
+              achievementId: int.parse(state.pathParameters['id']!),
             ),
           ),
         ],
@@ -182,6 +204,19 @@ GoRouter buildRouter(AuthProvider authProvider) {
                       skillId: int.parse(state.pathParameters['skillId']!),
                       skillName: state.extra as String? ?? 'Skill',
                     ),
+                  ),
+                  GoRoute(
+                    path: 'chat',
+                    builder: (context, state) =>
+                        const RoadmapChatSessionsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'session',
+                        builder: (context, state) => RoadmapChatScreen(
+                          session: state.extra as RoadmapChatSession,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -226,6 +261,41 @@ GoRouter buildRouter(AuthProvider authProvider) {
                     builder: (context, state) => ProjectDetailScreen(
                       projectId: int.parse(state.pathParameters['id']!),
                     ),
+                    routes: [
+                      GoRoute(
+                        path: 'discussion',
+                        builder: (context, state) {
+                          final extra =
+                              state.extra as Map<String, dynamic>? ?? {};
+                          return ProjectDiscussionScreen(
+                            projectId: int.parse(state.pathParameters['id']!),
+                            projectName:
+                                extra['name'] as String? ?? 'Discussion',
+                            isMember: extra['isMember'] as bool? ?? false,
+                          );
+                        },
+                        routes: [
+                          GoRoute(
+                            path: 'new',
+                            builder: (context, state) => CreatePostScreen(
+                              projectId: int.parse(state.pathParameters['id']!),
+                              channel:
+                                  state.extra as DiscussionChannel? ??
+                                  DiscussionChannel.public,
+                            ),
+                          ),
+                          GoRoute(
+                            path: 'post/:postId',
+                            builder: (context, state) => PostDetailScreen(
+                              projectId: int.parse(state.pathParameters['id']!),
+                              postId: int.parse(
+                                state.pathParameters['postId']!,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -235,8 +305,18 @@ GoRouter buildRouter(AuthProvider authProvider) {
             routes: [
               GoRoute(
                 path: '/profile',
-                builder: (context, state) => const ProfileScreen(),
+                builder: (context, state) => const PortfolioScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'settings',
+                    builder: (context, state) => const SettingsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (context, state) => const EditProfileScreen(),
+                      ),
+                    ],
+                  ),
                   GoRoute(
                     path: 'skills',
                     builder: (context, state) => const SkillsScreen(),
