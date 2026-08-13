@@ -38,6 +38,7 @@ import '../../features/roadmap/screens/roadmap_chat_sessions_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
 import '../../core/models/roadmap_chat_session.dart';
 import '../../features/skills/screens/skills_screen.dart';
+import '../../features/splash/screens/splash_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -47,10 +48,11 @@ import 'navigation_keys.dart';
 GoRouter buildRouter(AuthProvider authProvider) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/login',
+    initialLocation: '/splash',
     refreshListenable: authProvider,
     redirect: (context, state) {
       final loc = state.matchedLocation;
+      final onSplash = loc == '/splash';
       final onAuthScreens =
           loc == '/login' || loc == '/register' || loc == '/forgot-password';
       final onOnboarding = loc == '/onboarding';
@@ -59,6 +61,9 @@ GoRouter buildRouter(AuthProvider authProvider) {
       final onAdmin = loc.startsWith('/admin');
 
       if (authProvider.status == AuthStatus.unknown) return null;
+      if (authProvider.status == AuthStatus.unknown) {
+        return onSplash ? null : '/splash';
+      }
 
       if (authProvider.status == AuthStatus.unauthenticated) {
         return onAuthScreens ? null : '/login';
@@ -98,9 +103,16 @@ GoRouter buildRouter(AuthProvider authProvider) {
       }
 
       if (onOnboarding || onAuthScreens || onVerifyEmail) return '/dashboard';
+      if (onOnboarding || onAuthScreens || onVerifyEmail || onSplash) {
+        return '/dashboard';
+      }
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',
