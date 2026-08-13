@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/admin/screens/admin_achievement_form_screen.dart';
 import '../../features/admin/screens/admin_achievements_screen.dart';
 import '../../features/admin/screens/admin_blocked_screen.dart';
+import '../../features/admin/screens/admin_branch_detail_screen.dart';
 import '../../features/admin/screens/admin_home_screen.dart';
 import '../../features/admin/screens/admin_role_detail_screen.dart';
 import '../../features/admin/screens/admin_roles_screen.dart';
@@ -153,6 +154,10 @@ GoRouter buildRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
+            path: '/admin/roles/:roleid/branches/:id',
+            builder: (context, state) => AdminBranchDetailScreen(
+              roleId: int.parse(state.pathParameters['roleid']!),
+              branchId: int.parse(state.pathParameters['id']!),
             path: '/admin/achievements',
             builder: (context, state) => const AdminAchievementsScreen(),
           ),

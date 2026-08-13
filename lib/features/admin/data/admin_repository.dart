@@ -1,12 +1,15 @@
+import '../../../core/models/branch_requirement.dart';
 import '../../../core/models/admin_achievement.dart';
 import '../../../core/models/career_role.dart';
-import '../../../core/models/role_requirement.dart';
+import '../../../core/models/role_branch.dart';
 import '../../../core/models/skill.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
 
 class AdminRepository {
   final ApiClient _api = ApiClient.instance;
+
+  // --- Users ---
 
   /// GET /api/v1/admin/users
   Future<List<AppUser>> getUsers() {
@@ -191,44 +194,113 @@ class AdminRepository {
     );
   }
 
-  /// GET /api/v1/admin/career-roles/{id}/requirements
-  Future<List<RoleRequirement>> getRoleRequirements(int roleId) {
+  // --- Role Branches (a role's required skills live here, not on the role) ---
+
+  /// GET /api/v1/admin/career-roles/{roleId}/branches
+  Future<List<RoleBranch>> getBranches(int roleId) {
     return _api.unwrap(
-      (dio) => dio.get('/api/v1/admin/career-roles/$roleId/requirements'),
+      (dio) => dio.get('/api/v1/admin/career-roles/$roleId/branches'),
       (data) => (data as List<dynamic>)
-          .map((e) => RoleRequirement.fromJson(e as Map<String, dynamic>))
+          .map((e) => RoleBranch.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
 
-  /// POST /api/v1/admin/career-roles/{id}/requirements
-  Future<void> addRoleRequirement(int roleId, int skillId, int importance) {
+  /// GET /api/v1/admin/branches/{branchId}
+  Future<RoleBranch> getBranch(int branchId) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/branches/$branchId'),
+      (data) => RoleBranch.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// POST /api/v1/admin/career-roles/{roleId}/branches
+  Future<RoleBranch> createBranch(
+    int roleId, {
+    required String name,
+    String? description,
+  }) {
     return _api.unwrap(
       (dio) => dio.post(
-        '/api/v1/admin/career-roles/$roleId/requirements',
-        data: {'skillId': skillId, 'importance': importance},
+        '/api/v1/admin/career-roles/$roleId/branches',
+        data: {
+          'name': name,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+        },
       ),
-      (_) {},
+      (data) => RoleBranch.fromJson(data as Map<String, dynamic>),
     );
   }
 
-  /// PUT /api/v1/admin/career-roles/{id}/requirements/{skillId}
-  Future<void> updateRoleRequirement(int roleId, int skillId, int importance) {
+  /// PUT /api/v1/admin/branches/{branchId}
+  Future<RoleBranch> updateBranch(
+    int branchId, {
+    required String name,
+    String? description,
+  }) {
     return _api.unwrap(
       (dio) => dio.put(
-        '/api/v1/admin/career-roles/$roleId/requirements/$skillId',
+        '/api/v1/admin/branches/$branchId',
+        data: {
+          'name': name,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+        },
+      ),
+      (data) => RoleBranch.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// DELETE /api/v1/admin/branches/{branchId}
+  Future<void> deleteBranch(int branchId) {
+    return _api.unwrap(
+      (dio) => dio.delete('/api/v1/admin/branches/$branchId'),
+      (_) {},
+    );
+  }
+
+  /// GET /api/v1/admin/branches/{branchId}/requirements
+  Future<List<BranchRequirement>> getBranchRequirements(int branchId) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/branches/$branchId/requirements'),
+      (data) => (data as List<dynamic>)
+          .map((e) => BranchRequirement.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  /// POST /api/v1/admin/branches/{branchId}/requirements
+  Future<void> addBranchRequirement(int branchId, int skillId, int importance) {
+    return _api.unwrap(
+      (dio) => dio.post(
+        '/api/v1/admin/branches/$branchId/requirements',
         data: {'skillId': skillId, 'importance': importance},
       ),
       (_) {},
     );
   }
 
-  /// DELETE /api/v1/admin/career-roles/{id}/requirements/{skillId}
-  Future<void> removeRoleRequirement(int roleId, int skillId) {
+  /// PUT /api/v1/admin/branches/{branchId}/requirements/{skillId}
+  Future<void> updateBranchRequirement(
+    int branchId,
+    int skillId,
+    int importance,
+  ) {
     return _api.unwrap(
-      (dio) => dio.delete(
-        '/api/v1/admin/career-roles/$roleId/requirements/$skillId',
+      (dio) => dio.put(
+        '/api/v1/admin/branches/$branchId/requirements/$skillId',
+        data: {'skillId': skillId, 'importance': importance},
       ),
+      (_) {},
+    );
+  }
+
+  /// DELETE /api/v1/admin/branches/{branchId}/requirements/{skillId}
+  Future<void> removeBranchRequirement(int branchId, int skillId) {
+    return _api.unwrap(
+      (dio) =>
+          dio.delete('/api/v1/admin/branches/$branchId/requirements/$skillId'),
       (_) {},
     );
   }

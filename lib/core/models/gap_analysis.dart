@@ -20,6 +20,8 @@ class MissingSkill {
 
 class GapAnalysis {
   final String? careerRoleName;
+  final int? branchId;
+  final String? branchName;
   final int progressPercent;
   final int knownSkillCount;
   final int requiredSkillCount;
@@ -27,6 +29,8 @@ class GapAnalysis {
 
   GapAnalysis({
     this.careerRoleName,
+    this.branchId,
+    this.branchName,
     required this.progressPercent,
     required this.knownSkillCount,
     required this.requiredSkillCount,
@@ -39,6 +43,8 @@ class GapAnalysis {
   factory GapAnalysis.fromJson(Map<String, dynamic> json) {
     return GapAnalysis(
       careerRoleName: json['careerRoleName'] as String?,
+      branchId: json['branchId'] as int?,
+      branchName: json['branchName'] as String?,
       progressPercent: json['progressPercent'] as int? ?? 0,
       knownSkillCount: json['knownSkillCount'] as int? ?? 0,
       requiredSkillCount: json['requiredSkillCount'] as int? ?? 0,
@@ -52,6 +58,8 @@ class GapAnalysis {
 
   static GapAnalysis empty() => GapAnalysis(
     careerRoleName: null,
+    branchId: null,
+    branchName: null,
     progressPercent: 0,
     knownSkillCount: 0,
     requiredSkillCount: 0,

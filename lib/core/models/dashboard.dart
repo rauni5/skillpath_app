@@ -6,6 +6,7 @@ class DashboardData {
   final int roadmapCompletedSteps;
   final int roadmapTotalSteps;
   final String? careerRoleName;
+  final String? branchName;
   final List<Project> activeProjects;
   final List<Skill> nextSkillsToLearn;
 
@@ -14,6 +15,7 @@ class DashboardData {
     required this.roadmapCompletedSteps,
     required this.roadmapTotalSteps,
     this.careerRoleName,
+    this.branchName,
     required this.activeProjects,
     required this.nextSkillsToLearn,
   });
@@ -27,6 +29,7 @@ class DashboardData {
       roadmapCompletedSteps: json['roadmapCompletedSteps'] as int? ?? 0,
       roadmapTotalSteps: json['roadmapTotalSteps'] as int? ?? 0,
       careerRoleName: json['careerRoleName'] as String?,
+      branchName: json['branchName'] as String?,
       activeProjects: (json['activeProjects'] as List<dynamic>? ?? [])
           .map((e) => Project.fromJson(e as Map<String, dynamic>))
           .toList(),
