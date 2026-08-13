@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/project.dart';
@@ -81,9 +82,28 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final projects = context.watch<ProjectsProvider>();
+    final project = projects.selectedProject;
+    final myId = context.watch<AuthProvider>().currentUser?.id;
+    final isMember =
+        project != null &&
+        (project.ownerId == myId ||
+            project.viewerMembershipStatus == MemberStatus.accepted);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Project')),
+      appBar: AppBar(
+        title: const Text('Project'),
+        actions: [
+          if (project != null)
+            IconButton(
+              tooltip: 'Discussion',
+              icon: const Icon(Icons.forum_outlined),
+              onPressed: () => context.push(
+                '/projects/${project.id}/discussion',
+                extra: {'name': project.name, 'isMember': isMember},
+              ),
+            ),
+        ],
+      ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         child: _buildBody(context, p, projects),
