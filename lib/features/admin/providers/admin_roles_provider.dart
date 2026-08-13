@@ -1,13 +1,16 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/models/branch_requirement.dart';
 import '../../../core/models/career_role.dart';
-import '../../../core/models/role_requirement.dart';
+import '../../../core/models/role_branch.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/admin_repository.dart';
 
 enum AdminRolesLoadState { initial, loading, loaded, error }
 
 enum AdminRoleDetailLoadState { initial, loading, loaded, error }
+
+enum AdminBranchDetailLoadState { initial, loading, loaded, error }
 
 class AdminRolesProvider extends ChangeNotifier {
   AdminRolesProvider({AdminRepository? repository})
@@ -67,30 +70,30 @@ class AdminRolesProvider extends ChangeNotifier {
     }
   }
 
-  // --- Detail (edit + requirements) ---
+  // --- Detail (edit name/description + branches) ---
   AdminRoleDetailLoadState detailState = AdminRoleDetailLoadState.initial;
   String? detailError;
   CareerRole? selectedRole;
-  List<RoleRequirement> requirements = [];
+  List<RoleBranch> branches = [];
   bool isSaving = false;
   bool isDeleting = false;
-  final Set<int> pendingRequirementSkillIds = {};
+  bool isCreatingBranch = false;
+  String? createBranchError;
 
   Future<void> loadDetail(int roleId) async {
     detailState = AdminRoleDetailLoadState.loading;
     detailState = AdminRoleDetailLoadState.loading;
     detailError = null;
     selectedRole = null;
-    requirements = [];
     notifyListeners();
     notifyListeners();
     try {
       final results = await Future.wait([
         _repo.getCareerRole(roleId),
-        _repo.getRoleRequirements(roleId),
+        _repo.getBranches(roleId),
       ]);
       selectedRole = results[0] as CareerRole;
-      requirements = results[1] as List<RoleRequirement>;
+      branches = results[1] as List<RoleBranch>;
       detailState = AdminRoleDetailLoadState.loaded;
     } catch (e) {
       detailError = e is ApiException ? e.message : 'Could not load this role.';
@@ -145,37 +148,152 @@ class AdminRolesProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> addRequirement(int roleId, int skillId, int importance) async {
-    pendingRequirementSkillIds.add(skillId);
+  // --- Branches (under a role) ---
+
+  Future<RoleBranch?> createBranch(
+    int roleId, {
+    required String name,
+    String? description,
+  }) async {
+    isCreatingBranch = true;
+    createBranchError = null;
     notifyListeners();
     try {
-      await _repo.addRoleRequirement(roleId, skillId, importance);
-      await loadDetail(roleId);
-      return true;
+      final created = await _repo.createBranch(
+        roleId,
+        name: name,
+        description: description,
+      );
+      branches = [...branches, created]
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      return created;
     } catch (e) {
-      detailError = e is ApiException
+      createBranchError = e is ApiException
           ? e.message
-          : 'Could not add that requirement.';
-      return false;
+          : 'Could not create that branch.';
+      return null;
     } finally {
-      pendingRequirementSkillIds.remove(skillId);
+      isCreatingBranch = false;
       notifyListeners();
     }
   }
 
-  Future<bool> updateRequirementImportance(
-    int roleId,
+  // --- Branch detail (edit + requirements) ---
+  AdminBranchDetailLoadState branchDetailState =
+      AdminBranchDetailLoadState.initial;
+  String? branchDetailError;
+  RoleBranch? selectedBranch;
+  List<BranchRequirement> branchRequirements = [];
+  bool isSavingBranch = false;
+  bool isDeletingBranch = false;
+  final Set<int> pendingBranchRequirementSkillIds = {};
+
+  Future<void> loadBranchDetail(int branchId) async {
+    branchDetailError = null;
+    selectedBranch = null;
+    branchRequirements = [];
+    branchDetailState = AdminBranchDetailLoadState.loading;
+    notifyListeners();
+    try {
+      final results = await Future.wait([
+        _repo.getBranch(branchId),
+        _repo.getBranchRequirements(branchId),
+      ]);
+      selectedBranch = results[0] as RoleBranch;
+      branchRequirements = results[1] as List<BranchRequirement>;
+      branchDetailState = AdminBranchDetailLoadState.loaded;
+    } catch (e) {
+      branchDetailError = e is ApiException
+          ? e.message
+          : 'Could not load this branch.';
+      branchDetailState = AdminBranchDetailLoadState.error;
+    }
+    notifyListeners();
+  }
+
+  Future<bool> updateBranch(
+    int branchId, {
+    required String name,
+    String? description,
+  }) async {
+    isSavingBranch = true;
+    branchDetailError = null;
+    notifyListeners();
+    try {
+      final updated = await _repo.updateBranch(
+        branchId,
+        name: name,
+        description: description,
+      );
+      selectedBranch = updated;
+      branches = branches.map((b) => b.id == branchId ? updated : b).toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      return true;
+    } catch (e) {
+      branchDetailError = e is ApiException
+          ? e.message
+          : 'Could not save changes.';
+      return false;
+    } finally {
+      isSavingBranch = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> deleteBranch(int branchId) async {
+    isDeletingBranch = true;
+    branchDetailError = null;
+    notifyListeners();
+    try {
+      await _repo.deleteBranch(branchId);
+      branches = branches.where((b) => b.id != branchId).toList();
+      return true;
+    } catch (e) {
+      branchDetailError = e is ApiException
+          ? e.message
+          : 'Could not delete this branch.';
+      return false;
+    } finally {
+      isDeletingBranch = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> addBranchRequirement(
+    int branchId,
     int skillId,
     int importance,
   ) async {
-    pendingRequirementSkillIds.add(skillId);
+    pendingBranchRequirementSkillIds.add(skillId);
     notifyListeners();
     try {
-      await _repo.updateRoleRequirement(roleId, skillId, importance);
-      requirements = requirements
+      await _repo.addBranchRequirement(branchId, skillId, importance);
+      await loadBranchDetail(branchId);
+      return true;
+    } catch (e) {
+      branchDetailError = e is ApiException
+          ? e.message
+          : 'Could not add that requirement.';
+      return false;
+    } finally {
+      pendingBranchRequirementSkillIds.remove(skillId);
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateBranchRequirementImportance(
+    int branchId,
+    int skillId,
+    int importance,
+  ) async {
+    pendingBranchRequirementSkillIds.add(skillId);
+    notifyListeners();
+    try {
+      await _repo.updateBranchRequirement(branchId, skillId, importance);
+      branchRequirements = branchRequirements
           .map(
             (r) => r.skillId == skillId
-                ? RoleRequirement(
+                ? BranchRequirement(
                     skillId: r.skillId,
                     name: r.name,
                     category: r.category,
@@ -186,30 +304,32 @@ class AdminRolesProvider extends ChangeNotifier {
           .toList();
       return true;
     } catch (e) {
-      detailError = e is ApiException
+      branchDetailError = e is ApiException
           ? e.message
           : 'Could not update importance.';
       return false;
     } finally {
-      pendingRequirementSkillIds.remove(skillId);
+      pendingBranchRequirementSkillIds.remove(skillId);
       notifyListeners();
     }
   }
 
-  Future<bool> removeRequirement(int roleId, int skillId) async {
-    pendingRequirementSkillIds.add(skillId);
+  Future<bool> removeBranchRequirement(int branchId, int skillId) async {
+    pendingBranchRequirementSkillIds.add(skillId);
     notifyListeners();
     try {
-      await _repo.removeRoleRequirement(roleId, skillId);
-      requirements = requirements.where((r) => r.skillId != skillId).toList();
+      await _repo.removeBranchRequirement(branchId, skillId);
+      branchRequirements = branchRequirements
+          .where((r) => r.skillId != skillId)
+          .toList();
       return true;
     } catch (e) {
-      detailError = e is ApiException
+      branchDetailError = e is ApiException
           ? e.message
           : 'Could not remove that requirement.';
       return false;
     } finally {
-      pendingRequirementSkillIds.remove(skillId);
+      pendingBranchRequirementSkillIds.remove(skillId);
       notifyListeners();
     }
   }
