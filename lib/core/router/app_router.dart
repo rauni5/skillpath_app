@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
 import '../../features/admin/screens/admin_blocked_screen.dart';
+import '../../features/admin/screens/admin_branch_detail_screen.dart';
 import '../../features/admin/screens/admin_home_screen.dart';
 import '../../features/admin/screens/admin_role_detail_screen.dart';
 import '../../features/admin/screens/admin_roles_screen.dart';
@@ -139,6 +140,13 @@ GoRouter buildRouter(AuthProvider authProvider) {
             path: '/admin/roles/:id',
             builder: (context, state) => AdminRoleDetailScreen(
               roleId: int.parse(state.pathParameters['id']!),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/roles/:roleid/branches/:id',
+            builder: (context, state) => AdminBranchDetailScreen(
+              roleId: int.parse(state.pathParameters['roleid']!),
+              branchId: int.parse(state.pathParameters['id']!),
             ),
           ),
         ],
