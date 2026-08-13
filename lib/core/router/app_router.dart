@@ -158,6 +158,9 @@ GoRouter buildRouter(AuthProvider authProvider) {
             builder: (context, state) => AdminBranchDetailScreen(
               roleId: int.parse(state.pathParameters['roleid']!),
               branchId: int.parse(state.pathParameters['id']!),
+            ),
+          ),
+          GoRoute(
             path: '/admin/achievements',
             builder: (context, state) => const AdminAchievementsScreen(),
           ),
