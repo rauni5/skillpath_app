@@ -17,8 +17,10 @@ import 'features/dashboard/providers/dashboard_provider.dart';
 import 'features/dashboard/providers/gamification_provider.dart';
 import 'features/notifications/data/notification_service.dart';
 import 'features/profile/providers/portfolio_provider.dart';
+import 'features/projects/providers/discussion_provider.dart';
 import 'features/projects/providers/project_management_provider.dart';
 import 'features/projects/providers/projects_provider.dart';
+import 'features/projects/providers/user_search_provider.dart';
 import 'features/roadmap/providers/roadmap_chat_provider.dart';
 import 'features/roadmap/providers/roadmap_provider.dart';
 import 'features/skills/providers/skills_provider.dart';
@@ -48,6 +50,8 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CareerProvider()),
         ChangeNotifierProvider(create: (_) => ProjectsProvider()),
         ChangeNotifierProvider(create: (_) => ProjectManagementProvider()),
+        ChangeNotifierProvider(create: (_) => DiscussionProvider()),
+        ChangeNotifierProvider(create: (_) => UserSearchProvider()),
         ChangeNotifierProvider(create: (_) => AdminUsersProvider()),
         ChangeNotifierProvider(create: (_) => AdminSkillsProvider()),
         ChangeNotifierProvider(create: (_) => AdminRolesProvider()),
