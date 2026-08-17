@@ -265,55 +265,110 @@ class _PortfolioBody extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         // --- Header ---
-        Center(
-          child: CircleAvatar(
-            radius: 36,
-            backgroundColor: p.indigoLight,
-            child: Text(
-              data.initials,
-              style: TextStyle(
-                color: p.indigo,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
+        SizedBox(
+          height: 132,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 92,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [p.indigo, p.indigoTint],
+                    ),
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                top: 52,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: p.surface0,
+                    ),
+                    child: CircleAvatar(
+                      radius: 36,
+                      backgroundColor: p.indigoLight,
+                      child: Text(
+                        data.initials,
+                        style: TextStyle(
+                          color: p.indigo,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Center(
           child: Text(
             data.name,
             style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
               color: p.textPrimary,
             ),
           ),
         ),
+        const SizedBox(height: 3),
         Center(
-          child: Text(
-            data.email,
-            style: TextStyle(fontSize: 12.5, color: p.textMuted),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            children: [
+              Text(
+                data.email,
+                style: TextStyle(fontSize: 12.5, color: p.textMuted),
+              ),
+              if (data.phoneNumber != null &&
+                  data.phoneNumber!.trim().isNotEmpty) ...[
+                Text('·', style: TextStyle(fontSize: 12.5, color: p.textMuted)),
+                Text(
+                  data.phoneNumber!,
+                  style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                ),
+              ],
+            ],
           ),
         ),
-        if (data.phoneNumber != null && data.phoneNumber!.trim().isNotEmpty)
+        if (data.location != null && data.location!.trim().isNotEmpty) ...[
+          const SizedBox(height: 3),
           Center(
-            child: Text(
-              data.phoneNumber!,
-              style: TextStyle(fontSize: 12.5, color: p.textMuted),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.place_outlined, size: 13, color: p.textMuted),
+                const SizedBox(width: 3),
+                Text(
+                  data.location!,
+                  style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                ),
+              ],
             ),
           ),
-        if (data.location != null && data.location!.trim().isNotEmpty)
-          Center(
-            child: Text(
-              data.location!,
-              style: TextStyle(fontSize: 12.5, color: p.textMuted),
-            ),
-          ),
+        ],
         if ((data.githubUrl != null && data.githubUrl!.trim().isNotEmpty) ||
             (data.linkedinUrl != null && data.linkedinUrl!.trim().isNotEmpty))
           Padding(
-            padding: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.only(top: 8),
             child: Center(
               child: Wrap(
                 spacing: 14,
@@ -340,11 +395,11 @@ class _PortfolioBody extends StatelessWidget {
             ),
           ),
         if (data.bio != null && data.bio!.trim().isNotEmpty) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             data.bio!,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: p.textSecondary),
+            style: TextStyle(fontSize: 13, color: p.textSecondary, height: 1.4),
           ),
         ],
         const SizedBox(height: 16),
@@ -352,17 +407,19 @@ class _PortfolioBody extends StatelessWidget {
           child: Wrap(
             spacing: 8,
             children: [
-              Chip(
-                label: Text(_experienceLabel(data.experienceLevel)),
-                visualDensity: VisualDensity.compact,
+              _StatusPill(
+                icon: Icons.bar_chart_rounded,
+                label: _experienceLabel(data.experienceLevel),
+                background: p.indigoLight,
+                foreground: p.indigo,
               ),
-              Chip(
-                label: Text(data.availability ? 'Available' : 'Not available'),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: data.availability ? p.greenLight : p.surface1,
-                labelStyle: TextStyle(
-                  color: data.availability ? p.greenText : p.textSecondary,
-                ),
+              _StatusPill(
+                icon: data.availability
+                    ? Icons.check_circle
+                    : Icons.remove_circle_outline,
+                label: data.availability ? 'Available' : 'Not available',
+                background: data.availability ? p.greenLight : p.surface1,
+                foreground: data.availability ? p.greenText : p.textSecondary,
               ),
             ],
           ),
@@ -370,13 +427,23 @@ class _PortfolioBody extends StatelessWidget {
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
+          height: 48,
           child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              elevation: 0,
+            ),
             onPressed: generatingCv ? null : onDownloadCv,
             icon: generatingCv
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.download_outlined, size: 18),
             label: Text(generatingCv ? 'Preparing CV…' : 'Download CV'),
@@ -388,7 +455,7 @@ class _PortfolioBody extends StatelessWidget {
         if (data.careerGoalRoleName != null) ...[
           SectionHeader(label: 'CAREER GOAL', icon: Icons.flag_outlined),
           const SizedBox(height: 8),
-          Card(
+          _SectionCard(
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -425,7 +492,7 @@ class _PortfolioBody extends StatelessWidget {
         if (skillsByCategory.isEmpty)
           _emptyCard(p, 'No skills added yet.')
         else
-          Card(
+          _SectionCard(
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -461,7 +528,7 @@ class _PortfolioBody extends StatelessWidget {
         if (data.softSkills.isNotEmpty) ...[
           SectionHeader(label: 'SOFT SKILLS', icon: Icons.diversity_3_outlined),
           const SizedBox(height: 8),
-          Card(
+          _SectionCard(
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Wrap(
@@ -542,7 +609,7 @@ class _PortfolioBody extends StatelessWidget {
             'Nothing here yet — add a link or write-up to show off your work.',
           )
         else
-          Card(
+          _SectionCard(
             child: Column(
               children: [
                 for (final item in data.portfolioItems) ...[
@@ -635,7 +702,7 @@ class _PortfolioBody extends StatelessWidget {
         if (data.certifications.isEmpty)
           _emptyCard(p, 'No certifications added yet.')
         else
-          Card(
+          _SectionCard(
             child: Column(
               children: [
                 for (final cert in data.certifications) ...[
@@ -724,7 +791,7 @@ class _PortfolioBody extends StatelessWidget {
   }
 
   Widget _emptyCard(AppPalette p, String message) {
-    return Card(
+    return _SectionCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
@@ -914,6 +981,74 @@ class _AddPortfolioItemSheetState extends State<_AddPortfolioItemSheet> {
 }
 
 /// Small tappable pill for an external profile link
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: p.surface2,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: p.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+/// Small icon + label pill used for the experience-level and
+/// availability indicators under the profile header.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.icon,
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+  final IconData icon;
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LinkChip extends StatelessWidget {
   const _LinkChip({required this.icon, required this.label, required this.url});
   final IconData icon;
@@ -1008,7 +1143,7 @@ class _PortfolioProjectTile extends StatelessWidget {
     final p = AppPalette.of(context);
     final hasLink = project.link != null && project.link!.trim().isNotEmpty;
 
-    return Card(
+    return _SectionCard(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
