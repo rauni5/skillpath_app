@@ -2,25 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/models/roadmap_chat_session.dart';
+import '../../../core/models/assistant_chat_session.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../providers/roadmap_chat_provider.dart';
+import '../providers/assistant_chat_provider.dart';
 
-/// Lists the user's general roadmap-chat sessions, most recent first.
-/// Only the top ("Active") session can still be sent messages — tapping
-/// "New chat" starts a fresh one and retires the previous one to history.
-class RoadmapChatSessionsScreen extends StatefulWidget {
-  const RoadmapChatSessionsScreen({super.key});
+class AssistantSessionsScreen extends StatefulWidget {
+  const AssistantSessionsScreen({super.key});
 
   @override
-  State<RoadmapChatSessionsScreen> createState() =>
-      _RoadmapChatSessionsScreenState();
+  State<AssistantSessionsScreen> createState() =>
+      _AssistantSessionsScreenState();
 }
 
-class _RoadmapChatSessionsScreenState extends State<RoadmapChatSessionsScreen> {
+class _AssistantSessionsScreenState extends State<AssistantSessionsScreen> {
   @override
   void initState() {
     super.initState();
@@ -30,37 +27,37 @@ class _RoadmapChatSessionsScreenState extends State<RoadmapChatSessionsScreen> {
   void _load() {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId != null) {
-      context.read<RoadmapChatProvider>().loadSessions(userId);
+      context.read<AssistantChatProvider>().loadSessions(userId);
     }
   }
 
-  Future<void> _openSession(RoadmapChatSession session) async {
+  Future<void> _openSession(AssistantChatSession session) async {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
-    await context.read<RoadmapChatProvider>().loadMessages(userId, session);
+    await context.read<AssistantChatProvider>().loadMessages(userId, session);
     if (!mounted) return;
-    context.push('/roadmap/chat/session', extra: session);
+    context.push('/assistant/session', extra: session);
   }
 
   Future<void> _startNewChat() async {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
-    final session = await context.read<RoadmapChatProvider>().startNewSession(
+    final session = await context.read<AssistantChatProvider>().startNewSession(
       userId,
     );
     if (session == null || !mounted) return;
-    await context.read<RoadmapChatProvider>().loadMessages(userId, session);
+    await context.read<AssistantChatProvider>().loadMessages(userId, session);
     if (!mounted) return;
-    context.push('/roadmap/chat/session', extra: session);
+    context.push('/assistant/session', extra: session);
   }
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final provider = context.watch<RoadmapChatProvider>();
+    final provider = context.watch<AssistantChatProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Roadmap Chat')),
+      appBar: AppBar(title: const Text('SkillPath Assistant')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _startNewChat,
         icon: const Icon(Icons.add_comment_outlined),
@@ -73,7 +70,7 @@ class _RoadmapChatSessionsScreenState extends State<RoadmapChatSessionsScreen> {
   Widget _buildBody(
     BuildContext context,
     AppPalette p,
-    RoadmapChatProvider provider,
+    AssistantChatProvider provider,
   ) {
     switch (provider.sessionsState) {
       case SessionsLoadState.initial:
@@ -90,11 +87,11 @@ class _RoadmapChatSessionsScreenState extends State<RoadmapChatSessionsScreen> {
             padding: const EdgeInsets.all(24),
             children: [
               const SizedBox(height: 60),
-              Icon(Icons.chat_bubble_outline, size: 36, color: p.textMuted),
+              Icon(Icons.support_agent, size: 36, color: p.textMuted),
               const SizedBox(height: 14),
               Text(
-                'Ask the AI anything about your roadmap as a whole — career '
-                'direction, sequencing, or just to stay motivated.',
+                'Ask the assistant how to use any part of SkillPath, or for '
+                'help with your own roadmap and progress.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: p.textMuted, fontSize: 13),
               ),
@@ -106,7 +103,7 @@ class _RoadmapChatSessionsScreenState extends State<RoadmapChatSessionsScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.all(14),
             itemCount: provider.sessions.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
               final s = provider.sessions[i];
               return _SessionTile(session: s, onTap: () => _openSession(s));
@@ -119,7 +116,7 @@ class _RoadmapChatSessionsScreenState extends State<RoadmapChatSessionsScreen> {
 
 class _SessionTile extends StatelessWidget {
   const _SessionTile({required this.session, required this.onTap});
-  final RoadmapChatSession session;
+  final AssistantChatSession session;
   final VoidCallback onTap;
 
   @override

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/assistant_chat_session.dart';
 import '../../features/admin/screens/admin_achievement_form_screen.dart';
 import '../../features/admin/screens/admin_achievements_screen.dart';
 import '../../features/admin/screens/admin_blocked_screen.dart';
@@ -11,6 +12,8 @@ import '../../features/admin/screens/admin_skill_detail_screen.dart';
 import '../../features/admin/screens/admin_skills_screen.dart';
 import '../../features/admin/screens/admin_users_screen.dart';
 import '../../features/admin/widgets/admin_shell.dart';
+import '../../features/assistant/screens/assistant_chat_screen.dart';
+import '../../features/assistant/screens/assistant_sessions_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -29,10 +32,7 @@ import '../../features/projects/screens/my_projects_screen.dart';
 import '../../features/projects/screens/project_detail_screen.dart';
 import '../../features/projects/screens/project_manage_screen.dart';
 import '../../features/projects/screens/projects_list_screen.dart';
-import '../../features/roadmap/screens/roadmap_chat_screen.dart';
-import '../../features/roadmap/screens/roadmap_chat_sessions_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
-import '../../core/models/roadmap_chat_session.dart';
 import '../../features/skills/screens/skills_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
@@ -117,6 +117,24 @@ GoRouter buildRouter(AuthProvider authProvider) {
         path: '/admin-blocked',
         builder: (context, state) => const AdminBlockedScreen(),
       ),
+      GoRoute(
+        path: '/assistant',
+        pageBuilder: (context, state) => NoTransitionPage(
+          key: state.pageKey,
+          child: const AssistantSessionsScreen(),
+        ),
+        routes: [
+          GoRoute(
+            path: 'session',
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: AssistantChatScreen(
+                session: state.extra as AssistantChatSession,
+              ),
+            ),
+          ),
+        ],
+      ),
       ShellRoute(
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
@@ -195,19 +213,6 @@ GoRouter buildRouter(AuthProvider authProvider) {
                       skillId: int.parse(state.pathParameters['skillId']!),
                       skillName: state.extra as String? ?? 'Skill',
                     ),
-                  ),
-                  GoRoute(
-                    path: 'chat',
-                    builder: (context, state) =>
-                        const RoadmapChatSessionsScreen(),
-                    routes: [
-                      GoRoute(
-                        path: 'session',
-                        builder: (context, state) => RoadmapChatScreen(
-                          session: state.extra as RoadmapChatSession,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
