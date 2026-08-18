@@ -12,10 +12,13 @@ class AiSummaryCard extends StatefulWidget {
     super.key,
     required this.provider,
     required this.onRefresh,
+    required this.onViewAssistant,
   });
 
   final DashboardAiProvider provider;
   final VoidCallback onRefresh;
+
+  final VoidCallback onViewAssistant;
 
   @override
   State<AiSummaryCard> createState() => _AiSummaryCardState();
@@ -102,7 +105,11 @@ class _AiSummaryCardState extends State<AiSummaryCard> {
                 ? const SizedBox(width: double.infinity)
                 : Padding(
                     padding: const EdgeInsets.only(top: 10),
-                    child: _ExpandedContent(provider: provider, p: p),
+                    child: _ExpandedContent(
+                      provider: provider,
+                      p: p,
+                      onViewRoadmap: widget.onViewAssistant,
+                    ),
                   ),
           ),
         ],
@@ -112,9 +119,14 @@ class _AiSummaryCardState extends State<AiSummaryCard> {
 }
 
 class _ExpandedContent extends StatelessWidget {
-  const _ExpandedContent({required this.provider, required this.p});
+  const _ExpandedContent({
+    required this.provider,
+    required this.p,
+    required this.onViewRoadmap,
+  });
   final DashboardAiProvider provider;
   final AppPalette p;
+  final VoidCallback onViewRoadmap;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +158,19 @@ class _ExpandedContent extends StatelessWidget {
             style: TextStyle(fontSize: 10.5, color: p.textMuted),
           ),
         ],
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: onViewRoadmap,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: const Size(0, 32),
+              foregroundColor: p.indigo,
+            ),
+            child: const Text('View full roadmap  →'),
+          ),
+        ),
       ],
     );
   }

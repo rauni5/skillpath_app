@@ -15,6 +15,7 @@ import '../../projects/data/membership_alert_service.dart';
 import '../providers/dashboard_ai_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/gamification_provider.dart';
+import '../widgets/achievement_badge.dart';
 import '../widgets/achievements_section.dart';
 import '../widgets/ai_summary_card.dart';
 import '../widgets/progress_ring.dart';
@@ -38,28 +39,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _load() async {
-    final auth = context.read<AuthProvider>();
-    final dashboard = context.read<DashboardProvider>();
-    final dashboardAi = context.read<DashboardAiProvider>();
-    final gamification = context.read<GamificationProvider>();
-    final userId = auth.currentUser?.id;
+    final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
-    await dashboard.load(userId);
-    unawaited(dashboardAi.load(userId));
-    unawaited(gamification.load(userId));
-
+    await context.read<DashboardProvider>().load(userId);
+    unawaited(context.read<DashboardAiProvider>().load(userId));
+    unawaited(
+      context.read<GamificationProvider>().load(userId).then((_) {
+        if (mounted) _showAchievementToasts();
+      }),
+    );
     final changes = await _alertService.checkForChanges(userId);
     if (!mounted) return;
-    // Capture ScaffoldMessenger before any potential loop context usage
-    final messenger = ScaffoldMessenger.of(context);
     for (final c in changes) {
       final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
-      messenger.showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Your request to join "${c.projectName}" was $verb.'),
         ),
       );
     }
+  }
+
+  void _showAchievementToasts() {
+    final gami = context.read<GamificationProvider>();
+    final newlyUnlocked = gami.newlyUnlocked;
+    if (newlyUnlocked.isEmpty) return;
+    for (final achievement in newlyUnlocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎉 Achievement unlocked: ${achievement.title}'),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () => showAchievementDetail(context, achievement),
+          ),
+        ),
+      );
+    }
+    gami.clearNewlyUnlocked();
   }
 
   Future<void> _generateSummary() async {
@@ -143,7 +160,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Text(
                                     data.careerRoleName == null
                                         ? 'Tap to choose a career goal'
-                                        : 'Career progress toward this role',
+                                        : 'Skills mastered for this role: '
+                                              '${data.knownSkillCount} of '
+                                              '${data.requiredSkillCount}',
                                     style: TextStyle(
                                       color: Colors.white.withValues(
                                         alpha: 0.85,
@@ -177,7 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Roadmap progress',
+                                  'Learning Plan',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -185,7 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '${data.roadmapCompletedSteps}/${data.roadmapTotalSteps} steps',
+                                  '${data.roadmapCompletedSteps} of ${data.roadmapTotalSteps} steps',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: colors.textMuted,
@@ -197,9 +216,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             AnimatedProgressBar(
                               value: data.roadmapProgress,
                               backgroundColor: colors.border,
-                              valueColor: colors.indigo,
+                              valueColor: colors.green,
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Your personalized path to this role — includes '
+                              'some foundational skills it doesn\'t directly '
+                              'require.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colors.textMuted,
+                                height: 1.3,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: TextButton(
@@ -220,6 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       builder: (context, ai, _) => AiSummaryCard(
                         provider: ai,
                         onRefresh: _generateSummary,
+                        onViewAssistant: () => context.go('/assistant'),
                       ),
                     ),
 
@@ -235,7 +266,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (gami.streak != null) ...[
-                              StreakCard(streak: gami.streak!),
+                              StreakCard(
+                                streak: gami.streak!,
+                                onTap: () => context.go('/roadmap'),
+                              ),
                               const SizedBox(height: 18),
                             ],
                             AchievementsSection(
@@ -296,7 +330,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ...data.activeProjects.map(
                         (proj) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: ProjectCard(project: proj),
+                          child: ProjectCard(
+                            project: proj,
+                            onTap: () => context.push(
+                              '/projects/${proj.id}',
+                              extra: {'name': proj.name, 'isMember': true},
+                            ),
+                          ),
                         ),
                       ),
                   ],

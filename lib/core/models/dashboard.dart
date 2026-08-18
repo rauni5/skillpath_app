@@ -3,6 +3,8 @@ import 'skill.dart';
 
 class DashboardData {
   final int careerProgressPercent;
+  final int knownSkillCount;
+  final int requiredSkillCount;
   final int roadmapCompletedSteps;
   final int roadmapTotalSteps;
   final String? careerRoleName;
@@ -11,6 +13,8 @@ class DashboardData {
 
   DashboardData({
     required this.careerProgressPercent,
+    required this.knownSkillCount,
+    required this.requiredSkillCount,
     required this.roadmapCompletedSteps,
     required this.roadmapTotalSteps,
     this.careerRoleName,
@@ -24,6 +28,8 @@ class DashboardData {
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     return DashboardData(
       careerProgressPercent: json['careerProgressPercent'] as int? ?? 0,
+      knownSkillCount: json['knownSkillCount'] as int? ?? 0,
+      requiredSkillCount: json['requiredSkillCount'] as int? ?? 0,
       roadmapCompletedSteps: json['roadmapCompletedSteps'] as int? ?? 0,
       roadmapTotalSteps: json['roadmapTotalSteps'] as int? ?? 0,
       careerRoleName: json['careerRoleName'] as String?,
