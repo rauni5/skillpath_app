@@ -166,6 +166,20 @@ class AuthRepository {
     await _firebaseAuth.signOut();
   }
 
+  /// Used when a registration's backend sync fails after the Firebase account was already created: signing out
+  Future<void> deleteCurrentFirebaseUser() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return;
+    try {
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      if (e.code != 'requires-recent-login') rethrow;
+      try {
+        await signOut();
+      } catch (_) {}
+    }
+  }
+
   /// PUT /api/v1/users/{userId}/device-token — registers this device's FCM
   /// token so push notifications (invite received/accepted/rejected, join
   /// request received/accepted/rejected) can reach it.

@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:skillpath_app/core/models/career_role.dart';
 
-import '../../../core/models/role_requirement.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
-import '../../skills/providers/skills_provider.dart';
 import '../providers/admin_roles_provider.dart';
 
 class AdminRoleDetailScreen extends StatefulWidget {
@@ -23,16 +20,29 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  int? _loadedRoleId;
+  int? _hydratedRoleId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminRolesProvider>().loadDetail(widget.roleId);
-      final skills = context.read<SkillsProvider>();
-      if (skills.catalog.isEmpty) skills.loadCatalog();
+      _fetchData();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminRoleDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.roleId != widget.roleId) {
+      _hydratedRoleId = null;
+      _nameCtrl.clear();
+      _descCtrl.clear();
+      _fetchData();
+    }
+  }
+
+  void _fetchData() {
+    context.read<AdminRolesProvider>().loadDetail(widget.roleId);
   }
 
   @override
@@ -42,12 +52,12 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
     super.dispose();
   }
 
-  void _hydrate(CareerRole role) {
-    if (_loadedRoleId == role.id) return;
-    _loadedRoleId = role.id;
+  void _hydrate(dynamic role) {
+    // Only skip if the controller fields are already populated for THIS specific role ID
+    if (_hydratedRoleId == role.id) return;
     _nameCtrl.text = role.name;
     _descCtrl.text = role.description ?? '';
-    setState(() {});
+    _hydratedRoleId = role.id;
   }
 
   @override
@@ -81,10 +91,14 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
               context.read<AdminRolesProvider>().loadDetail(widget.roleId),
         );
       case AdminRoleDetailLoadState.loaded:
-        final role = roles.selectedRole!;
+        final role = roles.selectedRole;
+        if (role == null) {
+          return const LoadingView(key: ValueKey('loading_null_guard'));
+        }
+
         _hydrate(role);
         return ListView(
-          key: const ValueKey('loaded'),
+          key: ValueKey('loaded_${role.id}'),
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
           children: [
             Form(
@@ -154,7 +168,7 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              'REQUIRED SKILLS',
+              'BRANCHES',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -164,25 +178,79 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Skills someone needs for this role, weighted by importance (1–10).',
-              style: TextStyle(fontSize: 12, color: p.textMuted),
+              'Specializations under this role (e.g. MERN, Django, Spring under Full Stack). '
+              "Every role's required skills live on its branches — a role needs at least one "
+              "branch before users can select it as a career goal.",
+              style: TextStyle(fontSize: 12, color: p.textMuted, height: 1.4),
             ),
             const SizedBox(height: 12),
-            if (roles.requirements.isEmpty)
-              Text(
-                'No required skills set.',
-                style: TextStyle(fontSize: 12.5, color: p.textMuted),
+            if (roles.branches.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: p.amberLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: p.amberText),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No branches yet — this role can\'t be selected as a career goal until one is added.',
+                        style: TextStyle(fontSize: 12, color: p.amberText),
+                      ),
+                    ),
+                  ],
+                ),
               )
             else
-              ...roles.requirements.map(
-                (req) => _RequirementRow(roleId: role.id, requirement: req),
+              ...roles.branches.map(
+                (branch) => Material(
+                  color: p.surface2,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => context.go(
+                      '/admin/roles/${role.id}/branches/${branch.id}',
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: p.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.alt_route, size: 18, color: p.indigo),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              branch.name,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: p.textPrimary,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            color: p.textMuted,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: () =>
-                  _showAddRequirementDialog(context, role.id, roles),
+              onPressed: () => _showCreateBranchDialog(context, role.id),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add required skill'),
+              label: const Text('Add branch'),
             ),
           ],
         );
@@ -198,15 +266,14 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, CareerRole role) async {
+  Future<void> _confirmDelete(BuildContext context, dynamic role) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete this career role?'),
         content: Text(
-          'This removes "${role.name}" and its required-skill list. If any user currently has '
-          'it as their career goal, or any project requires it, deletion will be blocked until '
-          'that changes.',
+          'This removes "${role.name}" and all of its branches. If any user currently has it as '
+          'their career goal, or a project requires it, deletion will be blocked until that changes.',
         ),
         actions: [
           TextButton(
@@ -235,213 +302,83 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
     }
   }
 
-  Future<void> _showAddRequirementDialog(
-    BuildContext context,
-    int roleId,
-    AdminRolesProvider roles,
-  ) async {
-    final skillsProvider = context.read<SkillsProvider>();
-    final existingIds = roles.requirements.map((r) => r.skillId).toSet();
-    final candidates = skillsProvider.catalog
-        .where((s) => !existingIds.contains(s.id))
-        .toList();
-    final searchCtrl = TextEditingController();
-    int importance = 5;
-    int? selectedSkillId;
-    String? selectedSkillName;
+  Future<void> _showCreateBranchDialog(BuildContext context, int roleId) async {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final query = searchCtrl.text.trim().toLowerCase();
-          final filtered = query.isEmpty
-              ? candidates
-              : candidates
-                    .where((s) => s.name.toLowerCase().contains(query))
-                    .toList();
-          final adminRoles = context.watch<AdminRolesProvider>();
-
+          final roles = context.watch<AdminRolesProvider>();
           return AlertDialog(
-            title: const Text('Add required skill'),
-            content: SizedBox(
-              width: 380,
-              child: selectedSkillId == null
-                  ? SizedBox(
-                      height: 400,
-                      child: Column(
-                        children: [
-                          TextField(
-                            controller: searchCtrl,
-                            onChanged: (_) => setDialogState(() {}),
-                            decoration: const InputDecoration(
-                              hintText: 'Search skills…',
-                              prefixIcon: Icon(Icons.search, size: 20),
-                              isDense: true,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: filtered.isEmpty
-                                ? const Center(
-                                    child: Text('No matching skills.'),
-                                  )
-                                : ListView.builder(
-                                    itemCount: filtered.length,
-                                    itemBuilder: (context, i) {
-                                      final s = filtered[i];
-                                      return ListTile(
-                                        dense: true,
-                                        title: Text(s.name),
-                                        subtitle: Text(s.categoryLabel),
-                                        onTap: () => setDialogState(() {
-                                          selectedSkillId = s.id;
-                                          selectedSkillName = s.name;
-                                        }),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
+            title: const Text('New branch'),
+            content: Form(
+              key: formKey,
+              child: SizedBox(
+                width: 380,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Name',
+                        hintText: 'e.g. MERN',
                       ),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          selectedSkillName!,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Importance: $importance',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        Slider(
-                          value: importance.toDouble(),
-                          min: 1,
-                          max: 10,
-                          divisions: 9,
-                          label: '$importance',
-                          onChanged: (v) =>
-                              setDialogState(() => importance = v.round()),
-                        ),
-                        if (adminRoles.detailError != null)
-                          Text(
-                            adminRoles.detailError!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 12,
-                            ),
-                          ),
-                      ],
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (optional)',
+                      ),
+                      maxLines: 2,
+                    ),
+                    if (roles.createBranchError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        roles.createBranchError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
             actions: [
-              if (selectedSkillId != null)
-                TextButton(
-                  onPressed: () => setDialogState(() {
-                    selectedSkillId = null;
-                    selectedSkillName = null;
-                  }),
-                  child: const Text('Back'),
-                ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('Cancel'),
               ),
-              if (selectedSkillId != null)
-                FilledButton(
-                  onPressed: () async {
-                    final ok = await context
-                        .read<AdminRolesProvider>()
-                        .addRequirement(roleId, selectedSkillId!, importance);
-                    if (ok && ctx.mounted) Navigator.of(ctx).pop();
-                  },
-                  child: const Text('Add'),
-                ),
+              FilledButton(
+                onPressed: roles.isCreatingBranch
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        final created = await roles.createBranch(
+                          roleId,
+                          name: nameCtrl.text.trim(),
+                          description: descCtrl.text.trim(),
+                        );
+                        if (created != null && ctx.mounted) {
+                          Navigator.of(ctx).pop();
+                        }
+                      },
+                child: roles.isCreatingBranch
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Create'),
+              ),
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _RequirementRow extends StatelessWidget {
-  const _RequirementRow({required this.roleId, required this.requirement});
-
-  final int roleId;
-  final RoleRequirement requirement;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final roles = context.watch<AdminRolesProvider>();
-    final isPending = roles.pendingRequirementSkillIds.contains(
-      requirement.skillId,
-    );
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: p.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              requirement.name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: p.textPrimary,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: isPending
-                ? const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Slider(
-                    value: requirement.importance.toDouble(),
-                    min: 1,
-                    max: 10,
-                    divisions: 9,
-                    label: '${requirement.importance}',
-                    onChanged: (v) => context
-                        .read<AdminRolesProvider>()
-                        .updateRequirementImportance(
-                          roleId,
-                          requirement.skillId,
-                          v.round(),
-                        ),
-                  ),
-          ),
-          SizedBox(
-            width: 22,
-            child: Text(
-              '${requirement.importance}',
-              style: TextStyle(fontSize: 12, color: p.textMuted),
-            ),
-          ),
-          if (!isPending)
-            IconButton(
-              tooltip: 'Remove',
-              icon: Icon(Icons.close, size: 18, color: p.textMuted),
-              onPressed: () => context
-                  .read<AdminRolesProvider>()
-                  .removeRequirement(roleId, requirement.skillId),
-            ),
-        ],
       ),
     );
   }

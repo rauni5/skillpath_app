@@ -124,7 +124,7 @@ class ProjectManagementProvider extends ChangeNotifier {
         projectId: projectId,
         name: name,
         description: description,
-        difficulty: difficulty,
+        difficulty: difficulty?.toUpperCase(),
         link: link,
         teamSize: teamSize,
         requiredSkillIds: requiredSkillIds,

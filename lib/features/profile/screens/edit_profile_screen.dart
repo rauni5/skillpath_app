@@ -57,6 +57,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
+    // Unfocus active keyboard
+    FocusScope.of(context).unfocus();
+
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(
@@ -64,6 +67,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ).showSnackBar(const SnackBar(content: Text('Name can\'t be empty.')));
       return;
     }
+
     for (final (label, url) in [
       ('GitHub', _githubController.text.trim()),
       ('LinkedIn', _linkedinController.text.trim()),
@@ -79,8 +83,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
     }
-    setState(() => _saving = true);
+
+    // Capture Providers and Messenger before async gaps
     final auth = context.read<AuthProvider>();
+    final portfolio = context.read<PortfolioProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    setState(() => _saving = true);
+
     final ok = await auth.updateProfile(
       name: name,
       phoneNumber: _phoneController.text.trim(),
@@ -92,18 +103,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       experienceLevel: _experienceLevel,
       availability: _availability,
     );
+
     if (!mounted) return;
     setState(() => _saving = false);
+
     if (ok) {
-      // Everything here also appears on the Portfolio screen - keep it in
-      // sync rather than waiting for a manual pull.
-      unawaited(context.read<PortfolioProvider>().refresh());
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
-      Navigator.of(context).pop();
+      unawaited(portfolio.refresh());
+      messenger.showSnackBar(const SnackBar(content: Text('Profile updated.')));
+      navigator.pop();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text(auth.errorMessage ?? 'Could not save.')),
       );
     }
@@ -154,7 +163,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: 'Contact number',
-              hintText: '+1 555 123 4567',
+              hintText: '+977-9841431259',
               border: OutlineInputBorder(),
             ),
           ),

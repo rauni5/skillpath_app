@@ -40,6 +40,9 @@ class AuthProvider extends ChangeNotifier {
   /// clicked the verification link yet. Always false for Google sign-in.
   bool needsEmailVerification = false;
 
+  /// True while signIn()/signInWithGoogle()/register() is actively driving its own sync.
+  bool _explicitAuthInFlight = false;
+
   Future<void> _onFirebaseUserChanged(User? firebaseUser) async {
     if (firebaseUser == null) {
       status = AuthStatus.unauthenticated;
@@ -49,24 +52,51 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (_explicitAuthInFlight) {
+      // signIn()/signInWithGoogle()/register() is already handling this
+      return;
+    }
     needsEmailVerification = !_repo.isEmailVerified;
     try {
-      currentUser = await _repo.sync();
-      status = AuthStatus.authenticated;
-      notifyListeners();
-      // Best-effort: register this device for push notifications now that
-      // we know who's signed in, unless the user previously turned pushes
-      // off on this device. Never blocks or fails sign-in itself.
-      unawaited(_registerForPushIfEnabled(currentUser!.id));
-      await refreshOnboardingStatus();
+      final user = await _repo.sync();
+      await _onSyncSuccess(user);
     } catch (e) {
-      // Firebase says signed in but backend sync failed (e.g. API down).
-      status = AuthStatus.unauthenticated;
-      errorMessage = e is ApiException
-          ? e.message
-          : 'Could not reach SkillPath servers.';
-      notifyListeners();
+      // Firebase says signed in but backend sync faile
+      await _onSyncFailure(e);
     }
+  }
+
+  //backend sync succeeded
+  Future<void> _onSyncSuccess(AppUser user) async {
+    currentUser = user;
+    status = AuthStatus.authenticated;
+    notifyListeners();
+    unawaited(_registerForPushIfEnabled(user.id));
+    await refreshOnboardingStatus();
+  }
+
+  //backend sync failed
+  Future<void> _onSyncFailure(
+    Object e, {
+    bool deleteFirebaseAccount = false,
+  }) async {
+    status = AuthStatus.unauthenticated;
+    currentUser = null;
+    needsOnboarding = null;
+    errorMessage = e is ApiException
+        ? e.message
+        : 'Could not reach SkillPath servers.';
+    try {
+      if (deleteFirebaseAccount) {
+        await _repo.deleteCurrentFirebaseUser();
+      } else {
+        await _repo.signOut();
+      }
+    } catch (_) {
+      // Best-effort; if cleanup also fails there's nothing more we can
+      // do here, but local state stays unauthenticated regardless.
+    }
+    notifyListeners();
   }
 
   Future<void> _registerForPushIfEnabled(int userId) async {
@@ -99,22 +129,62 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> signIn(String email, String password) =>
-      _run(() => _repo.signInWithEmail(email, password));
+  // Drives the Firebase sign-in *and* the backend sync itself
+  Future<bool> signIn(String email, String password) => _run(() async {
+    _explicitAuthInFlight = true;
+    try {
+      await _repo.signInWithEmail(email, password);
+      needsEmailVerification = !_repo.isEmailVerified;
+      try {
+        final user = await _repo.sync();
+        await _onSyncSuccess(user);
+      } catch (e) {
+        await _onSyncFailure(e);
+        rethrow; // let _run() record the error and report failure
+      }
+    } finally {
+      _explicitAuthInFlight = false;
+    }
+  });
 
-  Future<bool> signInWithGoogle() => _run(() => _repo.signInWithGoogle());
+  Future<bool> signInWithGoogle() => _run(() async {
+    _explicitAuthInFlight = true;
+    try {
+      await _repo.signInWithGoogle();
+      needsEmailVerification = !_repo.isEmailVerified;
+      try {
+        final user = await _repo.sync();
+        await _onSyncSuccess(user);
+      } catch (e) {
+        await _onSyncFailure(e);
+        rethrow; // let _run() record the error and report failure
+      }
+    } finally {
+      _explicitAuthInFlight = false;
+    }
+  });
 
   Future<bool> register({
     required String email,
     required String password,
     required ExperienceLevel experienceLevel,
   }) => _run(() async {
-    currentUser = await _repo.registerWithEmail(
-      email: email,
-      password: password,
-      experienceLevel: experienceLevel,
-    );
+    try {
+      currentUser = await _repo.registerWithEmail(
+        email: email,
+        password: password,
+        experienceLevel: experienceLevel,
+      );
+    } catch (e) {
+      // If the Firebase account got created but the backend sync failed
+      await _onSyncFailure(e, deleteFirebaseAccount: true);
+      rethrow;
+    }
     needsEmailVerification = !_repo.isEmailVerified;
+    status = AuthStatus.authenticated;
+    notifyListeners();
+    unawaited(_registerForPushIfEnabled(currentUser!.id));
+    await refreshOnboardingStatus();
   });
 
   /// Sends a password reset email. Always reports success to the caller

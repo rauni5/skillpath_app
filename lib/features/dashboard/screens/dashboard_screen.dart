@@ -149,7 +149,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    data.careerRoleName ?? 'No career goal set',
+                                    data.branchName != null
+                                        ? '${data.careerRoleName} · ${data.branchName}'
+                                        : (data.careerRoleName ??
+                                              'No career goal set'),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 14.5,
