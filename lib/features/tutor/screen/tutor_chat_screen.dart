@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/chat_message.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/chat_error_notice.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -128,6 +130,27 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
         );
       case ChatLoadState.loaded:
         if (chat.messages.isEmpty && !chat.isSending) {
+          if (chat.hasError) {
+            return ListView(
+              key: const ValueKey('kickoff-error'),
+              padding: const EdgeInsets.all(14),
+              children: [
+                ChatErrorNotice(
+                  message: chat.errorMessage ?? 'The tutor could not reply.',
+                  onRetry: () {
+                    final userId = context.read<AuthProvider>().currentUser?.id;
+                    if (userId != null) {
+                      context.read<TutorChatProvider>().retryLastMessage(
+                        userId,
+                        widget.skillId,
+                      );
+                    }
+                  },
+                  isRetrying: chat.isSending,
+                ),
+              ],
+            );
+          }
           return ListView(
             key: const ValueKey('empty'),
             padding: const EdgeInsets.all(24),
@@ -147,8 +170,25 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
           key: const ValueKey('messages'),
           controller: _scrollCtrl,
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-          itemCount: chat.messages.length + (chat.isSending ? 1 : 0),
+          itemCount:
+              chat.messages.length +
+              (chat.isSending ? 1 : 0) +
+              (chat.hasError && !chat.isSending ? 1 : 0),
           itemBuilder: (context, i) {
+            if (chat.hasError && !chat.isSending && i == chat.messages.length) {
+              return ChatErrorNotice(
+                message: chat.errorMessage ?? 'The tutor could not reply.',
+                onRetry: () {
+                  final userId = context.read<AuthProvider>().currentUser?.id;
+                  if (userId != null) {
+                    context.read<TutorChatProvider>().retryLastMessage(
+                      userId,
+                      widget.skillId,
+                    );
+                  }
+                },
+              );
+            }
             if (i >= chat.messages.length) {
               return const _TypingBubble();
             }
@@ -167,6 +207,8 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final isUser = message.role == ChatRole.user;
+    final textColor = isUser ? Colors.white : p.textPrimary;
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -185,12 +227,35 @@ class _MessageBubble extends StatelessWidget {
           ),
           border: isUser ? null : Border.all(color: p.border),
         ),
-        child: Text(
-          message.content,
-          style: TextStyle(
-            fontSize: 13.5,
-            height: 1.4,
-            color: isUser ? Colors.white : p.textPrimary,
+        child: MarkdownBody(
+          data: message.content,
+          shrinkWrap: true,
+          selectable: true,
+          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+            p: TextStyle(fontSize: 13.5, height: 1.4, color: textColor),
+            strong: TextStyle(
+              fontSize: 13.5,
+              height: 1.4,
+              color: textColor,
+              fontWeight: FontWeight.bold,
+            ),
+            em: TextStyle(
+              fontSize: 13.5,
+              height: 1.4,
+              color: textColor,
+              fontStyle: FontStyle.italic,
+            ),
+            listBullet: TextStyle(fontSize: 13.5, color: textColor),
+            code: TextStyle(
+              fontSize: 12.5,
+              color: isUser ? Colors.white : p.indigo,
+              backgroundColor: isUser ? Colors.white12 : p.surface1,
+            ),
+            codeblockDecoration: BoxDecoration(
+              color: isUser ? Colors.white10 : p.surface1,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: isUser ? Colors.white24 : p.border),
+            ),
           ),
         ),
       ),

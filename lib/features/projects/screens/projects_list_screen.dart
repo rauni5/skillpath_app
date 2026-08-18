@@ -27,9 +27,11 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       _checkAlerts();
+
       final userId = context.read<AuthProvider>().currentUser?.id;
       if (userId != null) {
         context.read<ProjectManagementProvider>().loadMyInvites(userId);
@@ -43,15 +45,21 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
     super.dispose();
   }
 
-  void _load() => context.read<ProjectsProvider>().loadProjects();
+  void _load() {
+    context.read<ProjectsProvider>().loadProjects();
+  }
 
   Future<void> _checkAlerts() async {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
+
     final changes = await _alertService.checkForChanges(userId);
+
     if (!mounted) return;
+
     for (final c in changes) {
       final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Your request to join "${c.projectName}" was $verb.'),
@@ -64,6 +72,7 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final projects = context.watch<ProjectsProvider>();
+
     final invitesCount = context
         .watch<ProjectManagementProvider>()
         .myInvites
@@ -138,41 +147,59 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/projects/new'),
-        child: const Icon(Icons.add),
-      ),
-      body: Column(
+
+      // No Scaffold floatingActionButton here.
+      //
+      // The Add button is positioned manually so Scaffold does not run
+      // its FloatingActionButton location transition when the route/sheet
+      // underneath or above this screen changes.
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: (v) {
-                context.read<ProjectsProvider>().setSearchQuery(v);
-                setState(() {});
-              },
-              decoration: InputDecoration(
-                hintText: 'Search projects…',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchCtrl.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          context.read<ProjectsProvider>().setSearchQuery('');
-                          setState(() {});
-                        },
-                      ),
-                isDense: true,
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) {
+                    context.read<ProjectsProvider>().setSearchQuery(v);
+                    setState(() {});
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search projects…',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _searchCtrl.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              context.read<ProjectsProvider>().setSearchQuery(
+                                '',
+                              );
+                              setState(() {});
+                            },
+                          ),
+                    isDense: true,
+                  ),
+                ),
               ),
-            ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: _buildBody(context, p, projects),
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: _buildBody(context, p, projects),
+
+          // Manually positioned Add button.
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              onPressed: () => context.push('/projects/new'),
+              child: const Icon(Icons.add),
             ),
           ),
         ],
@@ -189,16 +216,19 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
       case ProjectsLoadState.initial:
       case ProjectsLoadState.loading:
         return const LoadingView(key: ValueKey('loading'));
+
       case ProjectsLoadState.error:
         return ErrorView(
           key: const ValueKey('error'),
           message: projects.listError ?? 'Something went wrong.',
           onRetry: _load,
         );
+
       case ProjectsLoadState.loaded:
         if (projects.projects.isEmpty) {
           final hasQuery = projects.searchQuery.trim().isNotEmpty;
           final filtered = hasQuery || projects.hasActiveFilters;
+
           return RefreshIndicator(
             key: const ValueKey('empty'),
             onRefresh: () async => _load(),
@@ -234,6 +264,7 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
             ),
           );
         }
+
         return RefreshIndicator(
           key: const ValueKey('loaded'),
           onRefresh: () async => _load(),
@@ -250,7 +281,10 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
               itemCount: projects.projects.length + 1,
               itemBuilder: (context, index) {
                 if (index == projects.projects.length) {
-                  if (!projects.hasMore) return const SizedBox(height: 8);
+                  if (!projects.hasMore) {
+                    return const SizedBox(height: 8);
+                  }
+
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Center(
@@ -267,7 +301,9 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                     ),
                   );
                 }
+
                 final project = projects.projects[index];
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: ProjectCard(
@@ -277,8 +313,10 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                           .read<AuthProvider>()
                           .currentUser
                           ?.id;
+
                       final isMine =
                           userId != null && userId == project.ownerId;
+
                       context.push(
                         isMine
                             ? '/projects/mine/${project.id}'
