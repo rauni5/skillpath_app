@@ -220,11 +220,6 @@ GoRouter buildRouter(AuthProvider authProvider) {
         ),
       ),
       GoRoute(
-        path: '/roadmap/chat/session',
-        builder: (context, state) =>
-            RoadmapChatScreen(session: state.extra as RoadmapChatSession),
-      ),
-      GoRoute(
         path: '/projects/new',
         builder: (context, state) => const CreateProjectScreen(),
       ),

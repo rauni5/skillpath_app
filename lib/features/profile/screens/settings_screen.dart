@@ -223,6 +223,7 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.children});
   final List<Widget> children;
 
