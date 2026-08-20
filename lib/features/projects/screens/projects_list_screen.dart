@@ -117,34 +117,6 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'My Projects',
-            onPressed: () => context.push('/projects/mine'),
-            icon: const Icon(Icons.folder_outlined),
-          ),
-          IconButton(
-            tooltip: 'Filter',
-            onPressed: () => showProjectFilterSheet(context),
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.tune),
-                if (projects.hasActiveFilters)
-                  Positioned(
-                    right: -1,
-                    top: -1,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: p.indigo,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
 
@@ -155,42 +127,52 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
       // underneath or above this screen changes.
       body: Stack(
         children: [
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (v) {
-                    context.read<ProjectsProvider>().setSearchQuery(v);
-                    setState(() {});
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Search projects…',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _searchCtrl.text.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              context.read<ProjectsProvider>().setSearchQuery(
-                                '',
-                              );
-                              setState(() {});
-                            },
-                          ),
-                    isDense: true,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) {
+                      context.read<ProjectsProvider>().setSearchQuery(v);
+                      setState(() {});
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search projects…',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _searchCtrl.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                context.read<ProjectsProvider>().setSearchQuery(
+                                  '',
+                                );
+                                setState(() {});
+                              },
+                            ),
+                      isDense: true,
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: _buildBody(context, p, projects),
+                const SizedBox(width: 8),
+                _RowIconButton(
+                  tooltip: 'Filter',
+                  icon: Icons.tune,
+                  showDot: projects.hasActiveFilters,
+                  onPressed: () => showProjectFilterSheet(context),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                _RowIconButton(
+                  tooltip: 'My Projects',
+                  icon: Icons.folder_outlined,
+                  onPressed: () => context.push('/projects/mine'),
+                ),
+              ],
+            ),
           ),
 
           // Manually positioned Add button.
@@ -330,5 +312,67 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
           ),
         );
     }
+  }
+}
+
+/// Compact icon button sized to sit next to the search field, with either
+/// a small "active" dot (filter) or a numeric badge (invites).
+class _RowIconButton extends StatelessWidget {
+  const _RowIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.showDot = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool showDot;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final hasBadge = showDot;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: p.surface2,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onPressed,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: p.border),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Icon(icon, size: 20, color: p.textPrimary),
+                if (hasBadge)
+                  Positioned(
+                    right: 3,
+                    top: 3,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: p.indigo,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: p.surface2, width: 1),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
