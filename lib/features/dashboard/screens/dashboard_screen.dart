@@ -122,23 +122,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
               case DashboardLoadState.loaded:
                 final data = dashboard.data!;
                 return ListView(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   children: [
+                    // 1. Greeting Header
                     Text(
                       '${_greeting()}${user != null ? ', ${user.name.split(' ').first}' : ''}',
-                      style: TextStyle(fontSize: 13, color: colors.textMuted),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: colors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 12),
 
-                    // Career progress card (mockup: .ind-card)
+                    // 2. Daily Streak Widget
+                    Consumer<GamificationProvider>(
+                      builder: (context, gami, _) {
+                        if (gami.state != GamificationLoadState.loaded ||
+                            gami.streak == null) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: StreakCard(
+                            streak: gami.streak!,
+                            onTap: () => context.go('/roadmap'),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // 3. Career Goal Banner
                     InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       onTap: () => context.push('/profile/career-goal'),
                       child: Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: colors.indigo,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.indigo.withValues(alpha: 0.25),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Row(
                           children: [
@@ -155,7 +187,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               'No career goal set'),
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 14.5,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -163,14 +195,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Text(
                                     data.careerRoleName == null
                                         ? 'Tap to choose a career goal'
-                                        : 'Skills mastered for this role: '
-                                              '${data.knownSkillCount} of '
-                                              '${data.requiredSkillCount}',
+                                        : 'Skills mastered: ${data.knownSkillCount} of ${data.requiredSkillCount}',
                                     style: TextStyle(
                                       color: Colors.white.withValues(
                                         alpha: 0.85,
                                       ),
-                                      fontSize: 11.5,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
@@ -179,7 +209,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const Icon(
                               Icons.chevron_right,
                               color: Colors.white70,
-                              size: 20,
+                              size: 22,
                             ),
                           ],
                         ),
@@ -188,67 +218,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     const SizedBox(height: 14),
 
-                    // Roadmap completion
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Learning Plan',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: colors.textPrimary,
-                                  ),
+                    // 4. Learning Path Steps
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colors.surface1,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colors.border.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colors.indigoLight,
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                Text(
-                                  '${data.roadmapCompletedSteps} of ${data.roadmapTotalSteps} steps',
+                                child: Icon(
+                                  Icons.alt_route_rounded,
+                                  size: 20,
+                                  color: colors.indigo,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Learning Plan',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Your personalized path to this role',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: colors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.indigoLight,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${data.roadmapCompletedSteps}/${data.roadmapTotalSteps} steps',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: colors.textMuted,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.indigo,
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            AnimatedProgressBar(
-                              value: data.roadmapProgress,
-                              backgroundColor: colors.border,
-                              valueColor: colors.green,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Your personalized path to this role — includes '
-                              'some foundational skills it doesn\'t directly '
-                              'require.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colors.textMuted,
-                                height: 1.3,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          AnimatedProgressBar(
+                            value: data.roadmapProgress,
+                            backgroundColor: colors.border,
+                            valueColor: colors.green,
+                          ),
+                          const SizedBox(height: 12),
+                          InkWell(
+                            onTap: () => context.go('/roadmap'),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'View full roadmap',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: colors.indigo,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 14,
+                                    color: colors.indigo,
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton(
-                                onPressed: () => context.go('/roadmap'),
-                                child: const Text('View full roadmap  →'),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
 
                     const SizedBox(height: 14),
 
-                    // AI-generated "what's next" summary (replaces the old
-                    // static "next up" skill list).
+                    // 5. AI Recommendations
                     Consumer<DashboardAiProvider>(
                       builder: (context, ai, _) => AiSummaryCard(
                         provider: ai,
@@ -259,33 +338,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     const SizedBox(height: 18),
 
-                    // Gamification: streak + achievements
+                    // 6. Achievements Section
                     Consumer<GamificationProvider>(
                       builder: (context, gami, _) {
-                        if (gami.state != GamificationLoadState.loaded) {
+                        if (gami.state != GamificationLoadState.loaded ||
+                            gami.achievements.isEmpty) {
                           return const SizedBox.shrink();
                         }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (gami.streak != null) ...[
-                              StreakCard(
-                                streak: gami.streak!,
-                                onTap: () => context.go('/roadmap'),
-                              ),
-                              const SizedBox(height: 18),
-                            ],
-                            AchievementsSection(
-                              achievements: gami.achievements,
-                            ),
-                          ],
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: AchievementsSection(
+                            achievements: gami.achievements,
+                          ),
                         );
                       },
                     ),
 
-                    const SizedBox(height: 18),
-
-                    // Active projects
+                    // 7. Active Projects Section
                     SectionHeader(
                       label: 'ACTIVE PROJECTS',
                       icon: Icons.groups_outlined,
@@ -307,7 +376,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: colors.surface1,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: colors.border.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -335,10 +407,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: ProjectCard(
                             project: proj,
-                            onTap: () => context.push(
-                              '/projects/${proj.id}',
-                              extra: {'name': proj.name, 'isMember': true},
-                            ),
+                            onTap: () {
+                              final userId = context
+                                  .read<AuthProvider>()
+                                  .currentUser
+                                  ?.id;
+                              final isMine =
+                                  userId != null && userId == proj.ownerId;
+
+                              context.push(
+                                isMine
+                                    ? '/projects/mine/${proj.id}'
+                                    : '/projects/${proj.id}',
+                                extra: {'name': proj.name, 'isMember': true},
+                              );
+                            },
                           ),
                         ),
                       ),

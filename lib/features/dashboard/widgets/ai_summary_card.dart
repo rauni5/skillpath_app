@@ -159,18 +159,6 @@ class _ExpandedContent extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            onPressed: onViewRoadmap,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              minimumSize: const Size(0, 32),
-              foregroundColor: p.indigo,
-            ),
-            child: const Text('View full roadmap  →'),
-          ),
-        ),
       ],
     );
   }
