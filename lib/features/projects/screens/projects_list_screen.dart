@@ -117,15 +117,14 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'New Project',
+            icon: const Icon(Icons.add),
+            onPressed: () => context.push('/projects/new'),
+          ),
         ],
       ),
-
-      // No Scaffold floatingActionButton here.
-      //
-      // The Add button is positioned manually so Scaffold does not run
-      // its FloatingActionButton location transition when the route/sheet
-      // underneath or above this screen changes.
-      body: Stack(
+      body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -174,14 +173,10 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
               ],
             ),
           ),
-
-          // Manually positioned Add button.
-          Positioned(
-            left: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              onPressed: () => context.push('/projects/new'),
-              child: const Icon(Icons.add),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _buildBody(context, p, projects),
             ),
           ),
         ],
