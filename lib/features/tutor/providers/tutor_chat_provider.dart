@@ -18,6 +18,10 @@ class TutorChatProvider extends ChangeNotifier {
   List<ChatMessage> messages = [];
   bool isSending = false;
 
+  bool hasError = false;
+  String? _lastFailedMessage;
+  String? _kickoffSkillName;
+
   /// Guards against firing the auto-kickoff more than once per screen visit
   /// (e.g. if a rebuild calls startConversationIfEmpty again before the
   /// first reply has come back).
@@ -28,6 +32,7 @@ class TutorChatProvider extends ChangeNotifier {
     state = ChatLoadState.loading;
     messages = [];
     _kickoffSent = false;
+    hasError = false;
     notifyListeners();
     try {
       messages = await _repo.getChatHistory(userId, skillId);
@@ -46,15 +51,19 @@ class TutorChatProvider extends ChangeNotifier {
   /// first — the prompt itself is never added to [messages], only the
   /// assistant's reply is, so nothing appears to have been "typed" by the
   /// user.
+  /// user. If it fails, [hasError] is set so the screen can offer a retry
+  /// instead of silently showing an empty chat.
   Future<void> startConversationIfEmpty(
     int userId,
     int skillId,
     String skillName,
   ) async {
     if (messages.isNotEmpty || isSending || _kickoffSent) return;
+    _kickoffSkillName = skillName;
     _kickoffSent = true;
     isSending = true;
     errorMessage = null;
+    hasError = false;
     notifyListeners();
     try {
       final reply = await _repo.sendChatMessage(
@@ -69,6 +78,7 @@ class TutorChatProvider extends ChangeNotifier {
           ? e.message
           : 'The tutor could not reply — please try again.';
       // Allow a retry (e.g. via pull-to-refresh) if the kickoff failed.
+      hasError = true;
       _kickoffSent = false;
     } finally {
       isSending = false;
@@ -89,16 +99,36 @@ class TutorChatProvider extends ChangeNotifier {
         createdAt: DateTime.now(),
       ),
     ];
+    await _attemptSend(userId, skillId, text);
+  }
+
+  /// Resends the message from the most recent failed attempt, without
+  /// adding another copy of it to the message list.
+  Future<void> retryLastMessage(int userId, int skillId) async {
+    if (!hasError) return;
+    if (_lastFailedMessage != null) {
+      await _attemptSend(userId, skillId, _lastFailedMessage!);
+    } else if (_kickoffSkillName != null) {
+      _kickoffSent = false;
+      await startConversationIfEmpty(userId, skillId, _kickoffSkillName!);
+    }
+  }
+
+  Future<void> _attemptSend(int userId, int skillId, String text) async {
     isSending = true;
     errorMessage = null;
+    hasError = false;
     notifyListeners();
     try {
       final reply = await _repo.sendChatMessage(userId, skillId, text);
       messages = [...messages, reply];
+      _lastFailedMessage = null;
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message
           : 'The tutor could not reply — please try again.';
+      hasError = true;
+      _lastFailedMessage = text;
     } finally {
       isSending = false;
       notifyListeners();

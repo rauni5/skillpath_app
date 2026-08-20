@@ -12,11 +12,14 @@ class GamificationProvider extends ChangeNotifier {
     : _repo = repository ?? GamificationRepository();
 
   final GamificationRepository _repo;
+  bool _hasLoadedOnce = false;
 
   GamificationLoadState state = GamificationLoadState.initial;
   List<Achievement> achievements = [];
   Streak? streak;
   String? errorMessage;
+
+  List<Achievement> newlyUnlocked = [];
 
   int get unlockedCount => achievements.where((a) => a.unlocked).length;
 
@@ -28,15 +31,41 @@ class GamificationProvider extends ChangeNotifier {
         _repo.getAchievements(userId),
         _repo.getStreak(userId),
       ]);
-      achievements = results[0] as List<Achievement>;
+      final freshAchievements = results[0] as List<Achievement>;
+
+      newlyUnlocked = _hasLoadedOnce
+          ? _diffNewlyUnlocked(previous: achievements, fresh: freshAchievements)
+          : [];
+
+      achievements = freshAchievements;
       streak = results[1] as Streak;
       state = GamificationLoadState.loaded;
+      _hasLoadedOnce = true;
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message
           : 'Could not load your achievements.';
       state = GamificationLoadState.error;
     }
+    notifyListeners();
+  }
+
+  List<Achievement> _diffNewlyUnlocked({
+    required List<Achievement> previous,
+    required List<Achievement> fresh,
+  }) {
+    final previouslyUnlockedCodes = previous
+        .where((a) => a.unlocked)
+        .map((a) => a.code)
+        .toSet();
+    return fresh
+        .where((a) => a.unlocked && !previouslyUnlockedCodes.contains(a.code))
+        .toList();
+  }
+
+  void clearNewlyUnlocked() {
+    if (newlyUnlocked.isEmpty) return;
+    newlyUnlocked = [];
     notifyListeners();
   }
 }

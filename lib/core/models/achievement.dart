@@ -1,5 +1,31 @@
 import 'package:flutter/material.dart' show IconData, Icons;
 
+import 'admin_achievement.dart';
+export 'admin_achievement.dart'
+    show AchievementCriteriaType, AchievementCriteriaTypeLabel;
+class AchievementDestination {
+  final String route;
+  final String label;
+  const AchievementDestination(this.route, this.label);
+}
+
+AchievementDestination? achievementDestinationFor(
+  AchievementCriteriaType type,
+) {
+  switch (type) {
+    case AchievementCriteriaType.roadmapStepsCompleted:
+    case AchievementCriteriaType.roadmapPercentComplete:
+    case AchievementCriteriaType.skillChecksPassed:
+    case AchievementCriteriaType.streakDays:
+      return const AchievementDestination('/roadmap', 'View Roadmap');
+    case AchievementCriteriaType.projectsJoined:
+    case AchievementCriteriaType.projectsCreated:
+      return const AchievementDestination('/projects', 'View Projects');
+    case AchievementCriteriaType.tutorMessagesSent:
+      return const AchievementDestination('/roadmap', 'Open a Tutor Chat');
+  }
+}
+
 class Achievement {
   final String code;
   final String title;
@@ -8,6 +34,8 @@ class Achievement {
   final String category;
   final bool unlocked;
   final DateTime? unlockedAt;
+  final AchievementCriteriaType criteriaType;
+  final int criteriaValue;
 
   Achievement({
     required this.code,
@@ -17,6 +45,8 @@ class Achievement {
     required this.category,
     required this.unlocked,
     this.unlockedAt,
+    required this.criteriaType,
+    required this.criteriaValue,
   });
 
   factory Achievement.fromJson(Map<String, dynamic> json) {
@@ -31,8 +61,16 @@ class Achievement {
       unlockedAt: unlockedAtRaw == null
           ? null
           : DateTime.tryParse(unlockedAtRaw),
+      criteriaType: achievementCriteriaTypeFromString(
+        json['criteriaType'] as String?,
+      ),
+      criteriaValue: json['criteriaValue'] as int? ?? 1,
     );
   }
+
+  /// Where this achievement's "Go to" button should point, if anywhere.
+  AchievementDestination? get destination =>
+      achievementDestinationFor(criteriaType);
 
   /// Maps the backend's icon name (from the achievements catalog) to a
   /// concrete Material icon. Falls back to a trophy if unrecognized. Shared
