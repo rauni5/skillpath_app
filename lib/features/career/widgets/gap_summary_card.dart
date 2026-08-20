@@ -5,9 +5,14 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/animated_progress_bar.dart';
 
 class GapSummaryCard extends StatelessWidget {
-  const GapSummaryCard({super.key, required this.gap});
+  const GapSummaryCard({
+    super.key,
+    required this.gap,
+    this.onTapSpecializationInfo,
+  });
 
   final GapAnalysis gap;
+  final VoidCallback? onTapSpecializationInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -63,10 +68,53 @@ class GapSummaryCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              if (gap.branchName != null) ...[
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: onTapSpecializationInfo,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.alt_route,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Specialization: ${gap.branchName}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (onTapSpecializationInfo != null) ...[
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.info_outline,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
               Text(
                 '${gap.knownSkillCount} of ${gap.requiredSkillCount} required skills covered',
-
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 12,
@@ -99,13 +147,53 @@ class GapSummaryCard extends StatelessWidget {
             ],
           ),
         ),
+        if (gap.knownSkills.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(Icons.check_circle_outline, size: 14, color: p.textMuted),
+              const SizedBox(width: 6),
+              Text(
+                'YOU ALREADY KNOW',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: p.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: gap.knownSkills.map((s) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: p.greenLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  s.name,
+                  style: TextStyle(
+                    color: p.greenText,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
         const SizedBox(height: 16),
         Row(
           children: [
             Icon(Icons.checklist_outlined, size: 14, color: p.textMuted),
             const SizedBox(width: 6),
             Text(
-              'MISSING SKILLS',
+              'STILL TO LEARN',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,

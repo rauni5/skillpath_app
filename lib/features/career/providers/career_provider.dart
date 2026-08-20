@@ -23,7 +23,7 @@ class CareerProvider extends ChangeNotifier {
   List<CareerRole> roles = [];
   GapAnalysis gap = GapAnalysis.empty();
 
-  // --- Branches for whichever role is currently being picked/viewed ---
+  // --- Specializations (branches) for whichever role is being picked/viewed ---
   CareerLoadState branchesState = CareerLoadState.initial;
   List<RoleBranch> branches = [];
   List<BranchRecommendation> branchRecommendations = [];
@@ -62,10 +62,10 @@ class CareerProvider extends ChangeNotifier {
     await Future.wait([loadRoles(), loadGap(userId)]);
   }
 
-  /// Loads a role's branches and, if the user has any current skills, ranks
-  /// them by match score in the same call. Call this before showing the
-  /// branch-picker step for a role (skip entirely if branches ends up empty
-  /// — that role just doesn't have any).
+  /// Loads a role's specializations and, if the user has any current skills,
+  /// ranks them by match score in the same call. Call before showing the
+  /// specialization-picker step for a role (skip entirely if it ends up
+  /// empty — that role just doesn't have any).
   Future<void> loadBranchesForRole(int userId, int roleId) async {
     branchesState = CareerLoadState.loading;
     branches = [];
@@ -82,13 +82,13 @@ class CareerProvider extends ChangeNotifier {
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message
-          : 'Could not load branches for this role.';
+          : 'Could not load specializations for this role.';
       branchesState = CareerLoadState.error;
     }
     notifyListeners();
   }
 
-  /// Convenience: match score for a branch, or null if not yet loaded/ranked.
+  /// Convenience: match score for a specialization, or null if not yet loaded/ranked.
   double? scoreForBranch(int branchId) {
     for (final r in branchRecommendations) {
       if (r.branchId == branchId) return r.matchScore;
@@ -115,7 +115,7 @@ class CareerProvider extends ChangeNotifier {
     }
   }
 
-  /// Changes branch without changing role — for an already-set career goal.
+  /// Changes specialization without changing role — for an already-set career goal.
   Future<bool> switchBranch(int userId, int branchId) async {
     isSubmitting = true;
     errorMessage = null;
@@ -125,7 +125,9 @@ class CareerProvider extends ChangeNotifier {
       gap = await _repo.getGapAnalysis(userId);
       return true;
     } catch (e) {
-      errorMessage = e is ApiException ? e.message : 'Could not switch branch.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not switch specialization.';
       return false;
     } finally {
       isSubmitting = false;
