@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:provider/provider.dart';
 
+import '../../../core/models/branch_recommendation.dart';
 import '../../../core/models/career_role.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
@@ -11,9 +12,10 @@ import '../../auth/providers/auth_provider.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../../roadmap/providers/roadmap_provider.dart';
 import '../providers/career_provider.dart';
-import '../widgets/branch_card.dart';
 import '../widgets/gap_summary_card.dart';
 import '../widgets/role_card.dart';
+import '../widgets/specialization_card.dart';
+import '../widgets/specialization_info_sheet.dart';
 
 enum _ScreenMode { viewing, pickingRole, pickingBranch }
 
@@ -52,8 +54,8 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
     });
   }
 
-  /// A role was tapped from the role list. If it has branches, show the
-  /// branch picker; if not, set the goal immediately (unchanged behavior).
+  /// A role was tapped from the role list. If it has specializations, show
+  /// the picker; if not, set the goal immediately (unchanged behavior).
   Future<void> _onRoleTapped(CareerRole role) async {
     HapticFeedback.selectionClick();
     final userId = _userId;
@@ -73,7 +75,7 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
     }
   }
 
-  /// "Switch Branch" from the viewing state — same role, different branch.
+  /// "Change specialization" from the viewing state — same role, different specialization.
   Future<void> _startSwitchingBranch() async {
     HapticFeedback.selectionClick();
     final userId = _userId;
@@ -134,12 +136,22 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
   }
 
   void _refreshDependents(int userId) {
-    // Career goal/branch changed -> the backend already rebuilt the roadmap.
-    // Refresh Dashboard/Roadmap now so they show fresh data as soon as the
-    // user navigates there, instead of stale cached state.
+    // Career goal/specialization changed -> the backend already rebuilt the
+    // roadmap. Refresh Dashboard/Roadmap now so they show fresh data as soon
+    // as the user navigates there, instead of stale cached state.
     if (!mounted) return;
     context.read<DashboardProvider>().load(userId);
     context.read<RoadmapProvider>().load(userId);
+  }
+
+  BranchRecommendation? _recommendationFor(
+    CareerProvider career,
+    int branchId,
+  ) {
+    final matches = career.branchRecommendations.where(
+      (r) => r.branchId == branchId,
+    );
+    return matches.isEmpty ? null : matches.first;
   }
 
   @override
@@ -177,7 +189,9 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
       case _ScreenMode.pickingRole:
         return 'Choose a role';
       case _ScreenMode.pickingBranch:
-        return _isSwitchingBranchOnly ? 'Switch branch' : 'Choose a branch';
+        return _isSwitchingBranchOnly
+            ? 'Change specialization'
+            : 'Choose a specialization';
     }
   }
 
@@ -194,8 +208,12 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
             children: [
-              GapSummaryCard(gap: career.gap),
-              const SizedBox(height: 18),
+              GapSummaryCard(
+                gap: career.gap,
+                onTapSpecializationInfo: () =>
+                    showSpecializationInfoSheet(context),
+              ),
+              const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: () =>
                     setState(() => _mode = _ScreenMode.pickingRole),
@@ -216,13 +234,48 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
                 ),
               ),
               if (career.gap.hasGoalSet && career.gap.branchId != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(Icons.alt_route, size: 16, color: p.textMuted),
+                    const SizedBox(width: 8),
+                    Text(
+                      'SPECIALIZATION',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: p.textMuted,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: p.textMuted,
+                      ),
+                      onPressed: () => showSpecializationInfoSheet(context),
+                    ),
+                  ],
+                ),
+                Text(
+                  "You're on the ${career.gap.branchName} track within ${career.gap.careerRoleName}. "
+                  'Switching keeps your role, just changes which skills your roadmap targets.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: p.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _startSwitchingBranch,
-                  icon: const Icon(Icons.alt_route, size: 18),
-                  label: Text(
-                    'Switch branch (currently ${career.gap.branchName})',
-                  ),
+                  icon: const Icon(Icons.sync_alt, size: 18),
+                  label: const Text('Change specialization'),
                 ),
               ],
             ],
@@ -275,21 +328,37 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
           key: const ValueKey('pickingBranch'),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
           children: [
-            SectionHeader(
-              label: '$_pendingRoleName · BRANCHES',
-              icon: Icons.alt_route,
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: p.indigoLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: p.indigo),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$_pendingRoleName has multiple specializations — different technology tracks that '
+                      'lead to the same role. Each one below shows what you already know and what '
+                      "you'd still need to learn.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: p.indigo,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Ranked by how much they overlap with skills you already have.',
-              style: TextStyle(fontSize: 12, color: p.textMuted),
-            ),
-            const SizedBox(height: 12),
             for (final branch in career.branches)
-              BranchCard(
+              SpecializationCard(
                 branch: branch,
-                isSelected: false,
-                matchScore: career.scoreForBranch(branch.id),
+                recommendation: _recommendationFor(career, branch.id),
                 isTopMatch:
                     topScore != null &&
                     career.scoreForBranch(branch.id) == topScore,
