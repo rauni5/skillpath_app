@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'features/admin/providers/admin_dashboard_provider.dart';
 import 'features/admin/providers/admin_achievements_provider.dart';
 import 'features/admin/providers/admin_roles_provider.dart';
 import 'features/admin/providers/admin_skills_provider.dart';
@@ -49,6 +50,7 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProjectsProvider()),
         ChangeNotifierProvider(create: (_) => ProjectManagementProvider()),
         ChangeNotifierProvider(create: (_) => AdminUsersProvider()),
+        ChangeNotifierProvider(create: (_) => AdminDashboardProvider()),
         ChangeNotifierProvider(create: (_) => AdminSkillsProvider()),
         ChangeNotifierProvider(create: (_) => AdminRolesProvider()),
         ChangeNotifierProvider(create: (_) => AdminAchievementsProvider()),

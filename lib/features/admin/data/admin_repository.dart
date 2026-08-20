@@ -1,5 +1,12 @@
 import '../../../core/models/admin_achievement.dart';
+import '../../../core/models/admin_dashboard_stats.dart';
+import '../../../core/models/admin_role_summary.dart';
+import '../../../core/models/admin_user_analytics.dart';
+import '../../../core/models/admin_user_summary.dart';
+import '../../../core/models/admin_users_query.dart';
 import '../../../core/models/career_role.dart';
+import '../../../core/models/daily_count.dart';
+import '../../../core/models/page_projects.dart';
 import '../../../core/models/role_requirement.dart';
 import '../../../core/models/skill.dart';
 import '../../../core/models/user.dart';
@@ -8,12 +15,67 @@ import '../../../core/network/api_client.dart';
 class AdminRepository {
   final ApiClient _api = ApiClient.instance;
 
-  /// GET /api/v1/admin/users
-  Future<List<AppUser>> getUsers() {
+  /// GET /api/v1/admin/users — paginated, 20 per page by default. [q]
+  /// searches by name or email (case-insensitive). [status] filters by
+  /// admin/active/inactive. Sortable by [sortBy]/[sortDir].
+  /// Each row includes per-user stats (skills/projects/achievements counts).
+  Future<Page<AdminUserSummary>> getUsers({
+    int page = 0,
+    int size = 20,
+    String? q,
+    UserStatusFilter status = UserStatusFilter.all,
+    UserSortBy sortBy = UserSortBy.createdAt,
+    SortDir sortDir = SortDir.desc,
+  }) {
     return _api.unwrap(
-      (dio) => dio.get('/api/v1/admin/users'),
+      (dio) => dio.get(
+        '/api/v1/admin/users',
+        queryParameters: {
+          'page': page,
+          'size': size,
+          if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+          'status': status.apiValue,
+          'sortBy': sortBy.apiValue,
+          'sortDir': sortDir.apiValue,
+        },
+      ),
+      (data) => Page<AdminUserSummary>.fromJson(
+        data as Map<String, dynamic>,
+        AdminUserSummary.fromJson,
+      ),
+    );
+  }
+
+  /// GET /api/v1/admin/users/analytics
+  Future<AdminUserAnalytics> getUserAnalytics() {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/users/analytics'),
+      (data) => AdminUserAnalytics.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// GET /api/v1/admin/dashboard/stats?days= — [trendDays] controls the
+  /// signup-trend chart window (7/30/90…), defaults to 30.
+  Future<AdminDashboardStats> getDashboardStats({int trendDays = 30}) {
+    return _api.unwrap(
+      (dio) => dio.get(
+        '/api/v1/admin/dashboard/stats',
+        queryParameters: {'days': trendDays},
+      ),
+      (data) => AdminDashboardStats.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// GET /api/v1/admin/dashboard/signup-trend?days= — just the chart data,
+  /// so switching the day range doesn't require reloading every stat.
+  Future<List<DailyCount>> getSignupTrend({int days = 30}) {
+    return _api.unwrap(
+      (dio) => dio.get(
+        '/api/v1/admin/dashboard/signup-trend',
+        queryParameters: {'days': days},
+      ),
       (data) => (data as List<dynamic>)
-          .map((e) => AppUser.fromJson(e as Map<String, dynamic>))
+          .map((e) => DailyCount.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -24,6 +86,18 @@ class AdminRepository {
       (dio) => dio.patch(
         '/api/v1/admin/users/$userId/admin',
         data: {'admin': isAdmin},
+      ),
+      (data) => AppUser.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// PATCH /api/v1/admin/users/{userId}/active — deactivate/reactivate a
+  /// user. Deactivated users are rejected at sign-in but keep their data.
+  Future<AppUser> setActive(int userId, bool active) {
+    return _api.unwrap(
+      (dio) => dio.patch(
+        '/api/v1/admin/users/$userId/active',
+        data: {'active': active},
       ),
       (data) => AppUser.fromJson(data as Map<String, dynamic>),
     );
@@ -134,6 +208,17 @@ class AdminRepository {
       (dio) => dio.get('/api/v1/career-roles'),
       (data) => (data as List<dynamic>)
           .map((e) => CareerRole.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  /// GET /api/v1/admin/career-roles — enriched with per-role stats
+  /// (required-skill count, popularity) for the admin Roles screen.
+  Future<List<AdminRoleSummary>> getAdminCareerRoles() {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/career-roles'),
+      (data) => (data as List<dynamic>)
+          .map((e) => AdminRoleSummary.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

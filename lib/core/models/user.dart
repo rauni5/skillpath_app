@@ -38,6 +38,7 @@ class AppUser {
   final String? avatarUrl;
   final DateTime? createdAt;
   final bool isAdmin;
+  final bool isActive;
 
   AppUser({
     required this.id,
@@ -54,6 +55,7 @@ class AppUser {
     this.avatarUrl,
     this.createdAt,
     required this.isAdmin,
+    this.isActive = true,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -76,6 +78,7 @@ class AppUser {
           ? null
           : DateTime.tryParse(json['createdAt'] as String),
       isAdmin: json['admin'] as bool? ?? false,
+      isActive: json['active'] as bool? ?? true,
     );
   }
   String get initials {
