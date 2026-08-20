@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/models/admin_role_summary.dart';
 import '../../../core/models/branch_requirement.dart';
 import '../../../core/models/career_role.dart';
 import '../../../core/models/role_branch.dart';
@@ -21,13 +22,13 @@ class AdminRolesProvider extends ChangeNotifier {
   // --- List ---
   AdminRolesLoadState listState = AdminRolesLoadState.initial;
   String? listError;
-  List<CareerRole> roles = [];
+  List<AdminRoleSummary> roles = [];
 
   Future<void> loadRoles() async {
     listState = AdminRolesLoadState.loading;
     notifyListeners();
     try {
-      roles = await _repo.getCareerRoles();
+      roles = await _repo.getAdminCareerRoles();
       roles.sort(
         (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       );
@@ -56,8 +57,16 @@ class AdminRolesProvider extends ChangeNotifier {
         name: name,
         description: description,
       );
-      roles = [...roles, created]
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      roles = [
+        ...roles,
+        AdminRoleSummary(
+          id: created.id,
+          name: created.name,
+          description: created.description,
+          requirementsCount: 0,
+          popularity: 0,
+        ),
+      ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       return created;
     } catch (e) {
       createError = e is ApiException
@@ -117,8 +126,23 @@ class AdminRolesProvider extends ChangeNotifier {
         description: description,
       );
       selectedRole = updated;
-      roles = roles.map((r) => r.id == roleId ? updated : r).toList()
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      roles =
+          roles
+              .map(
+                (r) => r.id == roleId
+                    ? AdminRoleSummary(
+                        id: updated.id,
+                        name: updated.name,
+                        description: updated.description,
+                        requirementsCount: r.requirementsCount,
+                        popularity: r.popularity,
+                      )
+                    : r,
+              )
+              .toList()
+            ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
       return true;
     } catch (e) {
       detailError = e is ApiException ? e.message : 'Could not save changes.';
