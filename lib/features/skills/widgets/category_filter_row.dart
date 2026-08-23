@@ -30,7 +30,7 @@ class CategoryFilterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return SizedBox(
-      height: 32,
+      height: 34,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _categories.length,
@@ -55,6 +55,9 @@ class CategoryFilterRow extends StatelessWidget {
             ),
             side: BorderSide(color: isSelected ? p.indigo : Colors.transparent),
             padding: const EdgeInsets.symmetric(horizontal: 4),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           );
         },
       ),

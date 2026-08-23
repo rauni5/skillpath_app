@@ -24,162 +24,165 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          Center(
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: p.indigoLight, width: 3),
-              ),
-              child: CircleAvatar(
-                radius: 30,
-                backgroundColor: p.indigoLight,
-                child: Text(
-                  user?.initials ?? '?',
-                  style: TextStyle(
-                    color: p.indigo,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: p.indigoLight, width: 3),
+                ),
+                child: CircleAvatar(
+                  radius: 30,
+                  backgroundColor: p.indigoLight,
+                  child: Text(
+                    user?.initials ?? '?',
+                    style: TextStyle(
+                      color: p.indigo,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              user?.name ?? '',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: p.textPrimary,
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                user?.name ?? '',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: p.textPrimary,
+                ),
               ),
             ),
-          ),
-          Center(
-            child: Text(
-              user?.email ?? '',
-              style: TextStyle(fontSize: 12.5, color: p.textMuted),
+            Center(
+              child: Text(
+                user?.email ?? '',
+                style: TextStyle(fontSize: 12.5, color: p.textMuted),
+              ),
             ),
-          ),
-          const SizedBox(height: 28),
+            const SizedBox(height: 28),
 
-          const _SectionLabel('PROFILE'),
-          const SizedBox(height: 8),
-          _SettingsCard(
-            children: [
-              _InfoRow(label: 'Name', value: user?.name ?? '—'),
-              const _RowDivider(),
-              _InfoRow(
-                label: 'Contact number',
-                value: (user?.phoneNumber == null || user!.phoneNumber!.isEmpty)
-                    ? 'Not set'
-                    : user.phoneNumber!,
-              ),
-              const _RowDivider(),
-              _NavRow(
-                icon: Icons.edit_outlined,
-                iconColor: p.indigo,
-                iconBackground: p.indigoLight,
-                label: 'Edit profile',
-                onTap: () => context.push('/profile/settings/edit'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          const _SectionLabel('ACCOUNT'),
-          const SizedBox(height: 8),
-          _SettingsCard(
-            children: [
-              _InfoRow(label: 'Email', value: user?.email ?? '—'),
-              if (auth.isPasswordAccount) ...[
+            const _SectionLabel('PROFILE'),
+            const SizedBox(height: 8),
+            _SettingsCard(
+              children: [
+                _InfoRow(label: 'Name', value: user?.name ?? '—'),
+                const _RowDivider(),
+                _InfoRow(
+                  label: 'Contact number',
+                  value:
+                      (user?.phoneNumber == null || user!.phoneNumber!.isEmpty)
+                      ? 'Not set'
+                      : user.phoneNumber!,
+                ),
                 const _RowDivider(),
                 _NavRow(
-                  icon: Icons.lock_reset_outlined,
+                  icon: Icons.edit_outlined,
                   iconColor: p.indigo,
                   iconBackground: p.indigoLight,
-                  label: 'Send password reset email',
-                  onTap: () => _sendPasswordReset(context, user?.email),
+                  label: 'Edit profile',
+                  onTap: () => context.push('/profile/settings/edit'),
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 24),
+            ),
+            const SizedBox(height: 24),
 
-          const _SectionLabel('NOTIFICATIONS'),
-          const SizedBox(height: 8),
-          const _PushNotificationsToggle(),
-          const SizedBox(height: 24),
+            const _SectionLabel('ACCOUNT'),
+            const SizedBox(height: 8),
+            _SettingsCard(
+              children: [
+                _InfoRow(label: 'Email', value: user?.email ?? '—'),
+                if (auth.isPasswordAccount) ...[
+                  const _RowDivider(),
+                  _NavRow(
+                    icon: Icons.lock_reset_outlined,
+                    iconColor: p.indigo,
+                    iconBackground: p.indigoLight,
+                    label: 'Send password reset email',
+                    onTap: () => _sendPasswordReset(context, user?.email),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 24),
 
-          const _SectionLabel('SKILLPATH'),
-          const SizedBox(height: 8),
-          _SettingsCard(
-            children: [
-              _NavRow(
-                icon: Icons.person_outline,
-                iconColor: p.indigo,
-                iconBackground: p.indigoLight,
-                label: 'View portfolio',
-                onTap: () => context.pop(),
-              ),
-              const _RowDivider(),
-              _NavRow(
-                icon: Icons.psychology_outlined,
-                iconColor: p.indigo,
-                iconBackground: p.indigoLight,
-                label: 'Your skills',
-                onTap: () => context.push('/profile/skills'),
-              ),
-              const _RowDivider(),
-              _NavRow(
-                icon: Icons.flag_outlined,
-                iconColor: p.amberText,
-                iconBackground: p.amberLight,
-                label: 'Career goal & gap analysis',
-                onTap: () => context.push('/profile/career-goal'),
-              ),
-              const _RowDivider(),
-              _NavRow(
-                icon: Icons.groups_outlined,
-                iconColor: p.greenText,
-                iconBackground: p.greenLight,
-                label: 'Projects',
-                onTap: () => context.go('/projects'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+            const _SectionLabel('NOTIFICATIONS'),
+            const SizedBox(height: 8),
+            const _PushNotificationsToggle(),
+            const SizedBox(height: 24),
 
-          const _SectionLabel('APPEARANCE'),
-          const SizedBox(height: 8),
-          const _ThemeModeSection(),
-          const SizedBox(height: 32),
+            const _SectionLabel('SKILLPATH'),
+            const SizedBox(height: 8),
+            _SettingsCard(
+              children: [
+                _NavRow(
+                  icon: Icons.person_outline,
+                  iconColor: p.indigo,
+                  iconBackground: p.indigoLight,
+                  label: 'View portfolio',
+                  onTap: () => context.pop(),
+                ),
+                const _RowDivider(),
+                _NavRow(
+                  icon: Icons.psychology_outlined,
+                  iconColor: p.indigo,
+                  iconBackground: p.indigoLight,
+                  label: 'Your skills',
+                  onTap: () => context.push('/profile/skills'),
+                ),
+                const _RowDivider(),
+                _NavRow(
+                  icon: Icons.flag_outlined,
+                  iconColor: p.amberText,
+                  iconBackground: p.amberLight,
+                  label: 'Career goal & gap analysis',
+                  onTap: () => context.push('/profile/career-goal'),
+                ),
+                const _RowDivider(),
+                _NavRow(
+                  icon: Icons.groups_outlined,
+                  iconColor: p.greenText,
+                  iconBackground: p.greenLight,
+                  label: 'Projects',
+                  onTap: () => context.go('/projects'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
 
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: p.red,
-                side: BorderSide(color: p.redLight, width: 1.5),
-                backgroundColor: p.redLight,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+            const _SectionLabel('APPEARANCE'),
+            const SizedBox(height: 8),
+            const _ThemeModeSection(),
+            const SizedBox(height: 32),
+
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: p.red,
+                  side: BorderSide(color: p.redLight, width: 1.5),
+                  backgroundColor: p.redLight,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                onPressed: () => context.read<AuthProvider>().signOut(),
+                icon: const Icon(Icons.logout, size: 18),
+                label: const Text(
+                  'Sign out',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              onPressed: () => context.read<AuthProvider>().signOut(),
-              icon: const Icon(Icons.logout, size: 18),
-              label: const Text(
-                'Sign out',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -9,31 +9,55 @@ class CatalogSkillRow extends StatelessWidget {
     super.key,
     required this.skill,
     required this.isPending,
-    required this.onAdd,
-  });
+    this.onAdd,
+    this.onAddDirect,
+    this.isSelected = false,
+    this.onRemove,
+  }) : assert(
+         onAdd != null || onAddDirect != null,
+         'Provide either onAdd (proficiency sheet) or onAddDirect (custom tap handler).',
+       );
 
   final Skill skill;
   final bool isPending;
-  final void Function(SkillProficiency proficiency) onAdd;
+  final void Function(SkillProficiency proficiency)? onAdd;
+  final VoidCallback? onAddDirect;
+  final bool isSelected;
+  final VoidCallback? onRemove;
 
   Future<void> _handleTap(BuildContext context) async {
+    if (onAddDirect != null) {
+      onAddDirect!();
+      return;
+    }
     final level = await showAddSkillSheet(context, skill);
-    if (level != null) onAdd(level);
+    if (level != null) onAdd!(level);
   }
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final VoidCallback? tapHandler = isPending
+        ? null
+        : isSelected
+        ? onRemove
+        : () => _handleTap(context);
+
     return InkWell(
       borderRadius: BorderRadius.circular(10),
-      onTap: isPending ? null : () => _handleTap(context),
-      child: Container(
+      onTap: tapHandler,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: p.surface2,
+          color: isSelected ? p.indigoLight : p.surface2,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: p.border),
+          border: Border.all(
+            color: isSelected ? p.indigo : p.border,
+            width: isSelected ? 1.25 : 1,
+          ),
         ),
         child: Row(
           children: [
@@ -48,13 +72,18 @@ class CatalogSkillRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
-                      color: p.textPrimary,
+                      color: isSelected ? p.indigo : p.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     skill.category.label,
-                    style: TextStyle(fontSize: 11, color: p.textMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isSelected
+                          ? p.indigo.withValues(alpha: 0.7)
+                          : p.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -68,6 +97,22 @@ class CatalogSkillRow extends StatelessWidget {
                   strokeWidth: 2,
                   color: p.indigo,
                 ),
+              )
+            else if (isSelected)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, size: 16, color: p.indigo),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Added',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: p.indigo,
+                    ),
+                  ),
+                ],
               )
             else
               Container(

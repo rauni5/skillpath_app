@@ -137,149 +137,151 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            'IDENTITY',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: p.textMuted,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              'IDENTITY',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: p.textMuted,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Contact number',
-              hintText: '+977-9841431259',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Contact number',
+                hintText: '+977-9841431259',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _locationController,
-            decoration: const InputDecoration(
-              labelText: 'Location',
-              hintText: 'City, Country',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _locationController,
+              decoration: const InputDecoration(
+                labelText: 'Location',
+                hintText: 'City, Country',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          Text(
-            'LINKS',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: p.textMuted,
+            Text(
+              'LINKS',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: p.textMuted,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _githubController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'GitHub profile',
-              hintText: 'https://github.com/yourname',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _githubController,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'GitHub profile',
+                hintText: 'https://github.com/yourname',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _linkedinController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'LinkedIn profile',
-              hintText: 'https://linkedin.com/in/yourname',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _linkedinController,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'LinkedIn profile',
+                hintText: 'https://linkedin.com/in/yourname',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          Text(
-            'PORTFOLIO DETAILS',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: p.textMuted,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _bioController,
-            maxLines: 4,
-            maxLength: 1000,
-            decoration: const InputDecoration(
-              labelText: 'Bio',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Experience level',
-            style: TextStyle(fontSize: 12, color: p.textMuted),
-          ),
-          const SizedBox(height: 6),
-          SegmentedButton<ExperienceLevel>(
-            segments: const [
-              ButtonSegment(
-                value: ExperienceLevel.beginner,
-                label: Text('Beginner'),
+            Text(
+              'PORTFOLIO DETAILS',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: p.textMuted,
               ),
-              ButtonSegment(
-                value: ExperienceLevel.intermediate,
-                label: Text('Intermediate'),
-              ),
-              ButtonSegment(
-                value: ExperienceLevel.advanced,
-                label: Text('Advanced'),
-              ),
-            ],
-            selected: {_experienceLevel},
-            onSelectionChanged: (s) =>
-                setState(() => _experienceLevel = s.first),
-            showSelectedIcon: false,
-          ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Available for projects'),
-            value: _availability,
-            onChanged: (v) => setState(() => _availability = v),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _softSkillsController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Soft skills',
-              hintText: 'Communication, Time management, Teamwork',
-              helperText: 'Separate with commas or new lines',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'GitHub, LinkedIn, location, bio, experience level, availability, and soft skills all show on your Portfolio and CV.',
-            style: TextStyle(fontSize: 11.5, color: p.textMuted),
-          ),
-        ],
+            const SizedBox(height: 8),
+            TextField(
+              controller: _bioController,
+              maxLines: 4,
+              maxLength: 1000,
+              decoration: const InputDecoration(
+                labelText: 'Bio',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Experience level',
+              style: TextStyle(fontSize: 12, color: p.textMuted),
+            ),
+            const SizedBox(height: 6),
+            SegmentedButton<ExperienceLevel>(
+              segments: const [
+                ButtonSegment(
+                  value: ExperienceLevel.beginner,
+                  label: Text('Beginner'),
+                ),
+                ButtonSegment(
+                  value: ExperienceLevel.intermediate,
+                  label: Text('Intermediate'),
+                ),
+                ButtonSegment(
+                  value: ExperienceLevel.advanced,
+                  label: Text('Advanced'),
+                ),
+              ],
+              selected: {_experienceLevel},
+              onSelectionChanged: (s) =>
+                  setState(() => _experienceLevel = s.first),
+              showSelectedIcon: false,
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Available for projects'),
+              value: _availability,
+              onChanged: (v) => setState(() => _availability = v),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _softSkillsController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Soft skills',
+                hintText: 'Communication, Time management, Teamwork',
+                helperText: 'Separate with commas or new lines',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'GitHub, LinkedIn, location, bio, experience level, availability, and soft skills all show on your Portfolio and CV.',
+              style: TextStyle(fontSize: 11.5, color: p.textMuted),
+            ),
+          ],
+        ),
       ),
     );
   }

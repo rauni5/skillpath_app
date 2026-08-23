@@ -40,6 +40,14 @@ class SkillsProvider extends ChangeNotifier {
     }).toList();
   }
 
+  List<Skill> get filteredCatalogAll {
+    return catalog.where((s) {
+      if (categoryFilter != null && s.category != categoryFilter) return false;
+      if (searchQuery.trim().isEmpty) return true;
+      return s.name.toLowerCase().contains(searchQuery.trim().toLowerCase());
+    }).toList();
+  }
+
   void setSearchQuery(String query) {
     searchQuery = query;
     notifyListeners();
@@ -93,7 +101,7 @@ class SkillsProvider extends ChangeNotifier {
     SkillProficiency proficiency,
   ) async {
     pendingSkillIds.add(skill.id);
-    userSkills = [...userSkills, skill];
+    userSkills = [...userSkills, skill.withProficiency(proficiency)];
     notifyListeners();
     try {
       await _repo.addSkill(userId, skill.id, proficiency);

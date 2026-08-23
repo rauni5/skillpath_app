@@ -40,7 +40,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface2,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.border),
@@ -64,7 +67,9 @@ class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(48),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
@@ -73,7 +78,9 @@ class AppTheme {
           foregroundColor: AppColors.textPrimary,
           minimumSize: const Size.fromHeight(48),
           side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -87,7 +94,10 @@ class AppTheme {
         showUnselectedLabels: true,
         elevation: 0,
       ),
-      dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 0.75),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 0.75,
+      ),
     );
   }
 
@@ -129,7 +139,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColorsDark.surface2,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         labelStyle: const TextStyle(color: AppColorsDark.textMuted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -154,7 +167,9 @@ class AppTheme {
           foregroundColor: AppColorsDark.surface0,
           minimumSize: const Size.fromHeight(48),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
@@ -163,7 +178,9 @@ class AppTheme {
           foregroundColor: AppColorsDark.textPrimary,
           minimumSize: const Size.fromHeight(48),
           side: const BorderSide(color: AppColorsDark.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -177,7 +194,10 @@ class AppTheme {
         showUnselectedLabels: true,
         elevation: 0,
       ),
-      dividerTheme: const DividerThemeData(color: AppColorsDark.border, thickness: 0.75),
+      dividerTheme: const DividerThemeData(
+        color: AppColorsDark.border,
+        thickness: 0.75,
+      ),
       textTheme: base.textTheme.apply(
         bodyColor: AppColorsDark.textPrimary,
         displayColor: AppColorsDark.textPrimary,
