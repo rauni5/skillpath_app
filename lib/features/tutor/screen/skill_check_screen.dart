@@ -15,11 +15,13 @@ class SkillCheckScreen extends StatefulWidget {
     super.key,
     required this.skillId,
     required this.skillName,
+    this.returnLabel = 'Back to Roadmap',
   });
 
   final int skillId;
   final String skillName;
 
+  final String returnLabel;
   @override
   State<SkillCheckScreen> createState() => _SkillCheckScreenState();
 }
@@ -103,6 +105,7 @@ class _SkillCheckScreenState extends State<SkillCheckScreen> {
           key: const ValueKey('result'),
           skillId: widget.skillId,
           skillName: widget.skillName,
+          returnLabel: widget.returnLabel,
         );
     }
   }
@@ -363,10 +366,12 @@ class _ResultView extends StatelessWidget {
     super.key,
     required this.skillId,
     required this.skillName,
+    required this.returnLabel,
   });
 
   final int skillId;
   final String skillName;
+  final String returnLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -485,7 +490,7 @@ class _ResultView extends StatelessWidget {
                   minimumSize: const Size.fromHeight(46),
                 ),
                 onPressed: () => context.pop(passed),
-                child: const Text('Back to Roadmap'),
+                child: Text(returnLabel),
               ),
             ),
           ],

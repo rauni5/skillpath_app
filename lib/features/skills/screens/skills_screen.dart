@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/skills_provider.dart';
-import '../widgets/catalog_skill_row.dart';
-import '../widgets/category_filter_row.dart';
 import '../widgets/owned_skill_tile.dart';
+
+const _categoryOrder = [
+  SkillCategory.frontend,
+  SkillCategory.backend,
+  SkillCategory.mobile,
+  SkillCategory.devops,
+  SkillCategory.cloud,
+  SkillCategory.database,
+  SkillCategory.dataEngineering,
+  SkillCategory.uiUx,
+  SkillCategory.unknown,
+];
 
 class SkillsScreen extends StatefulWidget {
   const SkillsScreen({super.key});
@@ -20,8 +32,6 @@ class SkillsScreen extends StatefulWidget {
 }
 
 class _SkillsScreenState extends State<SkillsScreen> {
-  final _searchCtrl = TextEditingController();
-
   int? get _userId => context.read<AuthProvider>().currentUser?.id;
 
   @override
@@ -30,20 +40,19 @@ class _SkillsScreenState extends State<SkillsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
   void _load() {
     final userId = _userId;
     if (userId != null) context.read<SkillsProvider>().loadAll(userId);
   }
 
+  Future<void> _openAddSkills() async {
+    HapticFeedback.selectionClick();
+    await context.push('/profile/skills/add');
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
     final skills = context.watch<SkillsProvider>();
     final loading =
         skills.catalogState == SkillsLoadState.loading ||
@@ -54,163 +63,206 @@ class _SkillsScreenState extends State<SkillsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Your skills')),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: loading && skills.catalog.isEmpty
-            ? const LoadingView(key: ValueKey('loading'))
-            : hasError && skills.catalog.isEmpty
-            ? ErrorView(
-                key: const ValueKey('error'),
-                message: skills.errorMessage ?? 'Something went wrong.',
-                onRetry: _load,
-              )
-            : RefreshIndicator(
-                key: const ValueKey('loaded'),
-                onRefresh: () async => _load(),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                  children: [
-                    SectionHeader(
-                      label: 'YOUR SKILLS',
-                      icon: Icons.psychology_outlined,
-                      trailing: skills.userSkills.isEmpty
-                          ? null
-                          : Text(
-                              '${skills.userSkills.length}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: p.indigo,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (skills.userSkills.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: p.surface1,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.lightbulb_outline,
-                              size: 18,
-                              color: p.textMuted,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'No skills added yet — tap any skill below to add it.',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: p.textMuted,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: skills.userSkills
-                            .map(
-                              (s) => SizedBox(
-                                width:
-                                    (MediaQuery.of(context).size.width -
-                                        16 * 2 -
-                                        8) /
-                                    2,
-                                child: OwnedSkillTile(
-                                  skill: s,
-                                  isPending: skills.pendingSkillIds.contains(
-                                    s.id,
-                                  ),
-                                  onRemove: () {
-                                    HapticFeedback.lightImpact();
-                                    final userId = _userId;
-                                    if (userId != null) {
-                                      skills.removeSkill(userId, s.id);
-                                    }
-                                  },
-                                ),
-                              ),
-                            )
-                            .toList(),
+      floatingActionButton: SafeArea(
+        child: FloatingActionButton.extended(
+          onPressed: _openAddSkills,
+          icon: const Icon(Icons.add),
+          label: const Text('Add skill'),
+        ),
+      ),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: loading && skills.userSkills.isEmpty
+              ? const LoadingView(key: ValueKey('loading'))
+              : hasError && skills.userSkills.isEmpty
+              ? ErrorView(
+                  key: const ValueKey('error'),
+                  message: skills.errorMessage ?? 'Something went wrong.',
+                  onRetry: _load,
+                )
+              : RefreshIndicator(
+                  key: const ValueKey('loaded'),
+                  onRefresh: () async => _load(),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
+                    children: [
+                      _YourSkillsSection(
+                        skills: skills,
+                        onRemove: (id) {
+                          HapticFeedback.lightImpact();
+                          final userId = _userId;
+                          if (userId != null) skills.removeSkill(userId, id);
+                        },
+                        onBrowse: _openAddSkills,
                       ),
-                    const SizedBox(height: 24),
-                    const SectionHeader(
-                      label: 'ADD SKILLS',
-                      icon: Icons.add_circle_outline,
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _searchCtrl,
-                      onChanged: skills.setSearchQuery,
-                      decoration: InputDecoration(
-                        hintText: 'Search skills…',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        suffixIcon: _searchCtrl.text.isEmpty
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                  skills.setSearchQuery('');
-                                  setState(() {});
-                                },
-                              ),
-                        isDense: true,
-                      ),
-                      onTap: () => setState(() {}),
-                    ),
-                    const SizedBox(height: 10),
-                    CategoryFilterRow(
-                      selected: skills.categoryFilter,
-                      onSelect: skills.setCategoryFilter,
-                    ),
-                    const SizedBox(height: 12),
-                    if (skills.filteredCatalog.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.search_off,
-                              size: 30,
-                              color: p.textMuted,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'No matching skills.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: p.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ...skills.filteredCatalog.map(
-                        (s) => CatalogSkillRow(
-                          skill: s,
-                          isPending: skills.pendingSkillIds.contains(s.id),
-                          onAdd: (proficiency) {
-                            HapticFeedback.selectionClick();
-                            final userId = _userId;
-                            if (userId != null) {
-                              skills.addSkill(userId, s, proficiency);
-                            }
-                          },
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
+        ),
+      ),
+    );
+  }
+}
+
+class _YourSkillsSection extends StatelessWidget {
+  const _YourSkillsSection({
+    required this.skills,
+    required this.onRemove,
+    required this.onBrowse,
+  });
+
+  final SkillsProvider skills;
+  final void Function(int skillId) onRemove;
+  final VoidCallback onBrowse;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final owned = skills.userSkills;
+
+    final grouped = <SkillCategory, List<Skill>>{};
+    for (final s in owned) {
+      grouped.putIfAbsent(s.category, () => []).add(s);
+    }
+    final orderedCategories = _categoryOrder.where(grouped.containsKey);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          label: 'YOUR SKILLS',
+          icon: Icons.psychology_outlined,
+          trailing: owned.isEmpty
+              ? null
+              : Text(
+                  '${owned.length}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: p.indigo,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+        const SizedBox(height: 10),
+        if (owned.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: p.surface1,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: p.border),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.lightbulb_outline, size: 26, color: p.textMuted),
+                const SizedBox(height: 10),
+                Text(
+                  "You haven't added any skills yet.",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: p.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Add what you already know — it powers your roadmap and career gap analysis.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: p.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: onBrowse,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add a skill'),
+                ),
+              ],
+            ),
+          )
+        else ...[
+          _StatsRow(count: owned.length, categoryCount: grouped.length),
+          const SizedBox(height: 16),
+          for (final category in orderedCategories) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Icon(category.icon, size: 13, color: p.textMuted),
+                  const SizedBox(width: 6),
+                  Text(
+                    category.label,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: p.textMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: Divider(color: p.border, height: 1)),
+                ],
               ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: grouped[category]!
+                  .map(
+                    (s) => SizedBox(
+                      width:
+                          (MediaQuery.of(context).size.width - 16 * 2 - 8) / 2,
+                      child: OwnedSkillTile(
+                        skill: s,
+                        isPending: skills.pendingSkillIds.contains(s.id),
+                        onRemove: () => onRemove(s.id),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({required this.count, required this.categoryCount});
+
+  final int count;
+  final int categoryCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: p.indigoLight,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 15, color: p.indigo),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$count ${count == 1 ? 'skill' : 'skills'} across '
+              '$categoryCount ${categoryCount == 1 ? 'category' : 'categories'}',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: p.indigo,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

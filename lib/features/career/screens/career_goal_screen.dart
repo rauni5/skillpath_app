@@ -31,6 +31,7 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
   int? _pendingRoleId;
   String? _pendingRoleName;
   bool _isSwitchingBranchOnly = false;
+  bool _isProcessingRoleTap = false;
 
   int? get _userId => context.read<AuthProvider>().currentUser?.id;
 
@@ -51,26 +52,35 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
       _pendingRoleId = null;
       _pendingRoleName = null;
       _isSwitchingBranchOnly = false;
+      _isProcessingRoleTap = false;
     });
   }
 
   /// A role was tapped from the role list. If it has specializations, show
   /// the picker; if not, set the goal immediately (unchanged behavior).
   Future<void> _onRoleTapped(CareerRole role) async {
+    if (_isProcessingRoleTap) return;
     HapticFeedback.selectionClick();
     final userId = _userId;
     if (userId == null) return;
+    setState(() {
+      _isProcessingRoleTap = true;
+      _pendingRoleId = role.id;
+    });
+    await Future.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
     final career = context.read<CareerProvider>();
     await career.loadBranchesForRole(userId, role.id);
     if (!mounted) return;
     if (career.branches.isEmpty) {
       await _confirmGoal(role.id, null);
+      if (mounted) setState(() => _isProcessingRoleTap = false);
     } else {
       setState(() {
-        _pendingRoleId = role.id;
         _pendingRoleName = role.name;
         _isSwitchingBranchOnly = false;
         _mode = _ScreenMode.pickingBranch;
+        _isProcessingRoleTap = false;
       });
     }
   }
@@ -167,17 +177,19 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(_titleFor(_mode))),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: loading && career.roles.isEmpty
-            ? const LoadingView(key: ValueKey('loading'))
-            : hasError
-            ? ErrorView(
-                key: const ValueKey('error'),
-                message: career.errorMessage ?? 'Something went wrong.',
-                onRetry: _load,
-              )
-            : _buildContent(context, p, career),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: loading && career.roles.isEmpty
+              ? const LoadingView(key: ValueKey('loading'))
+              : hasError
+              ? ErrorView(
+                  key: const ValueKey('error'),
+                  message: career.errorMessage ?? 'Something went wrong.',
+                  onRetry: _load,
+                )
+              : _buildContent(context, p, career),
+        ),
       ),
     );
   }
@@ -295,9 +307,12 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
             for (final role in career.roles)
               RoleCard(
                 role: role,
-                isSelected: career.gap.careerRoleName == role.name,
+                isSelected:
+                    career.gap.careerRoleName == role.name ||
+                    _pendingRoleId == role.id,
                 onTap:
-                    career.isSubmitting ||
+                    _isProcessingRoleTap ||
+                        career.isSubmitting ||
                         career.branchesState == CareerLoadState.loading
                     ? () {}
                     : () => _onRoleTapped(role),

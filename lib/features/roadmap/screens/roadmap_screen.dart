@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -19,6 +20,8 @@ class RoadmapScreen extends StatefulWidget {
 }
 
 class _RoadmapScreenState extends State<RoadmapScreen> {
+  bool _hideCompleted = false;
+
   int? get _userId => context.read<AuthProvider>().currentUser?.id;
 
   @override
@@ -80,13 +83,21 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
           return ListView(
             key: const ValueKey('empty'),
             children: [
-              const SizedBox(height: 100),
+              const SizedBox(height: 90),
               Icon(Icons.map_outlined, size: 40, color: p.textMuted),
               const SizedBox(height: 14),
               Text(
-                'Set a career goal on your profile\nto generate a roadmap.',
+                'Set a career goal to generate a roadmap.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: p.textMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 18),
+              Center(
+                child: FilledButton.icon(
+                  onPressed: () => context.push('/profile/career-goal'),
+                  icon: const Icon(Icons.flag_outlined, size: 16),
+                  label: const Text('Set career goal'),
+                ),
               ),
             ],
           );
@@ -101,10 +112,17 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
             .map((s) => s.skillCategory)
             .toSet()
             .length;
-        final upNext = roadmap.steps.firstWhere(
-          (s) => s.status != RoadmapStepStatus.done,
-          orElse: () => roadmap.steps.first,
-        );
+        final upNext = remaining == 0
+            ? null
+            : roadmap.steps.firstWhere(
+                (s) => s.status != RoadmapStepStatus.done,
+              );
+
+        final visibleSteps = _hideCompleted
+            ? roadmap.steps
+                  .where((s) => s.status != RoadmapStepStatus.done)
+                  .toList()
+            : roadmap.steps;
 
         return ListView(
           key: const ValueKey('loaded'),
@@ -181,16 +199,75 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            for (int i = 0; i < roadmap.steps.length; i++)
+            if (upNext != null) ...[
+              const SizedBox(height: 14),
+              _UpNextCard(
+                step: upNext,
+                onChat: () => _openChat(upNext),
+                onSkillCheck: () => _openSkillCheck(upNext),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Text(
+                  'ALL STEPS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: p.textMuted,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Spacer(),
+                if (completed > 0)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _hideCompleted = !_hideCompleted);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _hideCompleted
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 13,
+                            color: p.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _hideCompleted
+                                ? 'Show completed'
+                                : 'Hide completed',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: p.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (int i = 0; i < visibleSteps.length; i++)
               RoadmapStepTile(
-                step: roadmap.steps[i],
-                isLast: i == roadmap.steps.length - 1,
-                isUpNext:
-                    roadmap.steps[i].id == upNext.id &&
-                    upNext.status != RoadmapStepStatus.done,
-                onChat: () => _openChat(roadmap.steps[i]),
-                onSkillCheck: () => _openSkillCheck(roadmap.steps[i]),
+                key: ValueKey(visibleSteps[i].id),
+                step: visibleSteps[i],
+                isLast: i == visibleSteps.length - 1,
+                isUpNext: upNext != null && visibleSteps[i].id == upNext.id,
+                onChat: () => _openChat(visibleSteps[i]),
+                onSkillCheck: () => _openSkillCheck(visibleSteps[i]),
               ),
           ],
         );
@@ -215,6 +292,148 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
               color: Colors.white,
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Spotlight card for the very next step — pulled out above the timeline so
+/// it's actionable without scrolling, instead of relying on the "UP NEXT"
+/// badge buried inline in the list.
+class _UpNextCard extends StatelessWidget {
+  const _UpNextCard({
+    required this.step,
+    required this.onChat,
+    required this.onSkillCheck,
+  });
+
+  final RoadmapStep step;
+  final VoidCallback onChat;
+  final VoidCallback onSkillCheck;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: p.indigoLight,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.indigo.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: p.indigo,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.bolt_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'UP NEXT',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                    color: p.indigo,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  step.skillName,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: p.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 32,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: p.textPrimary,
+                            side: BorderSide(color: p.border),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            textStyle: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            backgroundColor: p.surface0,
+                          ),
+                          onPressed: onChat,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.chat_bubble_outline, size: 14),
+                              SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'Chat with Tutor',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SizedBox(
+                        height: 32,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: p.indigo,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            textStyle: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: onSkillCheck,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.quiz_outlined, size: 14),
+                              SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'Skill Check',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

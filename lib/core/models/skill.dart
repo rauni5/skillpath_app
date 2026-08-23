@@ -164,12 +164,14 @@ class Skill {
 
   final String? description;
 
+  final SkillProficiency? proficiency;
   Skill({
     required this.id,
     required this.name,
     required this.category,
     required this.rawCategory,
     this.description,
+    this.proficiency,
   });
 
   factory Skill.fromJson(Map<String, dynamic> json) {
@@ -181,6 +183,19 @@ class Skill {
       category: skillCategoryFromString(raw),
       rawCategory: raw,
       description: json['description'] as String?,
+      proficiency: json['proficiency'] == null
+          ? null
+          : skillProficiencyFromString(json['proficiency'] as String?),
+    );
+  }
+  Skill withProficiency(SkillProficiency level) {
+    return Skill(
+      id: id,
+      name: name,
+      category: category,
+      rawCategory: rawCategory,
+      description: description,
+      proficiency: level,
     );
   }
 

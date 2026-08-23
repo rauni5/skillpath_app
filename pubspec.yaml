@@ -47,6 +47,7 @@ dependencies:
   printing: ^5.15.0
   url_launcher: ^6.3.2
   flutter_markdown: ^0.7.7+1
+  flutter_launcher_icons: ^0.14.1
 
 
 dev_dependencies:
@@ -101,3 +102,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "assets/icon/app_icon_background.png"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"

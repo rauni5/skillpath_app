@@ -80,7 +80,14 @@ class _RoadmapStepTileState extends State<RoadmapStepTile> {
                       : null,
                 ),
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
+                  duration: const Duration(milliseconds: 320),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.elasticOut,
+                    ),
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
                   child: isDone
                       ? const Icon(
                           Icons.check,

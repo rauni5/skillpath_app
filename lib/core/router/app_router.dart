@@ -38,6 +38,8 @@ import '../../features/projects/screens/project_manage_screen.dart';
 import '../../features/projects/screens/projects_list_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
 import '../../features/skills/screens/skills_screen.dart';
+import '../../features/skills/screens/add_skills_screen.dart';
+import 'skill_check_route_args.dart';
 import '../../features/splash/screens/splash_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
@@ -214,10 +216,17 @@ GoRouter buildRouter(AuthProvider authProvider) {
       ),
       GoRoute(
         path: '/roadmap/skill/:skillId/skill-check',
-        builder: (context, state) => SkillCheckScreen(
-          skillId: int.parse(state.pathParameters['skillId']!),
-          skillName: state.extra as String? ?? 'Skill',
-        ),
+        builder: (context, state) {
+          final extra = state.extra;
+          final args = extra is SkillCheckRouteArgs
+              ? extra
+              : SkillCheckRouteArgs(extra as String? ?? 'Skill');
+          return SkillCheckScreen(
+            skillId: int.parse(state.pathParameters['skillId']!),
+            skillName: args.skillName,
+            returnLabel: args.returnLabel ?? 'Back to Roadmap',
+          );
+        },
       ),
       GoRoute(
         path: '/projects/new',
@@ -261,6 +270,24 @@ GoRouter buildRouter(AuthProvider authProvider) {
         path: '/profile/settings/edit',
         builder: (context, state) => const EditProfileScreen(),
       ),
+      GoRoute(
+        path: '/profile/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/career-goal',
+        builder: (context, state) => const CareerGoalScreen(),
+      ),
+      GoRoute(
+        path: '/profile/skills',
+        builder: (context, state) => const SkillsScreen(),
+        routes: [
+          GoRoute(
+            path: 'add',
+            builder: (context, state) => const AddSkillsScreen(),
+          ),
+        ],
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -289,10 +316,17 @@ GoRouter buildRouter(AuthProvider authProvider) {
                   ),
                   GoRoute(
                     path: 'skill/:skillId/skill-check',
-                    builder: (context, state) => SkillCheckScreen(
-                      skillId: int.parse(state.pathParameters['skillId']!),
-                      skillName: state.extra as String? ?? 'Skill',
-                    ),
+                    builder: (context, state) {
+                      final extra = state.extra;
+                      final args = extra is SkillCheckRouteArgs
+                          ? extra
+                          : SkillCheckRouteArgs(extra as String? ?? 'Skill');
+                      return SkillCheckScreen(
+                        skillId: int.parse(state.pathParameters['skillId']!),
+                        skillName: args.skillName,
+                        returnLabel: args.returnLabel ?? 'Back to Roadmap',
+                      );
+                    },
                   ),
                 ],
               ),
@@ -335,20 +369,6 @@ GoRouter buildRouter(AuthProvider authProvider) {
               GoRoute(
                 path: '/profile',
                 builder: (context, state) => const PortfolioScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'settings',
-                    builder: (context, state) => const SettingsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'skills',
-                    builder: (context, state) => const SkillsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'career-goal',
-                    builder: (context, state) => const CareerGoalScreen(),
-                  ),
-                ],
               ),
             ],
           ),

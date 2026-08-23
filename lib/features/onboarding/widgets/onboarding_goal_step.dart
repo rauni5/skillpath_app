@@ -3,11 +3,11 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
-import '../../../shared/widgets/error_view.dart';
-import '../../../shared/widgets/loading_view.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../career/providers/career_provider.dart';
 import '../../career/widgets/role_card.dart';
+import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/loading_view.dart';
 
 class OnboardingGoalStep extends StatefulWidget {
   const OnboardingGoalStep({super.key, required this.onContinue});
@@ -19,6 +19,9 @@ class OnboardingGoalStep extends StatefulWidget {
 }
 
 class _OnboardingGoalStepState extends State<OnboardingGoalStep> {
+  int? _selectedRoleId;
+  bool _isProcessing = false;
+
   @override
   void initState() {
     super.initState();
@@ -28,17 +31,32 @@ class _OnboardingGoalStepState extends State<OnboardingGoalStep> {
   }
 
   Future<void> _select(int roleId) async {
+    if (_isProcessing) return;
     HapticFeedback.selectionClick();
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
+    setState(() {
+      _isProcessing = true;
+      _selectedRoleId = roleId;
+    });
+    await Future.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+
     final career = context.read<CareerProvider>();
     final ok = await career.setGoal(userId, roleId);
+    if (!mounted) return;
     if (ok) {
       widget.onContinue();
-    } else if (mounted && career.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(career.errorMessage!)));
+    } else {
+      setState(() {
+        _isProcessing = false;
+        _selectedRoleId = null;
+      });
+      if (career.errorMessage != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(career.errorMessage!)));
+      }
     }
   }
 
@@ -80,8 +98,8 @@ class _OnboardingGoalStepState extends State<OnboardingGoalStep> {
                       for (final role in career.roles)
                         RoleCard(
                           role: role,
-                          isSelected: false,
-                          onTap: career.isSubmitting
+                          isSelected: _selectedRoleId == role.id,
+                          onTap: _isProcessing || career.isSubmitting
                               ? () {}
                               : () => _select(role.id),
                         ),

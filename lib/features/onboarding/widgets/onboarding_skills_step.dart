@@ -39,6 +39,7 @@ class _OnboardingSkillsStepState extends State<OnboardingSkillsStep> {
     final skills = context.watch<SkillsProvider>();
     final userId = context.watch<AuthProvider>().currentUser?.id;
     final p = AppPalette.of(context);
+    final selectedCount = skills.userSkills.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -48,43 +49,49 @@ class _OnboardingSkillsStepState extends State<OnboardingSkillsStep> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'What can you already do?',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w700,
-                  color: p.textPrimary,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'What can you already do?',
+                      style: TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w700,
+                        color: p.textPrimary,
+                      ),
+                    ),
+                  ),
+                  if (selectedCount > 0)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: p.indigoLight,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$selectedCount added',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: p.indigo,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 6),
               Text(
-                "Add the skills you already have — tap a level to add it. You can always change these later.",
+                "Tap a skill to add it — added skills stay in the list and turn "
+                "indigo, so it's easy to see everything you've picked. You can "
+                "always change these later.",
                 style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
               ),
-              const SizedBox(height: 18),
-              if (skills.userSkills.isNotEmpty) ...[
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: skills.userSkills
-                      .map(
-                        (s) => Chip(
-                          label: Text(
-                            s.name,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          backgroundColor: p.indigoLight,
-                          deleteIcon: const Icon(Icons.close, size: 15),
-                          onDeleted: userId == null
-                              ? null
-                              : () => skills.removeSkill(userId, s.id),
-                          side: BorderSide.none,
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 14),
-              ],
+              const SizedBox(height: 16),
               TextField(
                 controller: _searchCtrl,
                 onChanged: skills.setSearchQuery,
@@ -106,16 +113,20 @@ class _OnboardingSkillsStepState extends State<OnboardingSkillsStep> {
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            children: skills.filteredCatalog
+            children: skills.filteredCatalogAll
                 .map(
                   (s) => CatalogSkillRow(
                     skill: s,
                     isPending: skills.pendingSkillIds.contains(s.id),
+                    isSelected: skills.userSkillIds.contains(s.id),
                     onAdd: (proficiency) {
                       if (userId != null) {
                         skills.addSkill(userId, s, proficiency);
                       }
                     },
+                    onRemove: userId == null
+                        ? null
+                        : () => skills.removeSkill(userId, s.id),
                   ),
                 )
                 .toList(),
