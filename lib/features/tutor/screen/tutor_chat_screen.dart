@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/models/chat_message.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/chat_error_notice.dart';
+import '../../../shared/widgets/chat_message_bubble.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/suggested_prompts.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/tutor_chat_provider.dart';
 
@@ -26,6 +26,7 @@ class TutorChatScreen extends StatefulWidget {
 
 class _TutorChatScreenState extends State<TutorChatScreen> {
   final _inputCtrl = TextEditingController();
+  final _inputFocusNode = FocusNode();
   final _scrollCtrl = ScrollController();
 
   @override
@@ -37,6 +38,7 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
   @override
   void dispose() {
     _inputCtrl.dispose();
+    _inputFocusNode.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -74,16 +76,21 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
     });
   }
 
-  Future<void> _send() async {
-    final text = _inputCtrl.text.trim();
-    if (text.isEmpty) return;
+  Future<void> _send({String? text}) async {
+    final message = (text ?? _inputCtrl.text).trim();
+    if (message.isEmpty) return;
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
     _inputCtrl.clear();
+    _inputFocusNode.unfocus();
+    // Scroll immediately so the user's own message (and the typing bubble)
+    // are visible right away, then again once the reply lands — otherwise
+    // the view sits still until the whole round trip finishes.
+    _scrollToBottom();
     await context.read<TutorChatProvider>().sendMessage(
       userId,
       widget.skillId,
-      text,
+      message,
     );
     _scrollToBottom();
   }
@@ -105,6 +112,7 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
           ),
           _InputBar(
             controller: _inputCtrl,
+            focusNode: _inputFocusNode,
             onSend: _send,
             sending: chat.isSending,
           ),
@@ -155,13 +163,22 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
             key: const ValueKey('empty'),
             padding: const EdgeInsets.all(24),
             children: [
-              const SizedBox(height: 60),
+              const SizedBox(height: 50),
               Icon(Icons.forum_outlined, size: 36, color: p.textMuted),
               const SizedBox(height: 14),
               Text(
                 'Ask the tutor anything about ${widget.skillName} — concepts, examples, or where to start.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: p.textMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              SuggestedPrompts(
+                prompts: [
+                  'Explain ${widget.skillName} like I\'m new to it',
+                  'What should I practice first?',
+                  'Give me a quick example',
+                ],
+                onSelect: (prompt) => _send(text: prompt),
               ),
             ],
           );
@@ -190,127 +207,33 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
               );
             }
             if (i >= chat.messages.length) {
-              return const _TypingBubble();
+              return const ChatTypingBubble(
+                botIcon: Icons.school_outlined,
+                label: 'Tutor is thinking…',
+              );
             }
-            return _MessageBubble(message: chat.messages[i]);
+            final user = context.watch<AuthProvider>().currentUser;
+            return ChatMessageBubble(
+              message: chat.messages[i],
+              userAvatarUrl: user?.avatarUrl,
+              userName: user?.name,
+              botIcon: Icons.school_outlined,
+            );
           },
         );
     }
   }
 }
 
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final isUser = message.role == ChatRole.user;
-    final textColor = isUser ? Colors.white : p.textPrimary;
-
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
-        ),
-        decoration: BoxDecoration(
-          color: isUser ? p.indigo : p.surface2,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isUser ? 14 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 14),
-          ),
-          border: isUser ? null : Border.all(color: p.border),
-        ),
-        child: MarkdownBody(
-          data: message.content,
-          shrinkWrap: true,
-          selectable: true,
-          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: TextStyle(fontSize: 13.5, height: 1.4, color: textColor),
-            strong: TextStyle(
-              fontSize: 13.5,
-              height: 1.4,
-              color: textColor,
-              fontWeight: FontWeight.bold,
-            ),
-            em: TextStyle(
-              fontSize: 13.5,
-              height: 1.4,
-              color: textColor,
-              fontStyle: FontStyle.italic,
-            ),
-            listBullet: TextStyle(fontSize: 13.5, color: textColor),
-            code: TextStyle(
-              fontSize: 12.5,
-              color: isUser ? Colors.white : p.indigo,
-              backgroundColor: isUser ? Colors.white12 : p.surface1,
-            ),
-            codeblockDecoration: BoxDecoration(
-              color: isUser ? Colors.white10 : p.surface1,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: isUser ? Colors.white24 : p.border),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TypingBubble extends StatelessWidget {
-  const _TypingBubble();
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: p.surface2,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
-            bottomRight: Radius.circular(14),
-            bottomLeft: Radius.circular(4),
-          ),
-          border: Border.all(color: p.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 12,
-              width: 12,
-              child: CircularProgressIndicator(strokeWidth: 2, color: p.indigo),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Tutor is thinking…',
-              style: TextStyle(fontSize: 12, color: p.textMuted),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _InputBar extends StatelessWidget {
   const _InputBar({
     required this.controller,
+    required this.focusNode,
     required this.onSend,
     required this.sending,
   });
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onSend;
   final bool sending;
 
@@ -330,6 +253,7 @@ class _InputBar extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                focusNode: focusNode,
                 minLines: 1,
                 maxLines: 4,
                 textInputAction: TextInputAction.send,

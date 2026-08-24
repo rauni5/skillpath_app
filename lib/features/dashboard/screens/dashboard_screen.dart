@@ -42,12 +42,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
     await context.read<DashboardProvider>().load(userId);
-    unawaited(context.read<DashboardAiProvider>().load(userId));
-    unawaited(
-      context.read<GamificationProvider>().load(userId).then((_) {
-        if (mounted) _showAchievementToasts();
-      }),
-    );
+    unawaited(_loadAiSummary(userId));
+    unawaited(_loadGamification(userId));
     final changes = await _alertService.checkForChanges(userId);
     if (!mounted) return;
     for (final c in changes) {
@@ -58,6 +54,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _loadAiSummary(int userId) async {
+    final ai = context.read<DashboardAiProvider>();
+    await ai.load(userId);
+    // `load()` only fetches a previously-generated summary — it never
+    // calls the AI itself. If nothing's ever been generated for this user,
+    // that used to leave the card sitting on "tap refresh" until the user
+    // did exactly that. Generate one automatically the first time instead,
+    // so there's always something to show without manual action.
+    if (ai.state == SummaryLoadState.empty && mounted) {
+      await ai.generate(userId);
+    }
+  }
+
+  Future<void> _loadGamification(int userId) async {
+    final gami = context.read<GamificationProvider>();
+    await gami.load(userId);
+    // A cold backend (or a dropped first request right after sign-in, while
+    // the Firebase token is still being attached) can make this very first
+    // call fail even though the rest of the dashboard loaded fine. Retry
+    // once automatically rather than leaving the streak/achievements
+    // sections silently empty until the user manually pulls to refresh.
+    if (gami.state == GamificationLoadState.error && mounted) {
+      await gami.load(userId);
+    }
+    if (mounted) _showAchievementToasts();
   }
 
   void _showAchievementToasts() {
@@ -141,6 +164,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     // 2. Daily Streak Widget
                     Consumer<GamificationProvider>(
                       builder: (context, gami, _) {
+                        if (gami.state == GamificationLoadState.error) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _InlineRetryRow(
+                              message: "Couldn't load your streak.",
+                              onRetry: () {
+                                final userId = context
+                                    .read<AuthProvider>()
+                                    .currentUser
+                                    ?.id;
+                                if (userId != null) gami.load(userId);
+                              },
+                            ),
+                          );
+                        }
                         if (gami.state != GamificationLoadState.loaded ||
                             gami.streak == null) {
                           return const SizedBox.shrink();
@@ -341,6 +379,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     // 6. Achievements Section
                     Consumer<GamificationProvider>(
                       builder: (context, gami, _) {
+                        if (gami.state == GamificationLoadState.error) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 18),
+                            child: _InlineRetryRow(
+                              message: "Couldn't load your achievements.",
+                              onRetry: () {
+                                final userId = context
+                                    .read<AuthProvider>()
+                                    .currentUser
+                                    ?.id;
+                                if (userId != null) gami.load(userId);
+                              },
+                            ),
+                          );
+                        }
                         if (gami.state != GamificationLoadState.loaded ||
                             gami.achievements.isEmpty) {
                           return const SizedBox.shrink();
@@ -439,5 +492,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
+  }
+}
+
+/// Small inline "couldn't load — retry" affordance for a section that
+/// failed independently of the rest of the dashboard, so a failure never
+/// just silently disappears with no way to recover short of a full
+/// pull-to-refresh.
+class _InlineRetryRow extends StatelessWidget {
+  const _InlineRetryRow({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: p.surface1,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: p.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 16, color: p.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 12, color: p.textMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 0),
+            ),
+            child: const Text('Retry', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
   }
 }
