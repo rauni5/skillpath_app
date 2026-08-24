@@ -71,4 +71,40 @@ class ProfileRepository {
       (_) {},
     );
   }
+
+  /// POST /api/v1/users/{userId}/education
+  Future<Education> addEducation(
+    int userId, {
+    required String institution,
+    String? degree,
+    String? fieldOfStudy,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? description,
+  }) {
+    String fmt(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+
+    final body = <String, dynamic>{'institution': institution};
+    if (degree != null) body['degree'] = degree;
+    if (fieldOfStudy != null) body['fieldOfStudy'] = fieldOfStudy;
+    if (startDate != null) body['startDate'] = fmt(startDate);
+    if (endDate != null) body['endDate'] = fmt(endDate);
+    if (description != null) body['description'] = description;
+
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/users/$userId/education', data: body),
+      (data) => Education.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// DELETE /api/v1/users/{userId}/education/{eduId}
+  Future<void> deleteEducation(int userId, int eduId) {
+    return _api.unwrap(
+      (dio) => dio.delete('/api/v1/users/$userId/education/$eduId'),
+      (_) {},
+    );
+  }
 }

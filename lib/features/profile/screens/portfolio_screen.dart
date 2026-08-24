@@ -114,8 +114,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
             data: portfolio.data!,
             generatingCv: _generatingCv,
             onDownloadCv: () => _downloadCv(portfolio.data!),
-            onAddItem: _addItem,
-            onDeleteItem: _deleteItem,
+            onAddEducation: _addEducation,
+            onDeleteEducation: _deleteEducation,
             onAddCertification: _addCertification,
             onDeleteCertification: _deleteCertification,
           ),
@@ -124,34 +124,36 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     );
   }
 
-  Future<void> _addItem(List<Project> projects) async {
-    final result = await showModalBottomSheet<_NewPortfolioItem>(
+  Future<void> _addEducation() async {
+    final result = await showModalBottomSheet<_NewEducation>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _AddPortfolioItemSheet(projects: projects),
+      builder: (_) => const _AddEducationSheet(),
     );
     if (result == null || !mounted) return;
 
-    final ok = await context.read<PortfolioProvider>().addItem(
-      projectId: result.projectId,
-      githubUrl: result.githubUrl,
+    final ok = await context.read<PortfolioProvider>().addEducation(
+      institution: result.institution,
+      degree: result.degree,
+      fieldOfStudy: result.fieldOfStudy,
+      startDate: result.startDate,
+      endDate: result.endDate,
       description: result.description,
-      userRole: result.userRole,
     );
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message ?? 'Could not add item.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? 'Could not add education.')),
+      );
     }
   }
 
-  Future<void> _deleteItem(int itemId) async {
+  Future<void> _deleteEducation(int eduId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove portfolio item?'),
+        title: const Text('Remove education entry?'),
         content: const Text('This can\'t be undone.'),
         actions: [
           TextButton(
@@ -167,12 +169,12 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     );
     if (confirmed != true || !mounted) return;
 
-    final ok = await context.read<PortfolioProvider>().deleteItem(itemId);
+    final ok = await context.read<PortfolioProvider>().deleteEducation(eduId);
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not remove item.')),
+        SnackBar(content: Text(message ?? 'Could not remove education.')),
       );
     }
   }
@@ -238,8 +240,8 @@ class _PortfolioBody extends StatelessWidget {
     required this.data,
     required this.generatingCv,
     required this.onDownloadCv,
-    required this.onAddItem,
-    required this.onDeleteItem,
+    required this.onAddEducation,
+    required this.onDeleteEducation,
     required this.onAddCertification,
     required this.onDeleteCertification,
   });
@@ -247,8 +249,8 @@ class _PortfolioBody extends StatelessWidget {
   final PortfolioData data;
   final bool generatingCv;
   final VoidCallback onDownloadCv;
-  final void Function(List<Project> projects) onAddItem;
-  final void Function(int itemId) onDeleteItem;
+  final VoidCallback onAddEducation;
+  final void Function(int eduId) onDeleteEducation;
   final VoidCallback onAddCertification;
   final void Function(int certId) onDeleteCertification;
 
@@ -582,11 +584,11 @@ class _PortfolioBody extends StatelessWidget {
           ),
         const SizedBox(height: 24),
 
-        // --- Portfolio write-ups / links ---
+        // --- Education ---
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            SectionHeader(label: 'PORTFOLIO ITEMS', icon: Icons.link),
+            SectionHeader(label: 'EDUCATION', icon: Icons.school_outlined),
             IconButton(
               icon: portfolio.mutating
                   ? const SizedBox(
@@ -595,26 +597,23 @@ class _PortfolioBody extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.add_circle_outline),
-              tooltip: 'Add portfolio item',
-              onPressed: portfolio.mutating
-                  ? null
-                  : () => onAddItem(data.projects),
+              tooltip: 'Add education',
+              onPressed: portfolio.mutating ? null : onAddEducation,
             ),
           ],
         ),
         const SizedBox(height: 4),
-        if (data.portfolioItems.isEmpty)
+        if (data.education.isEmpty)
           _emptyCard(
             p,
-            'Nothing here yet — add a link or write-up to show off your work.',
+            'No education added yet — add a school or program to round out your CV.',
           )
         else
           _SectionCard(
             child: Column(
               children: [
-                for (final item in data.portfolioItems) ...[
-                  if (item != data.portfolioItems.first)
-                    const Divider(height: 1),
+                for (final edu in data.education) ...[
+                  if (edu != data.education.first) const Divider(height: 1),
                   Padding(
                     padding: const EdgeInsets.all(14),
                     child: Row(
@@ -625,34 +624,54 @@ class _PortfolioBody extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                item.projectName ??
-                                    item.userRole ??
-                                    'Portfolio item',
+                                edu.institution,
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: p.textPrimary,
                                 ),
                               ),
-                              if (item.description != null &&
-                                  item.description!.trim().isNotEmpty) ...[
-                                const SizedBox(height: 4),
+                              if ((edu.degree != null &&
+                                      edu.degree!.isNotEmpty) ||
+                                  (edu.fieldOfStudy != null &&
+                                      edu.fieldOfStudy!.isNotEmpty)) ...[
+                                const SizedBox(height: 2),
                                 Text(
-                                  item.description!,
+                                  [
+                                    if (edu.degree != null &&
+                                        edu.degree!.isNotEmpty)
+                                      edu.degree!,
+                                    if (edu.fieldOfStudy != null &&
+                                        edu.fieldOfStudy!.isNotEmpty)
+                                      edu.fieldOfStudy!,
+                                  ].join(' · '),
                                   style: TextStyle(
                                     fontSize: 12,
+                                    color: p.textSecondary,
+                                  ),
+                                ),
+                              ],
+                              if (edu.startDate != null || edu.isOngoing) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  edu.startDate == null
+                                      ? 'Ongoing'
+                                      : '${_formatDate(edu.startDate!)} – '
+                                            '${edu.endDate == null ? 'Present' : _formatDate(edu.endDate!)}',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
                                     color: p.textMuted,
                                   ),
                                 ),
                               ],
-                              if (item.githubUrl != null &&
-                                  item.githubUrl!.isNotEmpty) ...[
+                              if (edu.description != null &&
+                                  edu.description!.trim().isNotEmpty) ...[
                                 const SizedBox(height: 4),
                                 Text(
-                                  item.githubUrl!,
+                                  edu.description!,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: p.indigo,
+                                    color: p.textMuted,
                                   ),
                                 ),
                               ],
@@ -666,7 +685,7 @@ class _PortfolioBody extends StatelessWidget {
                             color: p.textMuted,
                           ),
                           tooltip: 'Remove',
-                          onPressed: () => onDeleteItem(item.id),
+                          onPressed: () => onDeleteEducation(edu.id),
                         ),
                       ],
                     ),
@@ -833,45 +852,71 @@ class _PortfolioBody extends StatelessWidget {
   }
 }
 
-// --- Add portfolio item ---
+// --- Add education ---
 
-class _NewPortfolioItem {
-  _NewPortfolioItem({
-    this.projectId,
-    this.githubUrl,
+class _NewEducation {
+  _NewEducation({
+    required this.institution,
+    this.degree,
+    this.fieldOfStudy,
+    this.startDate,
+    this.endDate,
     this.description,
-    this.userRole,
   });
-  final int? projectId;
-  final String? githubUrl;
+  final String institution;
+  final String? degree;
+  final String? fieldOfStudy;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final String? description;
-  final String? userRole;
 }
 
-class _AddPortfolioItemSheet extends StatefulWidget {
-  const _AddPortfolioItemSheet({required this.projects});
-  final List<Project> projects;
+class _AddEducationSheet extends StatefulWidget {
+  const _AddEducationSheet();
 
   @override
-  State<_AddPortfolioItemSheet> createState() => _AddPortfolioItemSheetState();
+  State<_AddEducationSheet> createState() => _AddEducationSheetState();
 }
 
-class _AddPortfolioItemSheetState extends State<_AddPortfolioItemSheet> {
-  int? _projectId;
-  final _urlController = TextEditingController();
+class _AddEducationSheetState extends State<_AddEducationSheet> {
+  final _institutionController = TextEditingController();
+  final _degreeController = TextEditingController();
+  final _fieldController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _roleController = TextEditingController();
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _ongoing = false;
 
   @override
   void dispose() {
-    _urlController.dispose();
+    _institutionController.dispose();
+    _degreeController.dispose();
+    _fieldController.dispose();
     _descriptionController.dispose();
-    _roleController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (isStart ? _startDate : _endDate) ?? now,
+      firstDate: DateTime(1970),
+      lastDate: now,
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _startDate = picked;
+      } else {
+        _endDate = picked;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -884,56 +929,107 @@ class _AddPortfolioItemSheetState extends State<_AddPortfolioItemSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Add portfolio item',
+            'Add education',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
-          if (widget.projects.isNotEmpty) ...[
-            DropdownButtonFormField<int?>(
-              initialValue: _projectId,
-              decoration: const InputDecoration(
-                labelText: 'Link to a project (optional)',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('None')),
-                ...widget.projects.map(
-                  (p) => DropdownMenuItem<int?>(
-                    value: p.id,
-                    child: Text(p.name, overflow: TextOverflow.ellipsis),
+          TextField(
+            controller: _institutionController,
+            maxLength: 200,
+            decoration: const InputDecoration(
+              labelText: 'Institution',
+              hintText: 'University of Example',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _degreeController,
+            maxLength: 150,
+            decoration: const InputDecoration(
+              labelText: 'Degree',
+              hintText: 'B.Sc.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _fieldController,
+            maxLength: 150,
+            decoration: const InputDecoration(
+              labelText: 'Field of study',
+              hintText: 'Computer Science',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _pickDate(isStart: true),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Start date',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      _startDate == null ? 'Select' : _formatYmd(_startDate!),
+                      style: TextStyle(
+                        color: _startDate == null ? p.textMuted : p.textPrimary,
+                      ),
+                    ),
                   ),
                 ),
-              ],
-              onChanged: (v) => setState(() => _projectId = v),
-            ),
-            const SizedBox(height: 12),
-          ],
-          TextField(
-            controller: _roleController,
-            maxLength: 100,
-            decoration: const InputDecoration(
-              labelText: 'Your role (e.g. "Frontend developer")',
-              border: OutlineInputBorder(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: InkWell(
+                  onTap: _ongoing ? null : () => _pickDate(isStart: false),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'End date',
+                      border: const OutlineInputBorder(),
+                      enabled: !_ongoing,
+                    ),
+                    child: Text(
+                      _ongoing
+                          ? 'Present'
+                          : (_endDate == null
+                                ? 'Select'
+                                : _formatYmd(_endDate!)),
+                      style: TextStyle(
+                        color: _endDate == null && !_ongoing
+                            ? p.textMuted
+                            : p.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          CheckboxListTile(
+            value: _ongoing,
+            onChanged: (v) => setState(() {
+              _ongoing = v ?? false;
+              if (_ongoing) _endDate = null;
+            }),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text(
+              "I'm currently studying here",
+              style: TextStyle(fontSize: 13),
             ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _urlController,
-            decoration: const InputDecoration(
-              labelText: 'Link (GitHub, live demo, write-up, etc.)',
-              border: OutlineInputBorder(),
-            ),
-            keyboardType: TextInputType.url,
-          ),
-          const SizedBox(height: 12),
           TextField(
             controller: _descriptionController,
             maxLines: 3,
             maxLength: 2000,
             decoration: const InputDecoration(
-              labelText: 'Description',
+              labelText: 'Description (optional)',
               alignLabelWithHint: true,
               border: OutlineInputBorder(),
             ),
@@ -948,35 +1044,45 @@ class _AddPortfolioItemSheetState extends State<_AddPortfolioItemSheet> {
     );
   }
 
+  String _formatYmd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
   void _submit() {
-    if (!_canSubmit()) {
+    final institution = _institutionController.text.trim();
+    final degree = _degreeController.text.trim();
+    final field = _fieldController.text.trim();
+    if (institution.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add a role, link, or description first.'),
-        ),
+        const SnackBar(content: Text('Institution name is required.')),
       );
       return;
     }
+    if (degree.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Degree name is required.')));
+      return;
+    }
+    if (field.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Field name is required.')));
+      return;
+    }
     Navigator.of(context).pop(
-      _NewPortfolioItem(
-        projectId: _projectId,
-        githubUrl: _urlController.text.trim().isEmpty
-            ? null
-            : _urlController.text.trim(),
+      _NewEducation(
+        institution: institution,
+        degree: degree,
+        fieldOfStudy: field,
+        startDate: _startDate,
+        endDate: _ongoing ? null : _endDate,
         description: _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
-        userRole: _roleController.text.trim().isEmpty
-            ? null
-            : _roleController.text.trim(),
       ),
     );
-  }
-
-  bool _canSubmit() {
-    return _roleController.text.trim().isNotEmpty ||
-        _urlController.text.trim().isNotEmpty ||
-        _descriptionController.text.trim().isNotEmpty;
   }
 }
 

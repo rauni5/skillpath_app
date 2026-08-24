@@ -92,6 +92,35 @@ class PortfolioProvider extends ChangeNotifier {
     data = await _repo.getPortfolio(userId);
   });
 
+  Future<bool> addEducation({
+    required String institution,
+    String? degree,
+    String? fieldOfStudy,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? description,
+  }) => _mutate(() async {
+    final userId = _userId;
+    if (userId == null) throw ApiException('Not signed in.');
+    await _repo.addEducation(
+      userId,
+      institution: institution,
+      degree: degree,
+      fieldOfStudy: fieldOfStudy,
+      startDate: startDate,
+      endDate: endDate,
+      description: description,
+    );
+    data = await _repo.getPortfolio(userId);
+  });
+
+  Future<bool> deleteEducation(int eduId) => _mutate(() async {
+    final userId = _userId;
+    if (userId == null) throw ApiException('Not signed in.');
+    await _repo.deleteEducation(userId, eduId);
+    data = await _repo.getPortfolio(userId);
+  });
+
   /// Called after Settings/Portfolio-edit screens update the bio,
   /// experience level, or availability, so the Portfolio screen reflects
   /// it without a full page reload.
