@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/chat_error_notice.dart';
+import '../../../shared/widgets/chat_message_bubble.dart';
+import '../../../shared/widgets/suggested_prompts.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/assistant_chat_provider.dart';
 import 'assistant_message_widget.dart';
@@ -70,14 +72,14 @@ class _AssistantChatSheetState extends State<_AssistantChatSheet> {
     });
   }
 
-  Future<void> _send() async {
-    final text = _inputCtrl.text.trim();
-    if (text.isEmpty) return;
+  Future<void> _send({String? text}) async {
+    final message = (text ?? _inputCtrl.text).trim();
+    if (message.isEmpty) return;
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
     _inputFocusNode.unfocus();
     _inputCtrl.clear();
-    await context.read<AssistantChatProvider>().sendMessage(userId, text);
+    await context.read<AssistantChatProvider>().sendMessage(userId, message);
     _scrollToBottom();
   }
 
@@ -196,7 +198,7 @@ class _AssistantChatSheetState extends State<_AssistantChatSheet> {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const SizedBox(height: 30),
+          const SizedBox(height: 20),
           Icon(Icons.support_agent, size: 32, color: p.textMuted),
           const SizedBox(height: 12),
           Text(
@@ -204,6 +206,15 @@ class _AssistantChatSheetState extends State<_AssistantChatSheet> {
             'or for help with your own roadmap and progress.',
             textAlign: TextAlign.center,
             style: TextStyle(color: p.textMuted, fontSize: 13),
+          ),
+          const SizedBox(height: 18),
+          SuggestedPrompts(
+            prompts: const [
+              'What should I focus on next?',
+              'How do I change my career path?',
+              'How do projects work?',
+            ],
+            onSelect: (prompt) => _send(text: prompt),
           ),
         ],
       );
@@ -228,9 +239,18 @@ class _AssistantChatSheetState extends State<_AssistantChatSheet> {
           );
         }
         if (i >= chat.messages.length) {
-          return const AssistantTypingBubble();
+          return const ChatTypingBubble();
         }
-        return AssistantMessageBubble(message: chat.messages[i]);
+        final user = context.watch<AuthProvider>().currentUser;
+        return ChatMessageBubble(
+          message: chat.messages[i],
+          userAvatarUrl: user?.avatarUrl,
+          userName: user?.name,
+          onActionTap: (route) {
+            Navigator.of(context).pop(); // close the sheet first
+            context.push(route);
+          },
+        );
       },
     );
   }

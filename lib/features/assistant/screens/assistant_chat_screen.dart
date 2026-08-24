@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/assistant_chat_session.dart';
+import '../../../core/router/chat_action_parser.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/chat_error_notice.dart';
+import '../../../shared/widgets/chat_message_bubble.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/suggested_prompts.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/assistant_chat_provider.dart';
 import '../widgets/assistant_message_widget.dart';
@@ -46,14 +50,18 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
     });
   }
 
-  Future<void> _send() async {
-    final text = _inputCtrl.text.trim();
-    if (text.isEmpty) return;
+  Future<void> _send({String? text}) async {
+    final message = (text ?? _inputCtrl.text).trim();
+    if (message.isEmpty) return;
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
     _inputCtrl.clear();
     _inputFocusNode.unfocus();
-    await context.read<AssistantChatProvider>().sendMessage(userId, text);
+    // Scroll immediately so the user's own message (and the typing bubble)
+    // are visible right away, then again once the reply lands — otherwise
+    // the view sits still until the whole round trip finishes.
+    _scrollToBottom();
+    await context.read<AssistantChatProvider>().sendMessage(userId, message);
     _scrollToBottom();
   }
 
@@ -108,7 +116,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             key: const ValueKey('empty'),
             padding: const EdgeInsets.all(24),
             children: [
-              const SizedBox(height: 60),
+              const SizedBox(height: 50),
               Icon(Icons.support_agent, size: 36, color: p.textMuted),
               const SizedBox(height: 14),
               Text(
@@ -116,6 +124,15 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                 'own roadmap and progress.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: p.textMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              SuggestedPrompts(
+                prompts: const [
+                  'What should I focus on next?',
+                  'How do I change my career path?',
+                  'How do projects work?',
+                ],
+                onSelect: (prompt) => _send(text: prompt),
               ),
             ],
           );
@@ -143,9 +160,15 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
               );
             }
             if (i >= chat.messages.length) {
-              return const AssistantTypingBubble();
+              return const ChatTypingBubble();
             }
-            return AssistantMessageBubble(message: chat.messages[i]);
+            final user = context.watch<AuthProvider>().currentUser;
+            return ChatMessageBubble(
+              message: chat.messages[i],
+              userAvatarUrl: user?.avatarUrl,
+              userName: user?.name,
+              onActionTap: (route) => navigateToChatAction(context, route),
+            );
           },
         );
     }
