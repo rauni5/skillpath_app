@@ -87,6 +87,46 @@ class Certification {
   }
 }
 
+class Education {
+  final int id;
+  final String institution;
+  final String? degree;
+  final String? fieldOfStudy;
+  final DateTime? startDate;
+
+  /// Null means "currently studying here".
+  final DateTime? endDate;
+  final String? description;
+
+  Education({
+    required this.id,
+    required this.institution,
+    this.degree,
+    this.fieldOfStudy,
+    this.startDate,
+    this.endDate,
+    this.description,
+  });
+
+  bool get isOngoing => startDate != null && endDate == null;
+
+  factory Education.fromJson(Map<String, dynamic> json) {
+    return Education(
+      id: json['id'] as int,
+      institution: json['institution'] as String? ?? '',
+      degree: json['degree'] as String?,
+      fieldOfStudy: json['fieldOfStudy'] as String?,
+      startDate: json['startDate'] == null
+          ? null
+          : DateTime.tryParse(json['startDate'] as String),
+      endDate: json['endDate'] == null
+          ? null
+          : DateTime.tryParse(json['endDate'] as String),
+      description: json['description'] as String?,
+    );
+  }
+}
+
 class PortfolioData {
   final int userId;
   final String name;
@@ -109,6 +149,7 @@ class PortfolioData {
   final List<Project> projects;
   final List<PortfolioItem> portfolioItems;
   final List<Certification> certifications;
+  final List<Education> education;
 
   PortfolioData({
     required this.userId,
@@ -130,6 +171,7 @@ class PortfolioData {
     required this.projects,
     required this.portfolioItems,
     this.certifications = const [],
+    this.education = const [],
   });
 
   String get initials {
@@ -178,6 +220,9 @@ class PortfolioData {
           .toList(),
       certifications: (json['certifications'] as List<dynamic>? ?? [])
           .map((e) => Certification.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      education: (json['education'] as List<dynamic>? ?? [])
+          .map((e) => Education.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

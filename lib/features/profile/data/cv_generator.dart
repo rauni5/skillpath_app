@@ -30,6 +30,13 @@ Future<Uint8List> buildCvPdf(PortfolioData data) async {
           pw.SizedBox(height: 16),
         ],
 
+        if (data.education.isNotEmpty) ...[
+          _sectionBar('EDUCATION'),
+          pw.SizedBox(height: 10),
+          ...data.education.map(_educationEntry),
+          pw.SizedBox(height: 4),
+        ],
+
         if (skillsByCategory.isNotEmpty) ...[
           _sectionBar('TECHNICAL SKILLS'),
           pw.SizedBox(height: 10),
@@ -303,6 +310,56 @@ pw.Widget _projectEntry(Project project, PortfolioData data) {
   );
 }
 
+//Education
+
+pw.Widget _educationEntry(Education edu) {
+  final subtitleParts = <String>[
+    if (edu.degree != null && edu.degree!.isNotEmpty) edu.degree!,
+    if (edu.fieldOfStudy != null && edu.fieldOfStudy!.isNotEmpty)
+      edu.fieldOfStudy!,
+  ];
+  final dateRange = edu.startDate == null
+      ? ''
+      : '${_formatDate(edu.startDate!)} - '
+            '${edu.endDate == null ? 'Present' : _formatDate(edu.endDate!)}';
+
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(bottom: 8),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              edu.institution,
+              style: pw.TextStyle(
+                fontSize: 10.5,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            if (dateRange.isNotEmpty)
+              pw.Text(dateRange, style: const pw.TextStyle(fontSize: 9.5)),
+          ],
+        ),
+        if (subtitleParts.isNotEmpty)
+          pw.Text(
+            subtitleParts.join(', '),
+            style: const pw.TextStyle(fontSize: 10),
+          ),
+        if (edu.description != null && edu.description!.trim().isNotEmpty)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 2, left: 10),
+            child: pw.Bullet(
+              text: edu.description!,
+              style: const pw.TextStyle(fontSize: 9.5),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 //Portfolio items
 
 pw.Widget _portfolioItemEntry(PortfolioItem item) {
@@ -347,7 +404,7 @@ pw.Widget _certificationLine(Certification cert) {
   final hasLink = cert.credentialUrl != null && cert.credentialUrl!.isNotEmpty;
   final subtitle = cert.issuer == null || cert.issuer!.isEmpty
       ? ''
-      : ' — ${cert.issuer}';
+      : ' - ${cert.issuer}';
 
   final text = pw.RichText(
     text: pw.TextSpan(
