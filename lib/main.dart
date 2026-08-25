@@ -83,7 +83,11 @@ class _RouterHostState extends State<_RouterHost> {
   @override
   void initState() {
     super.initState();
-    _router = buildRouter(context.read<AuthProvider>());
+    final auth = context.read<AuthProvider>();
+    _router = buildRouter(auth);
+    auth.registerSignOutListener(
+      () => context.read<GamificationProvider>().reset(),
+    );
   }
 
   @override

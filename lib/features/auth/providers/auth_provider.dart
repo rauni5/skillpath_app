@@ -246,9 +246,17 @@ class AuthProvider extends ChangeNotifier {
     currentUser = await _repo.uploadAvatar(file);
   });
 
+  final List<VoidCallback> _signOutListeners = [];
+  void registerSignOutListener(VoidCallback listener) {
+    _signOutListeners.add(listener);
+  }
+
   Future<void> signOut() async {
     await NotificationService.instance.handleSignOut();
     await _repo.signOut();
+    for (final listener in _signOutListeners) {
+      listener();
+    }
   }
 
   Future<bool> _run(Future<void> Function() action) async {

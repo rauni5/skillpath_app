@@ -893,6 +893,7 @@ class _AddEducationSheet extends StatefulWidget {
 }
 
 class _AddEducationSheetState extends State<_AddEducationSheet> {
+  final _formKey = GlobalKey<FormState>();
   final _institutionController = TextEditingController();
   final _degreeController = TextEditingController();
   final _fieldController = TextEditingController();
@@ -938,122 +939,134 @@ class _AddEducationSheetState extends State<_AddEducationSheet> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Add education',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _institutionController,
-            maxLength: 200,
-            decoration: const InputDecoration(
-              labelText: 'Institution',
-              hintText: 'University of Example',
-              border: OutlineInputBorder(),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Add education',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _degreeController,
-            maxLength: 150,
-            decoration: const InputDecoration(
-              labelText: 'Degree',
-              hintText: 'B.Sc.',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _institutionController,
+              maxLength: 200,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Institution name is required'
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Institution',
+                hintText: 'University of Example',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _fieldController,
-            maxLength: 150,
-            decoration: const InputDecoration(
-              labelText: 'Field of study',
-              hintText: 'Computer Science',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _degreeController,
+              maxLength: 150,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Degree is required' : null,
+              decoration: const InputDecoration(
+                labelText: 'Degree',
+                hintText: 'B.Sc.',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _pickDate(isStart: true),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Start date',
-                      border: OutlineInputBorder(),
-                    ),
-                    child: Text(
-                      _startDate == null ? 'Select' : _formatYmd(_startDate!),
-                      style: TextStyle(
-                        color: _startDate == null ? p.textMuted : p.textPrimary,
+            const SizedBox(height: 12),
+            TextField(
+              controller: _fieldController,
+              maxLength: 150,
+              decoration: const InputDecoration(
+                labelText: 'Field of study (optional)',
+                hintText: 'Computer Science',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickDate(isStart: true),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Start date',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(
+                        _startDate == null ? 'Select' : _formatYmd(_startDate!),
+                        style: TextStyle(
+                          color: _startDate == null
+                              ? p.textMuted
+                              : p.textPrimary,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: InkWell(
-                  onTap: _ongoing ? null : () => _pickDate(isStart: false),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'End date',
-                      border: const OutlineInputBorder(),
-                      enabled: !_ongoing,
-                    ),
-                    child: Text(
-                      _ongoing
-                          ? 'Present'
-                          : (_endDate == null
-                                ? 'Select'
-                                : _formatYmd(_endDate!)),
-                      style: TextStyle(
-                        color: _endDate == null && !_ongoing
-                            ? p.textMuted
-                            : p.textPrimary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: _ongoing ? null : () => _pickDate(isStart: false),
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'End date',
+                        border: const OutlineInputBorder(),
+                        enabled: !_ongoing,
+                      ),
+                      child: Text(
+                        _ongoing
+                            ? 'Present'
+                            : (_endDate == null
+                                  ? 'Select'
+                                  : _formatYmd(_endDate!)),
+                        style: TextStyle(
+                          color: _endDate == null && !_ongoing
+                              ? p.textMuted
+                              : p.textPrimary,
+                        ),
                       ),
                     ),
                   ),
                 ),
+              ],
+            ),
+            CheckboxListTile(
+              value: _ongoing,
+              onChanged: (v) => setState(() {
+                _ongoing = v ?? false;
+                if (_ongoing) _endDate = null;
+              }),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text(
+                "I'm currently studying here",
+                style: TextStyle(fontSize: 13),
               ),
-            ],
-          ),
-          CheckboxListTile(
-            value: _ongoing,
-            onChanged: (v) => setState(() {
-              _ongoing = v ?? false;
-              if (_ongoing) _endDate = null;
-            }),
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: const Text(
-              "I'm currently studying here",
-              style: TextStyle(fontSize: 13),
             ),
-          ),
-          TextField(
-            controller: _descriptionController,
-            maxLines: 3,
-            maxLength: 2000,
-            decoration: const InputDecoration(
-              labelText: 'Description (optional)',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
+            TextField(
+              controller: _descriptionController,
+              maxLines: 3,
+              maxLength: 2000,
+              decoration: const InputDecoration(
+                labelText: 'Description (optional)',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(onPressed: _submit, child: const Text('Add')),
-          ),
-        ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(onPressed: _submit, child: const Text('Add')),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1064,32 +1077,16 @@ class _AddEducationSheetState extends State<_AddEducationSheet> {
       '${d.day.toString().padLeft(2, '0')}';
 
   void _submit() {
+    if (!_formKey.currentState!.validate()) return;
     final institution = _institutionController.text.trim();
     final degree = _degreeController.text.trim();
-    final field = _fieldController.text.trim();
-    if (institution.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Institution name is required.')),
-      );
-      return;
-    }
-    if (degree.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Degree name is required.')));
-      return;
-    }
-    if (field.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Field name is required.')));
-      return;
-    }
     Navigator.of(context).pop(
       _NewEducation(
         institution: institution,
         degree: degree,
-        fieldOfStudy: field,
+        fieldOfStudy: _fieldController.text.trim().isEmpty
+            ? null
+            : _fieldController.text.trim(),
         startDate: _startDate,
         endDate: _ongoing ? null : _endDate,
         description: _descriptionController.text.trim().isEmpty
@@ -1399,6 +1396,7 @@ class _AddCertificationSheet extends StatefulWidget {
 }
 
 class _AddCertificationSheetState extends State<_AddCertificationSheet> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _issuerController = TextEditingController();
   final _urlController = TextEditingController();
@@ -1424,13 +1422,8 @@ class _AddCertificationSheetState extends State<_AddCertificationSheet> {
   }
 
   void _submit() {
+    if (!_formKey.currentState!.validate()) return;
     final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Certification name is required.')),
-      );
-      return;
-    }
     Navigator.of(context).pop(
       _NewCertification(
         name: name,
@@ -1455,69 +1448,76 @@ class _AddCertificationSheetState extends State<_AddCertificationSheet> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Add certification',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameController,
-            maxLength: 200,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              hintText: 'AWS Certified Cloud Practitioner',
-              border: OutlineInputBorder(),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Add certification',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _issuerController,
-            maxLength: 200,
-            decoration: const InputDecoration(
-              labelText: 'Issuer (optional)',
-              hintText: 'Amazon Web Services',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _urlController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'Credential link (optional)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: _pickDate,
-            child: InputDecorator(
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              maxLength: 200,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Certification name is required'
+                  : null,
               decoration: const InputDecoration(
-                labelText: 'Date earned (optional)',
+                labelText: 'Name',
+                hintText: 'AWS Certified Cloud Practitioner',
                 border: OutlineInputBorder(),
               ),
-              child: Text(
-                _earnedOn == null
-                    ? 'Select a date'
-                    : '${_earnedOn!.year}-${_earnedOn!.month.toString().padLeft(2, '0')}-${_earnedOn!.day.toString().padLeft(2, '0')}',
-                style: TextStyle(
-                  color: _earnedOn == null ? p.textMuted : p.textPrimary,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _issuerController,
+              maxLength: 200,
+              decoration: const InputDecoration(
+                labelText: 'Issuer (optional)',
+                hintText: 'Amazon Web Services',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _urlController,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'Credential link (optional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: _pickDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Date earned (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                child: Text(
+                  _earnedOn == null
+                      ? 'Select a date'
+                      : '${_earnedOn!.year}-${_earnedOn!.month.toString().padLeft(2, '0')}-${_earnedOn!.day.toString().padLeft(2, '0')}',
+                  style: TextStyle(
+                    color: _earnedOn == null ? p.textMuted : p.textPrimary,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(onPressed: _submit, child: const Text('Add')),
-          ),
-        ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(onPressed: _submit, child: const Text('Add')),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -68,4 +68,14 @@ class GamificationProvider extends ChangeNotifier {
     newlyUnlocked = [];
     notifyListeners();
   }
+
+  void reset() {
+    state = GamificationLoadState.initial;
+    achievements = [];
+    streak = null;
+    errorMessage = null;
+    newlyUnlocked = [];
+    _hasLoadedOnce = false;
+    notifyListeners();
+  }
 }

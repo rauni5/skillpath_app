@@ -36,11 +36,16 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final AuthRepository _authRepo = AuthRepository();
 
+  static const String _soundResourceName = 'notif_sound';
+  static const String _iosSoundFile = 'notif_sound.caf';
+
   static const _androidChannel = AndroidNotificationChannel(
-    'project_invites',
-    'Project Invites',
+    'notification_sound',
+    'notification',
     description: 'Invite requests, responses, and project membership updates.',
     importance: Importance.high,
+    playSound: true,
+    sound: RawResourceAndroidNotificationSound(_soundResourceName),
   );
 
   int? _currentUserId;
@@ -187,8 +192,13 @@ class NotificationService {
           channelDescription: _androidChannel.description,
           importance: Importance.high,
           priority: Priority.high,
+          playSound: true,
+          sound: const RawResourceAndroidNotificationSound(_soundResourceName),
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: const DarwinNotificationDetails(
+          presentSound: true,
+          sound: _iosSoundFile,
+        ),
       ),
       payload: jsonEncode(message.data),
     );
@@ -260,6 +270,7 @@ class NotificationService {
     if (kIsWeb) return 'web';
     return defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
   }
+
   void disposeListeners() {
     _foregroundSub?.cancel();
     _openedAppSub?.cancel();

@@ -24,6 +24,7 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _githubController;
@@ -114,29 +115,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
+    // Unfocus active keyboard
+    FocusScope.of(context).unfocus();
+
+    if (!_formKey.currentState!.validate()) return;
     final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Name can\'t be empty.')));
-      return;
-    }
-    for (final (label, url) in [
-      ('GitHub', _githubController.text.trim()),
-      ('LinkedIn', _linkedinController.text.trim()),
-    ]) {
-      if (url.isNotEmpty &&
-          !url.startsWith('http://') &&
-          !url.startsWith('https://')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$label link should start with http:// or https://'),
-          ),
-        );
-        return;
-      }
-    }
-    setState(() => _saving = true);
+
+    // Capture Providers and Messenger before async gaps
     final auth = context.read<AuthProvider>();
     final ok = await auth.updateProfile(
       name: name,
@@ -166,6 +151,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  String? _validateUrl(String? value) {
+    final url = value?.trim() ?? '';
+    if (url.isEmpty) return null;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return 'Should start with http:// or https://';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -188,207 +182,220 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Center(
-              child: GestureDetector(
-                onTap: _uploadingAvatar ? null : _changeAvatar,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _localAvatarPreview != null
-                        ? CircleAvatar(
-                            radius: 44,
-                            backgroundImage: MemoryImage(_localAvatarPreview!),
-                          )
-                        : UserAvatar(
-                            avatarUrl: user?.avatarUrl,
-                            initials: user?.initials ?? '?',
-                            radius: 44,
-                          ),
-                    if (_uploadingAvatar)
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withValues(alpha: 0.35),
-                          ),
-                          child: const Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Center(
+                child: GestureDetector(
+                  onTap: _uploadingAvatar ? null : _changeAvatar,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _localAvatarPreview != null
+                          ? CircleAvatar(
+                              radius: 44,
+                              backgroundImage: MemoryImage(
+                                _localAvatarPreview!,
+                              ),
+                            )
+                          : UserAvatar(
+                              avatarUrl: user?.avatarUrl,
+                              initials: user?.initials ?? '?',
+                              radius: 44,
+                            ),
+                      if (_uploadingAvatar)
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.black.withValues(alpha: 0.35),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: p.indigo,
-                          border: Border.all(color: p.surface0, width: 2),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: p.indigo,
+                            border: Border.all(color: p.surface0, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 14,
-                          color: Colors.white,
-                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            Text(
-              'IDENTITY',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
-                color: p.textMuted,
+              Text(
+                'IDENTITY',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: p.textMuted,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameController,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? "Name can't be empty"
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Contact number',
-                hintText: '+977-9841431258',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Contact number',
+                  hintText: '+977-9841431258',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _locationController,
-              decoration: const InputDecoration(
-                labelText: 'Location',
-                hintText: 'City, Country',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _locationController,
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  hintText: 'City, Country',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            Text(
-              'LINKS',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
-                color: p.textMuted,
+              Text(
+                'LINKS',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: p.textMuted,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _githubController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'GitHub profile',
-                hintText: 'https://github.com/yourname',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _githubController,
+                keyboardType: TextInputType.url,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: _validateUrl,
+                decoration: const InputDecoration(
+                  labelText: 'GitHub profile',
+                  hintText: 'https://github.com/yourname',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _linkedinController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'LinkedIn profile',
-                hintText: 'https://linkedin.com/in/yourname',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _linkedinController,
+                keyboardType: TextInputType.url,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: _validateUrl,
+                decoration: const InputDecoration(
+                  labelText: 'LinkedIn profile',
+                  hintText: 'https://linkedin.com/in/yourname',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            Text(
-              'PORTFOLIO DETAILS',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
-                color: p.textMuted,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _bioController,
-              maxLines: 4,
-              maxLength: 1000,
-              decoration: const InputDecoration(
-                labelText: 'Bio',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Experience level',
-              style: TextStyle(fontSize: 12, color: p.textMuted),
-            ),
-            const SizedBox(height: 6),
-            SegmentedButton<ExperienceLevel>(
-              segments: const [
-                ButtonSegment(
-                  value: ExperienceLevel.beginner,
-                  label: Text('Beginner'),
+              Text(
+                'PORTFOLIO DETAILS',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: p.textMuted,
                 ),
-                ButtonSegment(
-                  value: ExperienceLevel.intermediate,
-                  label: Text('Intermediate'),
-                ),
-                ButtonSegment(
-                  value: ExperienceLevel.advanced,
-                  label: Text('Advanced'),
-                ),
-              ],
-              selected: {_experienceLevel},
-              onSelectionChanged: (s) =>
-                  setState(() => _experienceLevel = s.first),
-              showSelectedIcon: false,
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Available for projects'),
-              value: _availability,
-              onChanged: (v) => setState(() => _availability = v),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _softSkillsController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Soft skills',
-                hintText: 'Communication, Time management, Teamwork',
-                helperText: 'Separate with commas or new lines',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your photo, GitHub, LinkedIn, location, bio, experience level, availability, and soft skills all show on your Portfolio and CV.',
-              style: TextStyle(fontSize: 11.5, color: p.textMuted),
-            ),
-          ],
+              const SizedBox(height: 8),
+              TextField(
+                controller: _bioController,
+                maxLines: 4,
+                maxLength: 1000,
+                decoration: const InputDecoration(
+                  labelText: 'Bio',
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Experience level',
+                style: TextStyle(fontSize: 12, color: p.textMuted),
+              ),
+              const SizedBox(height: 6),
+              SegmentedButton<ExperienceLevel>(
+                segments: const [
+                  ButtonSegment(
+                    value: ExperienceLevel.beginner,
+                    label: Text('Beginner'),
+                  ),
+                  ButtonSegment(
+                    value: ExperienceLevel.intermediate,
+                    label: Text('Intermediate'),
+                  ),
+                  ButtonSegment(
+                    value: ExperienceLevel.advanced,
+                    label: Text('Advanced'),
+                  ),
+                ],
+                selected: {_experienceLevel},
+                onSelectionChanged: (s) =>
+                    setState(() => _experienceLevel = s.first),
+                showSelectedIcon: false,
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Available for projects'),
+                value: _availability,
+                onChanged: (v) => setState(() => _availability = v),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _softSkillsController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Soft skills',
+                  hintText: 'Communication, Time management, Teamwork',
+                  helperText: 'Separate with commas or new lines',
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your photo,GitHub, LinkedIn, location, bio, experience level, availability, and soft skills all show on your Portfolio and CV.',
+                style: TextStyle(fontSize: 11.5, color: p.textMuted),
+              ),
+            ],
+          ),
         ),
       ),
     );
