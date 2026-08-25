@@ -1,6 +1,11 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http_parser/http_parser.dart' show MediaType;
+import 'package:image_picker/image_picker.dart' show XFile;
 
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
@@ -155,6 +160,28 @@ class AuthRepository {
 
     return _api.unwrap(
       (dio) => dio.put('/api/v1/users/${current.id}', data: body),
+      (data) => AppUser.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// Uploads a profile picture. The bytes go straight to our own backend
+  Future<AppUser> uploadAvatar(XFile file) async {
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser == null) throw ApiException('Not signed in.');
+
+    final current = await sync();
+    final Uint8List bytes = await file.readAsBytes();
+
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: 'avatar.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ),
+    });
+
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/users/${current.id}/avatar', data: formData),
       (data) => AppUser.fromJson(data as Map<String, dynamic>),
     );
   }

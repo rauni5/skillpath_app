@@ -214,35 +214,43 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _teamSize > 1
-                            ? () => setState(() => _teamSize--)
-                            : null,
-                        icon: const Icon(Icons.remove_circle_outline),
-                        iconSize: 22,
-                      ),
-                      SizedBox(
-                        width: 28,
-                        child: Text(
-                          '$_teamSize',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: p.textPrimary,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: p.surface2,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: p.border),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: _teamSize > 1
+                              ? () => setState(() => _teamSize--)
+                              : null,
+                          icon: const Icon(Icons.remove_circle_outline),
+                          iconSize: 22,
+                        ),
+                        SizedBox(
+                          width: 28,
+                          child: Text(
+                            '$_teamSize',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: p.textPrimary,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: _teamSize < 20
-                            ? () => setState(() => _teamSize++)
-                            : null,
-                        icon: const Icon(Icons.add_circle_outline),
-                        iconSize: 22,
-                      ),
-                    ],
+                        IconButton(
+                          onPressed: _teamSize < 20
+                              ? () => setState(() => _teamSize++)
+                              : null,
+                          icon: const Icon(Icons.add_circle_outline),
+                          iconSize: 22,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -355,6 +363,9 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                   backgroundColor: p.indigo,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                 ),
                 child: mgmt.isUpdating
                     ? const SizedBox(

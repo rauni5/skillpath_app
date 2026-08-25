@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/models/assistant_chat_session.dart';
 import '../../features/admin/screens/admin_achievement_form_screen.dart';
@@ -26,6 +27,7 @@ import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/portfolio_screen.dart';
 import '../../features/profile/screens/settings_screen.dart';
+import '../../features/profile/providers/portfolio_provider.dart';
 import '../../features/projects/screens/create_post_screen.dart';
 import '../../features/projects/screens/create_project_screen.dart';
 import '../../features/projects/screens/edit_project_screen.dart';
@@ -269,6 +271,15 @@ GoRouter buildRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/profile/settings/edit',
         builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
+        path: '/users/:id/portfolio',
+        builder: (context, state) => ChangeNotifierProvider(
+          create: (_) => PortfolioProvider(),
+          child: PortfolioScreen(
+            userId: int.parse(state.pathParameters['id']!),
+          ),
+        ),
       ),
       GoRoute(
         path: '/profile/settings',

@@ -28,6 +28,8 @@ class Project {
   final int teamSize;
   final ProjectStatus status;
   final int ownerId;
+  final String? ownerName;
+  final String? ownerAvatarUrl;
   final List<Skill> requiredSkills;
   final List<CareerRole> requiredRoles;
   final DateTime? createdAt;
@@ -40,6 +42,15 @@ class Project {
   /// a join request the viewer sent themselves.
   final bool viewerInvitedByOwner;
 
+  /// Fallback initials for the owner avatar when there's no photo.
+  String get ownerInitials {
+    final name = ownerName?.trim() ?? '';
+    if (name.isEmpty) return '?';
+    final parts = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+  }
+
   Project({
     required this.id,
     required this.name,
@@ -49,6 +60,8 @@ class Project {
     required this.teamSize,
     required this.status,
     required this.ownerId,
+    this.ownerName,
+    this.ownerAvatarUrl,
     required this.requiredSkills,
     this.requiredRoles = const [],
     this.createdAt,
@@ -66,6 +79,8 @@ class Project {
       teamSize: json['teamSize'] as int? ?? 0,
       status: projectStatusFromString(json['status'] as String?),
       ownerId: json['ownerId'] as int? ?? 0,
+      ownerName: json['ownerName'] as String?,
+      ownerAvatarUrl: json['ownerAvatarUrl'] as String?,
       requiredSkills: (json['requiredSkills'] as List<dynamic>? ?? [])
           .map((e) => Skill.fromJson(e as Map<String, dynamic>))
           .toList(),

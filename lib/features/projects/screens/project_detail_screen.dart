@@ -10,6 +10,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../dashboard/widgets/skill_chip.dart';
 import '../providers/project_management_provider.dart';
@@ -166,6 +167,36 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 ),
               ],
             ),
+            if (project.ownerName != null && project.ownerName!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () =>
+                    context.push('/users/${project.ownerId}/portfolio'),
+                child: Row(
+                  children: [
+                    UserAvatar(
+                      avatarUrl: project.ownerAvatarUrl,
+                      initials: project.ownerInitials,
+                      radius: 12,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      project.ownerName!,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '· Owner',
+                      style: TextStyle(fontSize: 12, color: p.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (project.description != null &&
                 project.description!.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -417,21 +448,24 @@ class _TeamMemberTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: p.indigoLight,
-            child: Text(
-              initials,
-              style: TextStyle(
-                color: p.indigo,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+          GestureDetector(
+            onTap: () => context.push('/users/${member.userId}/portfolio'),
+            child: UserAvatar(
+              avatarUrl: member.avatarUrl,
+              initials: initials,
+              radius: 16,
             ),
           ),
           const SizedBox(width: 10),
@@ -439,12 +473,16 @@ class _TeamMemberTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  member.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
+                GestureDetector(
+                  onTap: () =>
+                      context.push('/users/${member.userId}/portfolio'),
+                  child: Text(
+                    member.name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
                 if (member.email != null && member.email!.isNotEmpty)

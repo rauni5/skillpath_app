@@ -6,7 +6,19 @@ import '../../../core/models/discussion_post.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../providers/discussion_provider.dart';
+
+String _initials(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return '?';
+  return trimmed
+      .split(RegExp(r'\s+'))
+      .map((s) => s[0])
+      .take(2)
+      .join()
+      .toUpperCase();
+}
 
 /// Reddit-style discussion for one project: a PUBLIC board anyone signed in
 /// can read and post to, and a TEAM board restricted to accepted members.
@@ -218,6 +230,13 @@ class _PostCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: p.border),
+            boxShadow: [
+              BoxShadow(
+                color: p.indigo.withValues(alpha: 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,13 +246,33 @@ class _PostCard extends StatelessWidget {
                   _TagChip(tag: post.tag),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      post.authorName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11.5, color: p.textMuted),
+                    child: GestureDetector(
+                      onTap: () =>
+                          context.push('/users/${post.authorId}/portfolio'),
+                      child: Row(
+                        children: [
+                          UserAvatar(
+                            avatarUrl: post.authorAvatarUrl,
+                            initials: _initials(post.authorName),
+                            radius: 10,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              post.authorName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: p.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 4),
                   Text(
                     _relativeTime(post.createdAt),
                     style: TextStyle(fontSize: 11, color: p.textMuted),

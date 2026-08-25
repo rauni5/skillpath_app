@@ -85,6 +85,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       label: Text(t.label),
                       selected: selected,
                       onSelected: (_) => setState(() => _tag = t),
+                      selectedColor: p.indigoLight,
+                      labelStyle: TextStyle(
+                        color: selected ? p.indigo : p.textSecondary,
+                        fontSize: 12.5,
+                      ),
+                      side: BorderSide(color: selected ? p.indigo : p.border),
                     );
                   }).toList(),
                 ),
@@ -112,19 +118,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   const SizedBox(height: 6),
                   Text(
                     provider.createPostError!,
-                    style: const TextStyle(color: Colors.red, fontSize: 12.5),
+                    style: TextStyle(color: p.red, fontSize: 12.5),
                   ),
                 ],
                 const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: provider.isCreatingPost ? null : _submit,
-                  child: provider.isCreatingPost
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Post'),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: provider.isCreatingPost ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: p.indigo,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    child: provider.isCreatingPost
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Post'),
+                  ),
                 ),
               ],
             ),

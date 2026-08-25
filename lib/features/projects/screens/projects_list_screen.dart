@@ -211,32 +211,65 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
             onRefresh: () async => _load(),
             child: ListView(
               children: [
-                const SizedBox(height: 100),
-                Icon(
-                  Icons.rocket_launch_outlined,
-                  size: 40,
-                  color: p.textMuted,
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  filtered
-                      ? 'No projects match this search.'
-                      : 'No open projects yet.\nTap + to create one.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: p.textMuted, fontSize: 13),
-                ),
-                if (filtered) ...[
-                  const SizedBox(height: 12),
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        projects.clearSearchAndFilters();
-                      },
-                      child: const Text('Clear search & filters'),
+                const SizedBox(height: 80),
+                Center(
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: p.indigoLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      filtered
+                          ? Icons.search_off
+                          : Icons.rocket_launch_outlined,
+                      size: 32,
+                      color: p.indigo,
                     ),
                   ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  filtered
+                      ? 'No projects match this search'
+                      : 'No open projects yet',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!filtered) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Be the first to start one.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: p.textMuted, fontSize: 12.5),
+                  ),
                 ],
+                const SizedBox(height: 18),
+                Center(
+                  child: filtered
+                      ? TextButton(
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            projects.clearSearchAndFilters();
+                          },
+                          child: const Text('Clear search & filters'),
+                        )
+                      : FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          onPressed: () => context.push('/projects/new'),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Create a project'),
+                        ),
+                ),
               ],
             ),
           );

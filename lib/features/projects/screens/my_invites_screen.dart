@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:provider/provider.dart';
 import 'package:skillpath_app/core/models/project_member.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/elevated_card.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -66,13 +67,33 @@ class _MyInvitesScreenState extends State<MyInvitesScreen> {
             onRefresh: () async => _load(),
             child: ListView(
               children: [
-                const SizedBox(height: 100),
-                Icon(Icons.mail_outline, size: 40, color: p.textMuted),
-                const SizedBox(height: 14),
+                const SizedBox(height: 90),
+                Center(
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: p.indigoLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.mail_outline, size: 32, color: p.indigo),
+                  ),
+                ),
+                const SizedBox(height: 18),
                 Text(
-                  "You don't have any invites right now.",
+                  "You don't have any invites right now",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: p.textMuted, fontSize: 13),
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Project invites and join requests will show up here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: p.textMuted, fontSize: 12.5),
                 ),
               ],
             ),
@@ -102,13 +123,8 @@ class _InviteCard extends StatelessWidget {
     final mgmt = context.watch<ProjectManagementProvider>();
     final isResponding = mgmt.respondingProjectIds.contains(invite.projectId);
 
-    return Container(
+    return ElevatedCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: p.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -149,6 +165,11 @@ class _InviteCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                    ),
                     onPressed: () => _respond(context, accept: false),
                     child: const Text('Decline'),
                   ),
@@ -160,6 +181,9 @@ class _InviteCard extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: p.indigo,
                       foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
                     ),
                     child: const Text('Accept'),
                   ),

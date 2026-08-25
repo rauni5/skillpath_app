@@ -11,6 +11,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/project_management_provider.dart';
 import '../providers/user_search_provider.dart';
@@ -175,7 +176,12 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
                 builder: (context) {
                   final me = context.watch<AuthProvider>().currentUser;
                   if (me == null) return const SizedBox.shrink();
-                  return _OwnerTile(name: me.name, email: me.email);
+                  return _OwnerTile(
+                    userId: me.id,
+                    name: me.name,
+                    email: me.email,
+                    avatarUrl: me.avatarUrl,
+                  );
                 },
               ),
               ...mgmt.acceptedMembers.map(
@@ -237,20 +243,31 @@ class _PendingRequestTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _avatar(p, member.name),
+          _avatar(context, p, member.name, member.avatarUrl, member.userId),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              member.name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: p.textPrimary,
+            child: _tappableToProfile(
+              context,
+              member.userId,
+              Text(
+                member.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: p.textPrimary,
+                ),
               ),
             ),
           ),
@@ -307,23 +324,34 @@ class _AcceptedMemberTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _avatar(p, member.name),
+          _avatar(context, p, member.name, member.avatarUrl, member.userId),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  member.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
+                _tappableToProfile(
+                  context,
+                  member.userId,
+                  Text(
+                    member.name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
                 if (member.email != null && member.email!.isNotEmpty)
@@ -422,9 +450,16 @@ class _CopyableEmail extends StatelessWidget {
 }
 
 class _OwnerTile extends StatelessWidget {
-  const _OwnerTile({required this.name, required this.email});
+  const _OwnerTile({
+    required this.userId,
+    required this.name,
+    required this.email,
+    this.avatarUrl,
+  });
+  final int userId;
   final String name;
   final String email;
+  final String? avatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -434,23 +469,34 @@ class _OwnerTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _avatar(p, name),
+          _avatar(context, p, name, avatarUrl, userId),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$name (You)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
+                _tappableToProfile(
+                  context,
+                  userId,
+                  Text(
+                    '$name (You)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
                 _CopyableEmail(email: email),
@@ -478,7 +524,20 @@ class _OwnerTile extends StatelessWidget {
   }
 }
 
-Widget _avatar(AppPalette p, String name) {
+Widget _tappableToProfile(BuildContext context, int userId, Widget child) {
+  return GestureDetector(
+    onTap: () => context.push('/users/$userId/portfolio'),
+    child: child,
+  );
+}
+
+Widget _avatar(
+  BuildContext context,
+  AppPalette p,
+  String name,
+  String? avatarUrl,
+  int userId,
+) {
   final initials = name.trim().isEmpty
       ? '?'
       : name
@@ -488,17 +547,9 @@ Widget _avatar(AppPalette p, String name) {
             .take(2)
             .join()
             .toUpperCase();
-  return CircleAvatar(
-    radius: 16,
-    backgroundColor: p.indigoLight,
-    child: Text(
-      initials,
-      style: TextStyle(
-        color: p.indigo,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
+  return GestureDetector(
+    onTap: () => context.push('/users/$userId/portfolio'),
+    child: UserAvatar(avatarUrl: avatarUrl, initials: initials, radius: 16),
   );
 }
 
@@ -514,20 +565,31 @@ class _InvitedTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _avatar(p, member.name),
+          _avatar(context, p, member.name, member.avatarUrl, member.userId),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              member.name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: p.textPrimary,
+            child: _tappableToProfile(
+              context,
+              member.userId,
+              Text(
+                member.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: p.textPrimary,
+                ),
               ),
             ),
           ),
@@ -571,23 +633,34 @@ class _RecommendedInviteTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _avatar(p, member.name),
+          _avatar(context, p, member.name, member.avatarUrl, member.userId),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  member.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
+                _tappableToProfile(
+                  context,
+                  member.userId,
+                  Text(
+                    member.name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
                 Text(
@@ -732,23 +805,34 @@ class _SearchResultTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: p.indigo.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _avatar(p, user.name),
+          _avatar(context, p, user.name, user.avatarUrl, user.id),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  user.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
+                _tappableToProfile(
+                  context,
+                  user.id,
+                  Text(
+                    user.name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
                 if (user.bio != null && user.bio!.isNotEmpty)

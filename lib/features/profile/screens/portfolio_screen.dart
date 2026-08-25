@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
@@ -15,12 +18,14 @@ import '../../../shared/widgets/animated_progress_bar.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/cv_generator.dart';
 import '../providers/portfolio_provider.dart';
 
 class PortfolioScreen extends StatefulWidget {
-  const PortfolioScreen({super.key});
+  const PortfolioScreen({super.key, this.userId});
+  final int? userId;
 
   @override
   State<PortfolioScreen> createState() => _PortfolioScreenState();
@@ -30,14 +35,21 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     with WidgetsBindingObserver {
   bool _generatingCv = false;
   Timer? _refreshTimer;
+  bool _isSelf = true;
   static const _refreshInterval = Duration(seconds: 20);
+
+  int? get _targetUserId =>
+      widget.userId ?? context.read<AuthProvider>().currentUser?.id;
 
   @override
   void initState() {
     super.initState();
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    _isSelf = widget.userId == null || widget.userId == currentUserId;
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-    _startRefreshTimer();
+    // No need to poll someone else's portfolio in the background.
+    if (_isSelf) _startRefreshTimer();
   }
 
   void _startRefreshTimer() {
@@ -47,6 +59,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_isSelf) return;
     // Don't keep polling while the app is backgrounded.
     if (state == AppLifecycleState.resumed) {
       _load();
@@ -64,7 +77,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   }
 
   Future<void> _load() async {
-    final userId = context.read<AuthProvider>().currentUser?.id;
+    final userId = _targetUserId;
     if (userId == null) return;
     await context.read<PortfolioProvider>().load(userId);
   }
@@ -73,9 +86,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     setState(() => _generatingCv = true);
     try {
       final bytes = await buildCvPdf(data);
-      final fileName =
-          '${data.name.trim().isEmpty ? 'cv' : data.name.trim().replaceAll(' ', '_')}_CV.pdf';
-      await Printing.sharePdf(bytes: bytes, filename: fileName);
+      await savePdfBytes(context, bytes, _cvFileName(data));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -86,40 +97,73 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     }
   }
 
+  Future<void> _previewCv(PortfolioData data) async {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => _CvPreviewScreen(data: data)));
+  }
+
+  Future<void> _handleCvTap(PortfolioData data) async {
+    if (_isCvReady(data)) return; // handled by the PopupMenuButton itself
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ProfileIncompleteDialog(data: data),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final portfolio = context.watch<PortfolioProvider>();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Portfolio'),
+        title: Text(
+          _isSelf ? 'Portfolio' : (portfolio.data?.name ?? 'Portfolio'),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () => context.push('/profile/settings'),
-          ),
+          if (_isSelf && portfolio.data != null)
+            _CvMenuButton(
+              data: portfolio.data!,
+              generating: _generatingCv,
+              onIncompleteTap: () => _handleCvTap(portfolio.data!),
+              onPreview: () => _previewCv(portfolio.data!),
+              onDownload: () => _downloadCv(portfolio.data!),
+            ),
+          if (_isSelf)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Settings',
+              onPressed: () => context.push('/profile/settings'),
+            ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: switch (portfolio.state) {
-          PortfolioLoadState.initial ||
-          PortfolioLoadState.loading => const LoadingView(),
-          PortfolioLoadState.error => ErrorView(
-            message: portfolio.errorMessage ?? 'Something went wrong.',
-            onRetry: _load,
-          ),
-          PortfolioLoadState.loaded => _PortfolioBody(
-            data: portfolio.data!,
-            generatingCv: _generatingCv,
-            onDownloadCv: () => _downloadCv(portfolio.data!),
-            onAddEducation: _addEducation,
-            onDeleteEducation: _deleteEducation,
-            onAddCertification: _addCertification,
-            onDeleteCertification: _deleteCertification,
-          ),
-        },
+      body: SafeArea(
+        // This screen is also reached as a plain full-screen route (via
+        // /users/:id/portfolio, no bottom nav underneath it) rather than
+        // just the bottom-nav tab, so it needs its own bottom inset
+        // handling or the last section ends up under the system nav
+        // bar/gesture indicator. Harmless when the bottom-nav tab case
+        // already accounts for it - SafeArea just sees zero remaining
+        // inset to add.
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: switch (portfolio.state) {
+            PortfolioLoadState.initial ||
+            PortfolioLoadState.loading => const LoadingView(),
+            PortfolioLoadState.error => ErrorView(
+              message: portfolio.errorMessage ?? 'Something went wrong.',
+              onRetry: _load,
+            ),
+            PortfolioLoadState.loaded => _PortfolioBody(
+              data: portfolio.data!,
+              isSelf: _isSelf,
+              onAddEducation: _addEducation,
+              onDeleteEducation: _deleteEducation,
+              onAddCertification: _addCertification,
+              onDeleteCertification: _deleteCertification,
+            ),
+          },
+        ),
       ),
     );
   }
@@ -238,8 +282,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
 class _PortfolioBody extends StatelessWidget {
   const _PortfolioBody({
     required this.data,
-    required this.generatingCv,
-    required this.onDownloadCv,
+    required this.isSelf,
     required this.onAddEducation,
     required this.onDeleteEducation,
     required this.onAddCertification,
@@ -247,8 +290,7 @@ class _PortfolioBody extends StatelessWidget {
   });
 
   final PortfolioData data;
-  final bool generatingCv;
-  final VoidCallback onDownloadCv;
+  final bool isSelf;
   final VoidCallback onAddEducation;
   final void Function(int eduId) onDeleteEducation;
   final VoidCallback onAddCertification;
@@ -293,24 +335,12 @@ class _PortfolioBody extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: p.surface0,
-                    ),
-                    child: CircleAvatar(
-                      radius: 36,
-                      backgroundColor: p.indigoLight,
-                      child: Text(
-                        data.initials,
-                        style: TextStyle(
-                          color: p.indigo,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                  child: UserAvatar(
+                    avatarUrl: data.avatarUrl,
+                    initials: data.initials,
+                    radius: 36,
+                    ringColor: p.surface0,
+                    ringWidth: 4,
                   ),
                 ),
               ),
@@ -424,31 +454,6 @@ class _PortfolioBody extends StatelessWidget {
                 foreground: data.availability ? p.greenText : p.textSecondary,
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              elevation: 0,
-            ),
-            onPressed: generatingCv ? null : onDownloadCv,
-            icon: generatingCv
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.download_outlined, size: 18),
-            label: Text(generatingCv ? 'Preparing CV…' : 'Download CV'),
           ),
         ),
         const SizedBox(height: 28),
@@ -589,17 +594,18 @@ class _PortfolioBody extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             SectionHeader(label: 'EDUCATION', icon: Icons.school_outlined),
-            IconButton(
-              icon: portfolio.mutating
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_circle_outline),
-              tooltip: 'Add education',
-              onPressed: portfolio.mutating ? null : onAddEducation,
-            ),
+            if (isSelf)
+              IconButton(
+                icon: portfolio.mutating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_circle_outline),
+                tooltip: 'Add education',
+                onPressed: portfolio.mutating ? null : onAddEducation,
+              ),
           ],
         ),
         const SizedBox(height: 4),
@@ -678,15 +684,16 @@ class _PortfolioBody extends StatelessWidget {
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            size: 19,
-                            color: p.textMuted,
+                        if (isSelf)
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 19,
+                              color: p.textMuted,
+                            ),
+                            tooltip: 'Remove',
+                            onPressed: () => onDeleteEducation(edu.id),
                           ),
-                          tooltip: 'Remove',
-                          onPressed: () => onDeleteEducation(edu.id),
-                        ),
                       ],
                     ),
                   ),
@@ -704,22 +711,28 @@ class _PortfolioBody extends StatelessWidget {
               label: 'CERTIFICATIONS',
               icon: Icons.verified_outlined,
             ),
-            IconButton(
-              icon: portfolio.mutating
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_circle_outline),
-              tooltip: 'Add certification',
-              onPressed: portfolio.mutating ? null : onAddCertification,
-            ),
+            if (isSelf)
+              IconButton(
+                icon: portfolio.mutating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_circle_outline),
+                tooltip: 'Add certification',
+                onPressed: portfolio.mutating ? null : onAddCertification,
+              ),
           ],
         ),
         const SizedBox(height: 4),
         if (data.certifications.isEmpty)
-          _emptyCard(p, 'No certifications added yet.')
+          _emptyCard(
+            p,
+            isSelf
+                ? 'No certifications added yet.'
+                : 'No certifications listed.',
+          )
         else
           _SectionCard(
             child: Column(
@@ -770,15 +783,16 @@ class _PortfolioBody extends StatelessWidget {
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            size: 19,
-                            color: p.textMuted,
+                        if (isSelf)
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 19,
+                              color: p.textMuted,
+                            ),
+                            tooltip: 'Remove',
+                            onPressed: () => onDeleteCertification(cert.id),
                           ),
-                          tooltip: 'Remove',
-                          onPressed: () => onDeleteCertification(cert.id),
-                        ),
                       ],
                     ),
                   ),
@@ -1502,6 +1516,261 @@ class _AddCertificationSheetState extends State<_AddCertificationSheet> {
           SizedBox(
             width: double.infinity,
             child: FilledButton(onPressed: _submit, child: const Text('Add')),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- CV export ---
+
+/// A profile counts as "complete" for CV purposes once there's enough on
+/// it to actually be worth exporting: a bio, contact links, a location,
+/// and at least one project or portfolio item to show. Tune this list if
+/// your definition of "complete" should be stricter or looser - each
+/// entry also drives the checklist in _ProfileIncompleteDialog below, so
+/// add a matching row there too if you add a check here.
+bool _isCvReady(PortfolioData data) => _cvChecklist(data).every((c) => c.done);
+
+class _CvCheck {
+  const _CvCheck(this.label, this.done);
+  final String label;
+  final bool done;
+}
+
+List<_CvCheck> _cvChecklist(PortfolioData data) {
+  final hasBio = data.bio != null && data.bio!.trim().isNotEmpty;
+  final hasPhone =
+      data.phoneNumber != null && data.phoneNumber!.trim().isNotEmpty;
+  final hasLocation = data.location != null && data.location!.trim().isNotEmpty;
+  final hasLink =
+      (data.githubUrl != null && data.githubUrl!.trim().isNotEmpty) ||
+      (data.linkedinUrl != null && data.linkedinUrl!.trim().isNotEmpty);
+  final hasWork = data.projects.isNotEmpty || data.education.isNotEmpty;
+  return [
+    _CvCheck('Add a bio', hasBio),
+    _CvCheck('Add a contact number', hasPhone),
+    _CvCheck('Add a location', hasLocation),
+    _CvCheck('Add a GitHub or LinkedIn link', hasLink),
+    _CvCheck('Add at least one project or Education listed', hasWork),
+  ];
+}
+
+String _cvFileName(PortfolioData data) {
+  final safeName = data.name.trim().isEmpty
+      ? 'cv'
+      : data.name.trim().replaceAll(RegExp(r'\s+'), '_');
+  return '${safeName}_CV.pdf';
+}
+
+Future<void> savePdfBytes(
+  BuildContext context,
+  List<int> bytes,
+  String fileName,
+) async {
+  try {
+    final sanitizedFileName = fileName.endsWith('.pdf')
+        ? fileName
+        : '$fileName.pdf';
+
+    // FilePicker returns Uri? in newer versions
+    final Uri? resultUri = await FilePicker.saveFile(
+      dialogTitle: 'Save CV',
+      fileName: sanitizedFileName,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      bytes: Uint8List.fromList(bytes),
+    );
+
+    if (resultUri == null) return; // User cancelled
+
+    // Get the file path string from the Uri
+    final String path = resultUri.toFilePath();
+
+    final file = File(path.endsWith('.pdf') ? path : '$path.pdf');
+    await file.writeAsBytes(bytes);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('CV saved.')));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not save your CV: $e')));
+    }
+  }
+}
+
+/// Download icon in the AppBar, next to Settings. Opens a small menu with
+/// Preview/Download once the profile is ready to export (_isCvReady) -
+/// otherwise tapping it opens _ProfileIncompleteDialog instead of a menu.
+class _CvMenuButton extends StatelessWidget {
+  const _CvMenuButton({
+    required this.data,
+    required this.generating,
+    required this.onIncompleteTap,
+    required this.onPreview,
+    required this.onDownload,
+  });
+
+  final PortfolioData data;
+  final bool generating;
+  final VoidCallback onIncompleteTap;
+  final VoidCallback onPreview;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    if (generating) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (!_isCvReady(data)) {
+      return IconButton(
+        icon: const Icon(Icons.download_outlined),
+        tooltip: 'Complete your profile to export a CV',
+        onPressed: onIncompleteTap,
+      );
+    }
+
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.download_outlined),
+      tooltip: 'Export CV',
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'preview',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.visibility_outlined),
+            title: Text('Preview CV'),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'download',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.download_outlined),
+            title: Text('Download CV'),
+          ),
+        ),
+      ],
+      onSelected: (value) {
+        if (value == 'preview') onPreview();
+        if (value == 'download') onDownload();
+      },
+    );
+  }
+}
+
+/// Real dialog (not just a disabled menu item) explaining exactly what's
+/// missing before a CV can be exported, with a direct link to Edit
+/// Profile so there's always an obvious next step.
+class _ProfileIncompleteDialog extends StatelessWidget {
+  const _ProfileIncompleteDialog({required this.data});
+  final PortfolioData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final checklist = _cvChecklist(data);
+
+    return AlertDialog(
+      title: const Text('Finish your profile first'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your CV is built from your portfolio, so a few things need '
+            'filling in before there\'s enough to export:',
+            style: TextStyle(fontSize: 13, color: p.textSecondary),
+          ),
+          const SizedBox(height: 14),
+          for (final check in checklist)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    check.done ? Icons.check_circle : Icons.circle_outlined,
+                    size: 18,
+                    color: check.done ? p.greenText : p.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      check.label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: check.done ? p.textMuted : p.textPrimary,
+                        decoration: check.done
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            context.push('/profile/settings/edit');
+          },
+          child: const Text('Edit Profile'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-screen PDF preview, opened from the CV menu. The default
+/// PdfPreview toolbar includes a print action; that's replaced here with
+/// a single Download action wired to the same save flow as the menu, so
+/// "download" behaves identically everywhere it appears in this feature.
+class _CvPreviewScreen extends StatelessWidget {
+  const _CvPreviewScreen({required this.data});
+  final PortfolioData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('CV Preview')),
+      body: PdfPreview(
+        build: (format) => buildCvPdf(data),
+        canChangeOrientation: false,
+        canChangePageFormat: false,
+        canDebug: false,
+        allowPrinting: false,
+        allowSharing: false,
+        actions: [
+          PdfPreviewAction(
+            icon: const Icon(Icons.download_outlined),
+            onPressed: (context, build, format) async {
+              final bytes = await build(format);
+              if (context.mounted) {
+                await savePdfBytes(context, bytes, _cvFileName(data));
+              }
+            },
           ),
         ],
       ),

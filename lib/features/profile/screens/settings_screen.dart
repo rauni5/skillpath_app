@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../notifications/data/notification_preferences.dart';
 import '../../notifications/data/notification_service.dart';
@@ -35,17 +36,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   shape: BoxShape.circle,
                   border: Border.all(color: p.indigoLight, width: 3),
                 ),
-                child: CircleAvatar(
+                child: UserAvatar(
+                  avatarUrl: user?.avatarUrl,
+                  initials: user?.initials ?? '?',
                   radius: 30,
-                  backgroundColor: p.indigoLight,
-                  child: Text(
-                    user?.initials ?? '?',
-                    style: TextStyle(
-                      color: p.indigo,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -67,7 +61,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 28),
-
             const _SectionLabel('PROFILE'),
             const SizedBox(height: 8),
             _SettingsCard(

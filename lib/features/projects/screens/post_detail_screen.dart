@@ -6,6 +6,7 @@ import '../../../core/models/discussion_post.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../providers/discussion_provider.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -231,26 +232,25 @@ class _PostHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: p.indigoLight,
-              child: Text(
-                _initials(post.authorName),
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: p.indigo,
-                ),
+            GestureDetector(
+              onTap: () => context.push('/users/${post.authorId}/portfolio'),
+              child: UserAvatar(
+                avatarUrl: post.authorAvatarUrl,
+                initials: _initials(post.authorName),
+                radius: 14,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                post.authorName,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: p.textPrimary,
+              child: GestureDetector(
+                onTap: () => context.push('/users/${post.authorId}/portfolio'),
+                child: Text(
+                  post.authorName,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: p.textPrimary,
+                  ),
                 ),
               ),
             ),
@@ -278,8 +278,12 @@ class _PostHeader extends StatelessWidget {
         InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onLike,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: post.likedByMe ? p.redLight : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -305,17 +309,17 @@ class _PostHeader extends StatelessWidget {
       ],
     );
   }
+}
 
-  String _initials(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return '?';
-    return trimmed
-        .split(RegExp(r'\s+'))
-        .map((s) => s[0])
-        .take(2)
-        .join()
-        .toUpperCase();
-  }
+String _initials(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return '?';
+  return trimmed
+      .split(RegExp(r'\s+'))
+      .map((s) => s[0])
+      .take(2)
+      .join()
+      .toUpperCase();
 }
 
 class _CommentTile extends StatelessWidget {
@@ -344,13 +348,27 @@ class _CommentTile extends StatelessWidget {
         children: [
           Row(
             children: [
+              GestureDetector(
+                onTap: () =>
+                    context.push('/users/${comment.authorId}/portfolio'),
+                child: UserAvatar(
+                  avatarUrl: comment.authorAvatarUrl,
+                  initials: _initials(comment.authorName),
+                  radius: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  comment.authorName,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
+                child: GestureDetector(
+                  onTap: () =>
+                      context.push('/users/${comment.authorId}/portfolio'),
+                  child: Text(
+                    comment.authorName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -415,10 +433,16 @@ class _CommentComposer extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
         decoration: BoxDecoration(
-          color: p.surface1,
-          border: Border(top: BorderSide(color: p.border)),
+          color: p.surface2,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, -3),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -429,10 +453,27 @@ class _CommentComposer extends StatelessWidget {
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => isSending ? null : onSend(),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Add a comment…',
                   isDense: true,
-                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: p.surface1,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(color: p.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(color: p.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(color: p.indigo, width: 1.5),
+                  ),
                 ),
               ),
             ),
