@@ -420,7 +420,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       label: 'ACTIVE PROJECTS',
                       icon: Icons.groups_outlined,
                       trailing: TextButton(
-                        onPressed: () => context.go('/projects'),
+                        onPressed: () => context.go('/projects/mine'),
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(0, 0),

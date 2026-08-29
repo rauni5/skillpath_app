@@ -126,7 +126,17 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
               final project = mgmt.ownedProjects[i];
               return ProjectCard(
                 project: project,
-                onTap: () => context.push('/projects/mine/${project.id}'),
+                onTap: () {
+                  final userId = context.read<AuthProvider>().currentUser?.id;
+
+                  final isMine = userId != null && userId == project.ownerId;
+
+                  context.push(
+                    isMine
+                        ? '/projects/mine/${project.id}'
+                        : '/projects/${project.id}',
+                  );
+                },
               );
             },
           ),
