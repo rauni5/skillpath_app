@@ -18,7 +18,14 @@ class TutorChatProvider extends ChangeNotifier {
   List<ChatMessage> messages = [];
   bool isSending = false;
 
+  /// True when the most recent send/kickoff attempt failed and hasn't
+  /// been retried or superseded by a newer message yet — drives the
+  /// inline error notice with a "Try again" action.
   bool hasError = false;
+
+  /// The prompt text behind the failed attempt, if any — kept separate
+  /// from the kickoff prompt (which is never added to [messages]) so
+  /// retrying resends the exact same thing rather than a fresh message.
   String? _lastFailedMessage;
   String? _kickoffSkillName;
 
@@ -47,12 +54,11 @@ class TutorChatProvider extends ChangeNotifier {
   }
 
   /// Called once, right after history loads, when there's no conversation
-  /// yet. Sends a starter prompt on the user's behalf so the tutor speaks
-  /// first — the prompt itself is never added to [messages], only the
-  /// assistant's reply is, so nothing appears to have been "typed" by the
-  /// user.
-  /// user. If it fails, [hasError] is set so the screen can offer a retry
-  /// instead of silently showing an empty chat.
+  /// yet. Fetches the tutor's cached "welcome to this skill" message (or
+  /// triggers generating + caching one, if this is the first visit anyone's
+  /// made to this skill) so the tutor speaks first. If it fails, [hasError]
+  /// is set so the screen can offer a retry instead of silently showing an
+  /// empty chat.
   Future<void> startConversationIfEmpty(
     int userId,
     int skillId,
@@ -66,19 +72,15 @@ class TutorChatProvider extends ChangeNotifier {
     hasError = false;
     notifyListeners();
     try {
-      final reply = await _repo.sendChatMessage(
-        userId,
-        skillId,
-        "Hi! I'm ready to start learning $skillName — please introduce "
-        'the topic and suggest where we should begin.',
-      );
+      final reply = await _repo.getIntro(userId, skillId);
       messages = [...messages, reply];
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message
           : 'The tutor could not reply — please try again.';
-      // Allow a retry (e.g. via pull-to-refresh) if the kickoff failed.
       hasError = true;
+      // Allow a retry — either the explicit button or another call to
+      // startConversationIfEmpty (e.g. pull-to-refresh) will re-attempt it.
       _kickoffSent = false;
     } finally {
       isSending = false;

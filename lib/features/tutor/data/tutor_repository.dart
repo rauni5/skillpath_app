@@ -16,6 +16,16 @@ class TutorRepository {
     );
   }
 
+  /// POST /api/v1/users/{userId}/skills/{skillId}/chat/intro — serves a
+  /// cached "welcome to this skill" message (or generates + caches one if
+  /// this is the first time anyone's opened this skill's tutor chat).
+  Future<ChatMessage> getIntro(int userId, int skillId) {
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/users/$userId/skills/$skillId/chat/intro'),
+      (data) => ChatMessage.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
   /// POST /api/v1/users/{userId}/skills/{skillId}/chat
   Future<ChatMessage> sendChatMessage(int userId, int skillId, String message) {
     return _api.unwrap(
