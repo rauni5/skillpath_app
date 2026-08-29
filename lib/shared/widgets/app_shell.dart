@@ -20,7 +20,20 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Scaffold(
-      body: Stack(children: [navigationShell, const AssistantBubble()]),
+      // LayoutBuilder lives here, one level above the Stack, so
+      // AssistantBubble's AnimatedPositioned stays a direct child of
+      // Stack (required for Positioned to work) while still knowing how
+      // large an area it's allowed to roam within.
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              navigationShell,
+              AssistantBubble(bounds: constraints.biggest),
+            ],
+          );
+        },
+      ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: Container(
