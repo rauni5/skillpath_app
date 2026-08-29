@@ -15,6 +15,7 @@ import '../../projects/data/membership_alert_service.dart';
 import '../providers/dashboard_ai_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/gamification_provider.dart';
+import '../../notifications/providers/notifications_provider.dart';
 import '../widgets/achievement_badge.dart';
 import '../widgets/achievements_section.dart';
 import '../widgets/ai_summary_card.dart';
@@ -118,13 +119,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
-          IconButton(
-            icon: CircleAvatar(
-              radius: 15,
-              backgroundColor: colors.indigoLight,
-              child: Icon(Icons.person, size: 16, color: colors.indigo),
+          Consumer<NotificationsProvider>(
+            builder: (context, notifications, _) => IconButton(
+              icon: Badge(
+                isLabelVisible: notifications.unreadCount > 0,
+                label: Text(
+                  notifications.unreadCount > 9
+                      ? '9+'
+                      : '${notifications.unreadCount}',
+                ),
+                child: const Icon(Icons.notifications_outlined),
+              ),
+              tooltip: 'Notifications',
+              onPressed: () => context.push('/notifications'),
             ),
-            onPressed: () => context.go('/profile'),
           ),
           const SizedBox(width: 4),
         ],

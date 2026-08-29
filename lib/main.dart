@@ -17,6 +17,7 @@ import 'features/career/providers/career_provider.dart';
 import 'features/dashboard/providers/dashboard_ai_provider.dart';
 import 'features/dashboard/providers/dashboard_provider.dart';
 import 'features/dashboard/providers/gamification_provider.dart';
+import 'features/notifications/providers/notifications_provider.dart';
 import 'features/notifications/data/notification_service.dart';
 import 'features/profile/providers/portfolio_provider.dart';
 import 'features/projects/providers/discussion_provider.dart';
@@ -63,6 +64,7 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SkillCheckProvider()),
         ChangeNotifierProvider(create: (_) => DashboardAiProvider()),
         ChangeNotifierProvider(create: (_) => GamificationProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
         ChangeNotifierProvider(create: (_) => AssistantChatProvider()),
       ],
       child: const _RouterHost(),
@@ -85,6 +87,11 @@ class _RouterHostState extends State<_RouterHost> {
     super.initState();
     final auth = context.read<AuthProvider>();
     _router = buildRouter(auth);
+    // Achievement "newly unlocked" tracking lives in GamificationProvider,
+    // which — like the other providers — is created once for the app's
+    // whole process lifetime, not per login. Without this, signing out and
+    // back in would diff fresh achievements against stale data from the
+    // previous session and re-show toasts for things already seen.
     auth.registerSignOutListener(
       () => context.read<GamificationProvider>().reset(),
     );
