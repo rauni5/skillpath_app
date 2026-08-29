@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class OnboardingAboutStep extends StatefulWidget {
@@ -16,6 +17,7 @@ class OnboardingAboutStep extends StatefulWidget {
 }
 
 class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _bioCtrl;
   late ExperienceLevel _level;
@@ -37,12 +39,7 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
   }
 
   Future<void> _submit() async {
-    if (_nameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter your name to continue.')),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final ok = await auth.updateProfile(
       name: _nameCtrl.text.trim(),
@@ -52,9 +49,7 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
     if (ok) {
       widget.onContinue();
     } else if (mounted && auth.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+      showErrorDialog(context, auth.errorMessage!);
     }
   }
 
@@ -65,7 +60,9 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      child: Column(
+      child: Form(
+        key: _formKey,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
@@ -84,6 +81,9 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
           const SizedBox(height: 28),
           TextFormField(
             controller: _nameCtrl,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
             decoration: const InputDecoration(labelText: 'Full name'),
           ),
           const SizedBox(height: 14),
@@ -148,6 +148,7 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
                 : const Text('Continue'),
           ),
         ],
+        ),
       ),
     );
   }
