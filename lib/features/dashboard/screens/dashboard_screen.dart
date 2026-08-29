@@ -8,6 +8,7 @@ import '../../../core/models/project_member.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../shared/widgets/animated_progress_bar.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -16,7 +17,6 @@ import '../providers/dashboard_ai_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/gamification_provider.dart';
 import '../../notifications/providers/notifications_provider.dart';
-import '../widgets/achievement_badge.dart';
 import '../widgets/achievements_section.dart';
 import '../widgets/ai_summary_card.dart';
 import '../widgets/progress_ring.dart';
@@ -46,13 +46,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     unawaited(_loadAiSummary(userId));
     unawaited(_loadGamification(userId));
     final changes = await _alertService.checkForChanges(userId);
-    if (!mounted) return;
     for (final c in changes) {
-      final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Your request to join "${c.projectName}" was $verb.'),
-        ),
+      if (!mounted) return;
+      final accepted = c.status == MemberStatus.accepted;
+      await showOutcomeDialog(
+        context,
+        title: accepted ? 'Request accepted' : 'Request declined',
+        message:
+            'Your request to join "${c.projectName}" was '
+            '${accepted ? 'accepted' : 'declined'}.',
+        isPositive: accepted,
       );
     }
   }
@@ -84,23 +87,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (mounted) _showAchievementToasts();
   }
 
-  void _showAchievementToasts() {
+  Future<void> _showAchievementToasts() async {
     final gami = context.read<GamificationProvider>();
     final newlyUnlocked = gami.newlyUnlocked;
     if (newlyUnlocked.isEmpty) return;
-    for (final achievement in newlyUnlocked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🎉 Achievement unlocked: ${achievement.title}'),
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: () => showAchievementDetail(context, achievement),
-          ),
-        ),
-      );
-    }
     gami.clearNewlyUnlocked();
+    for (final achievement in newlyUnlocked) {
+      if (!mounted) return;
+      await showAchievementUnlockedDialog(context, achievement);
+    }
   }
 
   Future<void> _generateSummary() async {
