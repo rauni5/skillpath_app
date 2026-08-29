@@ -8,14 +8,13 @@ import 'package:provider/provider.dart';
 import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/user_avatar.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/avatar_upload_service.dart';
 import '../providers/portfolio_provider.dart';
 
-/// Combines everything that lives on the User record: profile picture,
-/// name, contact number, bio, experience level, availability. Reached
-/// from Settings. (Skills and career goal have their own dedicated
-/// screens and aren't edited here.)
+/// Combines everything that lives on the User record: name, contact
+/// number, bio, experience level, availability. Reached from Settings.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -94,22 +93,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked == null || !mounted) return;
 
     final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+    final portfolio = context.read<PortfolioProvider>();
+
     setState(() {
       _localAvatarPreview = bytes;
       _uploadingAvatar = true;
     });
 
-    final auth = context.read<AuthProvider>();
     final ok = await auth.uploadAvatar(picked);
     if (!mounted) return;
     setState(() => _uploadingAvatar = false);
     if (ok) {
-      unawaited(context.read<PortfolioProvider>().refresh());
+      unawaited(portfolio.refresh());
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(auth.errorMessage ?? 'Could not update your photo.'),
-        ),
+      showErrorDialog(
+        context,
+        auth.errorMessage ?? 'Could not update your photo.',
       );
     }
   }
@@ -123,6 +124,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     // Capture Providers and Messenger before async gaps
     final auth = context.read<AuthProvider>();
+    final portfolio = context.read<PortfolioProvider>();
+    final navigator = Navigator.of(context);
+
+    setState(() => _saving = true);
+
     final ok = await auth.updateProfile(
       name: name,
       phoneNumber: _phoneController.text.trim(),
@@ -134,19 +140,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       experienceLevel: _experienceLevel,
       availability: _availability,
     );
+
     if (!mounted) return;
     setState(() => _saving = false);
+
     if (ok) {
-      // Everything here also appears on the Portfolio screen - keep it in
-      // sync rather than waiting for a manual pull.
-      unawaited(context.read<PortfolioProvider>().refresh());
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
-      Navigator.of(context).pop();
+      unawaited(portfolio.refresh());
+      await showSuccessDialog(context, 'Your profile has been updated.');
+      if (mounted) navigator.pop();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage ?? 'Could not save.')),
+      showErrorDialog(
+        context,
+        auth.errorMessage ?? 'Could not save.',
+        title: 'Could not save',
       );
     }
   }

@@ -15,6 +15,7 @@ import '../../../core/models/skill.dart';
 import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/animated_progress_bar.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -86,12 +87,11 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     setState(() => _generatingCv = true);
     try {
       final bytes = await buildCvPdf(data);
+      if (!mounted) return;
       await savePdfBytes(context, bytes, _cvFileName(data));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not generate your CV. Try again.')),
-      );
+      showErrorDialog(context, 'Could not generate your CV. Try again.');
     } finally {
       if (mounted) setState(() => _generatingCv = false);
     }
@@ -187,9 +187,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not add education.')),
-      );
+      showErrorDialog(context, message ?? 'Could not add education.');
     }
   }
 
@@ -217,9 +215,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not remove education.')),
-      );
+      showErrorDialog(context, message ?? 'Could not remove education.');
     }
   }
 
@@ -240,9 +236,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not add certification.')),
-      );
+      showErrorDialog(context, message ?? 'Could not add certification.');
     }
   }
 
@@ -272,9 +266,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not remove certification.')),
-      );
+      showErrorDialog(context, message ?? 'Could not remove certification.');
     }
   }
 }
@@ -939,133 +931,141 @@ class _AddEducationSheetState extends State<_AddEducationSheet> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Add education',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _institutionController,
-              maxLength: 200,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Institution name is required'
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Institution',
-                hintText: 'University of Example',
-                border: OutlineInputBorder(),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add education',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _degreeController,
-              maxLength: 150,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Degree is required' : null,
-              decoration: const InputDecoration(
-                labelText: 'Degree',
-                hintText: 'B.Sc.',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _institutionController,
+                maxLength: 200,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Institution name is required'
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Institution',
+                  hintText: 'University of Example',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _fieldController,
-              maxLength: 150,
-              decoration: const InputDecoration(
-                labelText: 'Field of study (optional)',
-                hintText: 'Computer Science',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _degreeController,
+                maxLength: 150,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Degree is required'
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Degree',
+                  hintText: 'B.Sc.',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _pickDate(isStart: true),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Start date',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        _startDate == null ? 'Select' : _formatYmd(_startDate!),
-                        style: TextStyle(
-                          color: _startDate == null
-                              ? p.textMuted
-                              : p.textPrimary,
+              const SizedBox(height: 12),
+              TextField(
+                controller: _fieldController,
+                maxLength: 150,
+                decoration: const InputDecoration(
+                  labelText: 'Field of study (optional)',
+                  hintText: 'Computer Science',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _pickDate(isStart: true),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Start date',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _startDate == null
+                              ? 'Select'
+                              : _formatYmd(_startDate!),
+                          style: TextStyle(
+                            color: _startDate == null
+                                ? p.textMuted
+                                : p.textPrimary,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
-                    onTap: _ongoing ? null : () => _pickDate(isStart: false),
-                    child: InputDecorator(
-                      decoration: InputDecoration(
-                        labelText: 'End date',
-                        border: const OutlineInputBorder(),
-                        enabled: !_ongoing,
-                      ),
-                      child: Text(
-                        _ongoing
-                            ? 'Present'
-                            : (_endDate == null
-                                  ? 'Select'
-                                  : _formatYmd(_endDate!)),
-                        style: TextStyle(
-                          color: _endDate == null && !_ongoing
-                              ? p.textMuted
-                              : p.textPrimary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _ongoing ? null : () => _pickDate(isStart: false),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'End date',
+                          border: const OutlineInputBorder(),
+                          enabled: !_ongoing,
+                        ),
+                        child: Text(
+                          _ongoing
+                              ? 'Present'
+                              : (_endDate == null
+                                    ? 'Select'
+                                    : _formatYmd(_endDate!)),
+                          style: TextStyle(
+                            color: _endDate == null && !_ongoing
+                                ? p.textMuted
+                                : p.textPrimary,
+                          ),
                         ),
                       ),
                     ),
                   ),
+                ],
+              ),
+              CheckboxListTile(
+                value: _ongoing,
+                onChanged: (v) => setState(() {
+                  _ongoing = v ?? false;
+                  if (_ongoing) _endDate = null;
+                }),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text(
+                  "I'm currently studying here",
+                  style: TextStyle(fontSize: 13),
                 ),
-              ],
-            ),
-            CheckboxListTile(
-              value: _ongoing,
-              onChanged: (v) => setState(() {
-                _ongoing = v ?? false;
-                if (_ongoing) _endDate = null;
-              }),
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text(
-                "I'm currently studying here",
-                style: TextStyle(fontSize: 13),
               ),
-            ),
-            TextField(
-              controller: _descriptionController,
-              maxLines: 3,
-              maxLength: 2000,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
+              TextField(
+                controller: _descriptionController,
+                maxLines: 3,
+                maxLength: 2000,
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(onPressed: _submit, child: const Text('Add')),
-            ),
-          ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _submit,
+                  child: const Text('Add'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1176,9 +1176,7 @@ class _LinkChip extends StatelessWidget {
     final uri = Uri.tryParse(url);
     if (uri == null || !await canLaunchUrl(uri)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not open $label link.')));
+        showErrorDialog(context, 'Could not open $label link.');
       }
       return;
     }
@@ -1225,9 +1223,7 @@ class _PortfolioProjectTile extends StatelessWidget {
     final uri = Uri.tryParse(link);
     if (uri == null || !await canLaunchUrl(uri)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open that link.')),
-        );
+        showErrorDialog(context, 'Could not open that link.');
       }
       return;
     }
@@ -1351,9 +1347,7 @@ class _InlineLink extends StatelessWidget {
     final uri = Uri.tryParse(url);
     if (uri == null || !await canLaunchUrl(uri)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open that link.')),
-        );
+        showErrorDialog(context, 'Could not open that link.');
       }
       return;
     }
@@ -1448,75 +1442,80 @@ class _AddCertificationSheetState extends State<_AddCertificationSheet> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Add certification',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _nameController,
-              maxLength: 200,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Certification name is required'
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                hintText: 'AWS Certified Cloud Practitioner',
-                border: OutlineInputBorder(),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add certification',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _issuerController,
-              maxLength: 200,
-              decoration: const InputDecoration(
-                labelText: 'Issuer (optional)',
-                hintText: 'Amazon Web Services',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _urlController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'Credential link (optional)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: _pickDate,
-              child: InputDecorator(
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameController,
+                maxLength: 200,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Certification name is required'
+                    : null,
                 decoration: const InputDecoration(
-                  labelText: 'Date earned (optional)',
+                  labelText: 'Name',
+                  hintText: 'AWS Certified Cloud Practitioner',
                   border: OutlineInputBorder(),
                 ),
-                child: Text(
-                  _earnedOn == null
-                      ? 'Select a date'
-                      : '${_earnedOn!.year}-${_earnedOn!.month.toString().padLeft(2, '0')}-${_earnedOn!.day.toString().padLeft(2, '0')}',
-                  style: TextStyle(
-                    color: _earnedOn == null ? p.textMuted : p.textPrimary,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _issuerController,
+                maxLength: 200,
+                decoration: const InputDecoration(
+                  labelText: 'Issuer (optional)',
+                  hintText: 'Amazon Web Services',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _urlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'Credential link (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: _pickDate,
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Date earned (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Text(
+                    _earnedOn == null
+                        ? 'Select a date'
+                        : '${_earnedOn!.year}-${_earnedOn!.month.toString().padLeft(2, '0')}-${_earnedOn!.day.toString().padLeft(2, '0')}',
+                    style: TextStyle(
+                      color: _earnedOn == null ? p.textMuted : p.textPrimary,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(onPressed: _submit, child: const Text('Add')),
-            ),
-          ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _submit,
+                  child: const Text('Add'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1592,15 +1591,11 @@ Future<void> savePdfBytes(
     await file.writeAsBytes(bytes);
 
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('CV saved.')));
+      showSuccessDialog(context, 'CV saved');
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not save your CV: $e')));
+      showErrorDialog(context, 'Could not save your CV: $e');
     }
   }
 }

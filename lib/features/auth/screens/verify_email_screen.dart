@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../providers/auth_provider.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
@@ -41,10 +42,10 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     if (!mounted) return;
     setState(() => _checking = false);
     if (!verified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Still not verified — check your inbox and spam folder.'),
-        ),
+      showErrorDialog(
+        context,
+        'Still not verified — check your inbox and spam folder.',
+        title: 'Not verified yet',
       );
     }
   }
@@ -56,9 +57,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     if (ok) {
       setState(() => _justResent = true);
     } else if (auth.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+      showErrorDialog(context, auth.errorMessage!, title: 'Could not resend');
     }
   }
 
@@ -77,7 +76,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.mark_email_unread_outlined, size: 44, color: p.indigo),
+                Icon(
+                  Icons.mark_email_unread_outlined,
+                  size: 44,
+                  color: p.indigo,
+                ),
                 const SizedBox(height: 20),
                 Text(
                   'We sent a verification link to',
@@ -99,7 +102,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                   'Open it and tap the link to continue. This page will '
                   'update automatically once you\'re verified.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: p.textMuted,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 28),
                 ElevatedButton(
@@ -118,7 +125,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 const SizedBox(height: 10),
                 OutlinedButton(
                   onPressed: auth.isLoading ? null : _resend,
-                  child: Text(_justResent ? 'Email sent again' : 'Resend email'),
+                  child: Text(
+                    _justResent ? 'Email sent again' : 'Resend email',
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextButton(

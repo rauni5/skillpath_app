@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../shared/widgets/user_avatar.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../notifications/data/notification_preferences.dart';
 import '../../notifications/data/notification_service.dart';
@@ -61,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 28),
+
             const _SectionLabel('PROFILE'),
             const SizedBox(height: 8),
             _SettingsCard(
@@ -185,15 +187,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final auth = context.read<AuthProvider>();
     final ok = await auth.sendPasswordResetEmail(email);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Password reset email sent to $email.'
-              : (auth.errorMessage ?? 'Could not send reset email.'),
-        ),
-      ),
-    );
+    if (ok) {
+      showSuccessDialog(context, 'Password reset email sent to $email.');
+    } else {
+      showErrorDialog(
+        context,
+        auth.errorMessage ?? 'Could not send reset email.',
+      );
+    }
   }
 }
 

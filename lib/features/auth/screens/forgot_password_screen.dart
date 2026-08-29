@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_text_field.dart';
 
@@ -32,9 +33,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (ok) {
       setState(() => _sent = true);
     } else if (auth.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+      showErrorDialog(context, auth.errorMessage!);
     }
   }
 

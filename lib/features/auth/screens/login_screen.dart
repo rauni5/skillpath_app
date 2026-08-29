@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/brand_mark.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_text_field.dart';
@@ -33,9 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthProvider>();
     final ok = await auth.signIn(_emailCtrl.text.trim(), _passwordCtrl.text);
     if (!ok && mounted && auth.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+      showErrorDialog(context, auth.errorMessage!, title: 'Could not log in');
     }
     // On success, the go_router redirect (driven by AuthProvider) takes
     // over and navigates to /dashboard automatically.
@@ -45,9 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthProvider>();
     final ok = await auth.signInWithGoogle();
     if (!ok && mounted && auth.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+      showErrorDialog(context, auth.errorMessage!, title: 'Could not log in');
     }
   }
 
@@ -130,7 +127,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 3),
                           Text(
                             'Log in to keep building your roadmap.',
-                            style: TextStyle(fontSize: 12, color: p.textMuted),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: p.textMuted,
+                            ),
                           ),
                           const SizedBox(height: 20),
                           AuthTextField(
@@ -139,9 +139,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _emailCtrl,
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
-                            onSubmitted: (_) => FocusScope.of(
-                              context,
-                            ).requestFocus(_passwordFocus),
+                            onSubmitted: (_) =>
+                                FocusScope.of(context).requestFocus(_passwordFocus),
                             validator: (v) => (v == null || !v.contains('@'))
                                 ? 'Enter a valid email'
                                 : null,

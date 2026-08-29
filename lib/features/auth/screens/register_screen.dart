@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/brand_mark.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_text_field.dart';
@@ -40,9 +41,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       experienceLevel: _level,
     );
     if (!ok && mounted && auth.errorMessage != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+        auth.errorMessage!,
+        title: 'Could not create account',
+      );
     }
   }
 
