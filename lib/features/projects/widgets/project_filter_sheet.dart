@@ -5,6 +5,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../career/providers/career_provider.dart';
 import '../../skills/providers/skills_provider.dart';
 import '../providers/projects_provider.dart';
+import '../widgets/skill_picker_field.dart';
 
 /// Opens the filter bottom sheet. Call this from a filter icon/button.
 Future<void> showProjectFilterSheet(BuildContext context) {
@@ -16,6 +17,9 @@ Future<void> showProjectFilterSheet(BuildContext context) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
     builder: (_) => const _ProjectFilterSheet(),
   );
 }
@@ -28,29 +32,13 @@ class _ProjectFilterSheet extends StatefulWidget {
 }
 
 class _ProjectFilterSheetState extends State<_ProjectFilterSheet> {
-  final _skillSearchCtrl = TextEditingController();
-
   static const _difficulties = ['Beginner', 'Intermediate', 'Advanced'];
-
-  @override
-  void dispose() {
-    _skillSearchCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final projects = context.watch<ProjectsProvider>();
-    final skills = context.watch<SkillsProvider>();
     final career = context.watch<CareerProvider>();
-
-    final query = _skillSearchCtrl.text.trim().toLowerCase();
-    final filteredCatalog = query.isEmpty
-        ? skills.catalog
-        : skills.catalog
-              .where((s) => s.name.toLowerCase().contains(query))
-              .toList();
 
     return SafeArea(
       child: Padding(
@@ -118,58 +106,15 @@ class _ProjectFilterSheetState extends State<_ProjectFilterSheet> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: _skillSearchCtrl,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: 'Search skills…',
-                prefixIcon: Icon(Icons.search, size: 20),
-                isDense: true,
-              ),
+            SkillPickerField(
+              selectedSkillIds: projects.filterSkillIds,
+              onChanged: (ids) {
+                projects.filterSkillIds
+                  ..clear()
+                  ..addAll(ids);
+                projects.loadProjects();
+              },
             ),
-            const SizedBox(height: 10),
-            if (skills.catalogState == SkillsLoadState.loading)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: p.indigo,
-                  ),
-                ),
-              )
-            else if (filteredCatalog.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'No skills match "$query".',
-                  style: TextStyle(color: p.textMuted, fontSize: 12.5),
-                ),
-              )
-            else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: filteredCatalog.map((s) {
-                      final selected = projects.filterSkillIds.contains(s.id);
-                      return FilterChip(
-                        label: Text(s.name),
-                        selected: selected,
-                        onSelected: (_) => projects.toggleSkillFilter(s.id),
-                        selectedColor: p.indigoLight,
-                        labelStyle: TextStyle(
-                          fontSize: 12,
-                          color: selected ? p.indigo : p.textSecondary,
-                        ),
-                        side: BorderSide(color: selected ? p.indigo : p.border),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
             const SizedBox(height: 20),
             Text(
               'REQUIRED ROLES',

@@ -43,7 +43,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       title: _titleCtrl.text.trim(),
       body: _bodyCtrl.text.trim(),
     );
-    if (post != null && mounted) context.pop();
+    if (!mounted) return;
+    if (post != null) {
+      context.pop();
+    } else if (provider.createPostError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(provider.createPostError!)));
+    }
   }
 
   @override
@@ -52,104 +59,150 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final provider = context.watch<DiscussionProvider>();
 
     return Scaffold(
+      backgroundColor: p.surface0,
       appBar: AppBar(
+        elevation: 0,
         title: Text(
           widget.channel == DiscussionChannel.public
               ? 'New public post'
               : 'New team post',
         ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-        children: [
-          Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'TAG',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: p.textMuted,
-                    letterSpacing: 0.5,
-                  ),
+        actions: [
+          if (provider.isCreatingPost)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: PostTag.values.map((t) {
-                    final selected = t == _tag;
-                    return ChoiceChip(
-                      label: Text(t.label),
-                      selected: selected,
-                      onSelected: (_) => setState(() => _tag = t),
-                      selectedColor: p.indigoLight,
-                      labelStyle: TextStyle(
-                        color: selected ? p.indigo : p.textSecondary,
-                        fontSize: 12.5,
-                      ),
-                      side: BorderSide(color: selected ? p.indigo : p.border),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 18),
-                TextFormField(
-                  controller: _titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Title'),
-                  maxLength: 200,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _bodyCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'What do you want to say?',
-                    alignLabelWithHint: true,
-                  ),
-                  maxLines: 8,
-                  maxLength: 5000,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                if (provider.createPostError != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    provider.createPostError!,
-                    style: TextStyle(color: p.red, fontSize: 12.5),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: provider.isCreatingPost ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: p.indigo,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: provider.isCreatingPost
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Post'),
-                  ),
-                ),
-              ],
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _submit,
+              child: Text(
+                'Post',
+                style: TextStyle(fontWeight: FontWeight.bold, color: p.indigo),
+              ),
             ),
-          ),
         ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+          children: [
+            Text(
+              'TAG',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: p.textMuted,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: PostTag.values
+                  .map(
+                    (t) => _TagOption(
+                      tag: t,
+                      selected: t == _tag,
+                      onTap: () => setState(() => _tag = t),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 22),
+            TextFormField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(labelText: 'Title'),
+              maxLength: 200,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _bodyCtrl,
+              decoration: const InputDecoration(
+                labelText: 'What do you want to say?',
+                alignLabelWithHint: true,
+              ),
+              maxLines: 8,
+              maxLength: 5000,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            if (provider.createPostError != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                provider.createPostError!,
+                style: TextStyle(color: p.red, fontSize: 12.5),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TagOption extends StatelessWidget {
+  const _TagOption({
+    required this.tag,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final PostTag tag;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final (fg, bg) = switch (tag) {
+      PostTag.question => (p.indigo, p.indigoLight),
+      PostTag.update => (p.greenText, p.greenLight),
+      PostTag.announcement => (p.amberText, p.amberLight),
+      PostTag.general => (p.textMuted, p.surface1),
+    };
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? bg : p.surface2,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? fg : p.border,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              Icon(Icons.check_circle_rounded, size: 14, color: fg),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              tag.label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: selected ? fg : p.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

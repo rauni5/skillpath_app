@@ -142,6 +142,46 @@ class ProjectManagementProvider extends ChangeNotifier {
     }
   }
 
+  bool isCompletingOrCancelling = false;
+
+  Future<bool> completeProject(int projectId) async {
+    isCompletingOrCancelling = true;
+    manageError = null;
+    notifyListeners();
+    try {
+      managedProject = await _repo.completeProject(projectId);
+      return true;
+    } catch (e) {
+      manageError = e is ApiException
+          ? e.message
+          : 'Could not mark this project complete.';
+      return false;
+    } finally {
+      isCompletingOrCancelling = false;
+      notifyListeners();
+    }
+  }
+
+  /// Cancels the managed project — a terminal state; accepted members are
+  /// notified server-side.
+  Future<bool> cancelProject(int projectId) async {
+    isCompletingOrCancelling = true;
+    manageError = null;
+    notifyListeners();
+    try {
+      managedProject = await _repo.cancelProject(projectId);
+      return true;
+    } catch (e) {
+      manageError = e is ApiException
+          ? e.message
+          : 'Could not cancel this project.';
+      return false;
+    } finally {
+      isCompletingOrCancelling = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> acceptRequest(int projectId, int userId) =>
       _updateStatus(projectId, userId, 'ACCEPTED');
   Future<bool> rejectRequest(int projectId, int userId) =>

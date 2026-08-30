@@ -25,6 +25,7 @@ class PostDetailScreen extends StatefulWidget {
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final _commentCtrl = TextEditingController();
+  final _commentFocus = FocusNode();
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   @override
   void dispose() {
     _commentCtrl.dispose();
+    _commentFocus.dispose();
     super.dispose();
   }
 
@@ -126,8 +128,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final post = discussion.selectedPost;
 
     return Scaffold(
+      backgroundColor: p.surface0,
       appBar: AppBar(
         title: const Text('Post'),
+        elevation: 0,
         actions: [
           if (post != null && post.canDelete)
             IconButton(
@@ -148,6 +152,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           if (post != null)
             _CommentComposer(
               controller: _commentCtrl,
+              focusNode: _commentFocus,
               onSend: _sendComment,
               isSending: discussion.isCommenting,
             ),
@@ -182,23 +187,62 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               onLike: () =>
                   discussion.togglePostLikeInDetail(widget.projectId, post.id),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'COMMENTS (${discussion.comments.length})',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: p.textMuted,
-                letterSpacing: 0.5,
-              ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Text(
+                  'COMMENTS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: p.textMuted,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: p.surface2,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${discussion.comments.length}',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: p.textMuted,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             if (discussion.comments.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Text(
-                  'No comments yet — say something!',
-                  style: TextStyle(fontSize: 12.5, color: p.textMuted),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                decoration: BoxDecoration(
+                  color: p.surface2,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: p.border),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 24,
+                      color: p.textMuted,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No comments yet — say something!',
+                      style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                    ),
+                  ],
                 ),
               )
             else
@@ -227,86 +271,131 @@ class _PostHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    final (accent, _) = _tagColors(p, post.tag);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: p.surface2,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: p.border),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            GestureDetector(
-              onTap: () => context.push('/users/${post.authorId}/portfolio'),
-              child: UserAvatar(
-                avatarUrl: post.authorAvatarUrl,
-                initials: _initials(post.authorName),
-                radius: 14,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => context.push('/users/${post.authorId}/portfolio'),
-                child: Text(
-                  post.authorName,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
-                  ),
+            // Colored sidebar accent strip on the main post card
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(16),
                 ),
               ),
             ),
-            Text(
-              '${post.createdAt.month}/${post.createdAt.day}/${post.createdAt.year}',
-              style: TextStyle(fontSize: 11, color: p.textMuted),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _TagChip(tag: post.tag),
+                        const Spacer(),
+                        Text(
+                          '${post.createdAt.month}/${post.createdAt.day}/${post.createdAt.year}',
+                          style: TextStyle(fontSize: 11, color: p.textMuted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      post.title,
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: p.textPrimary,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () =>
+                          context.push('/users/${post.authorId}/portfolio'),
+                      child: Row(
+                        children: [
+                          UserAvatar(
+                            avatarUrl: post.authorAvatarUrl,
+                            initials: _initials(post.authorName),
+                            radius: 13,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            post.authorName,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: p.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      post.body,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.55,
+                        color: p.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: onLike,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: post.likedByMe
+                              ? p.redLight
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              post.likedByMe
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              size: 18,
+                              color: post.likedByMe ? p.red : p.textMuted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${post.likeCount} like${post.likeCount == 1 ? '' : 's'}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: post.likedByMe ? p.red : p.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 14),
-        Text(
-          post.title,
-          style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w700,
-            color: p.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          post.body,
-          style: TextStyle(fontSize: 14, height: 1.5, color: p.textSecondary),
-        ),
-        const SizedBox(height: 14),
-        InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onLike,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: post.likedByMe ? p.redLight : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  post.likedByMe ? Icons.favorite : Icons.favorite_border,
-                  size: 18,
-                  color: post.likedByMe ? p.red : p.textMuted,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${post.likeCount} like${post.likeCount == 1 ? '' : 's'}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: post.likedByMe ? p.red : p.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const Divider(height: 24),
-      ],
+      ),
     );
   }
 }
@@ -328,6 +417,7 @@ class _CommentTile extends StatelessWidget {
     required this.onLike,
     this.onDelete,
   });
+
   final DiscussionComment comment;
   final VoidCallback onLike;
   final VoidCallback? onDelete;
@@ -340,7 +430,7 @@ class _CommentTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: p.border),
       ),
       child: Column(
@@ -348,70 +438,114 @@ class _CommentTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              GestureDetector(
-                onTap: () =>
-                    context.push('/users/${comment.authorId}/portfolio'),
-                child: UserAvatar(
-                  avatarUrl: comment.authorAvatarUrl,
-                  initials: _initials(comment.authorName),
-                  radius: 12,
-                ),
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
                   onTap: () =>
                       context.push('/users/${comment.authorId}/portfolio'),
-                  child: Text(
-                    comment.authorName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: p.textPrimary,
-                    ),
+                  child: Row(
+                    children: [
+                      UserAvatar(
+                        avatarUrl: comment.authorAvatarUrl,
+                        initials: _initials(comment.authorName),
+                        radius: 12,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          comment.authorName,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: p.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              if (onDelete != null)
-                InkWell(
-                  onTap: onDelete,
-                  child: Icon(
-                    Icons.delete_outline,
-                    size: 15,
-                    color: p.textMuted,
+              // Heart / Like button aligned to the right side
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: onLike,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        comment.likedByMe
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        size: 14,
+                        color: comment.likedByMe ? p.red : p.textMuted,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${comment.likeCount}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: comment.likedByMe ? p.red : p.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
+              if (onDelete != null) ...[
+                const SizedBox(width: 6),
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onDelete,
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      Icons.delete_outline,
+                      size: 15,
+                      color: p.textMuted,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             comment.body,
             style: TextStyle(fontSize: 13, height: 1.4, color: p.textPrimary),
           ),
-          const SizedBox(height: 6),
-          InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: onLike,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  comment.likedByMe ? Icons.favorite : Icons.favorite_border,
-                  size: 13,
-                  color: comment.likedByMe ? p.red : p.textMuted,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${comment.likeCount}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: comment.likedByMe ? p.red : p.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  const _TagChip({required this.tag});
+  final PostTag tag;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final (fg, bg) = _tagColors(p, tag);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        tag.label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: fg,
+        ),
       ),
     );
   }
@@ -420,10 +554,12 @@ class _CommentTile extends StatelessWidget {
 class _CommentComposer extends StatelessWidget {
   const _CommentComposer({
     required this.controller,
+    required this.focusNode,
     required this.onSend,
     required this.isSending,
   });
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onSend;
   final bool isSending;
 
@@ -432,63 +568,71 @@ class _CommentComposer extends StatelessWidget {
     final p = AppPalette.of(context);
     return SafeArea(
       top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-        decoration: BoxDecoration(
-          color: p.surface2,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, -3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => isSending ? null : onSend(),
-                decoration: InputDecoration(
-                  hintText: 'Add a comment…',
-                  isDense: true,
-                  filled: true,
-                  fillColor: p.surface1,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: p.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: p.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: p.indigo, width: 1.5),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+          decoration: BoxDecoration(
+            color: p.surface2,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: p.border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => isSending ? null : onSend(),
+                  style: TextStyle(fontSize: 13.5, color: p.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Add a comment…',
+                    hintStyle: TextStyle(color: p.textMuted, fontSize: 13.5),
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              onPressed: isSending ? null : onSend,
-              style: IconButton.styleFrom(
-                backgroundColor: p.indigo,
-                disabledBackgroundColor: p.border,
+              const SizedBox(width: 6),
+              IconButton.filled(
+                onPressed: isSending ? null : onSend,
+                style: IconButton.styleFrom(
+                  backgroundColor: p.indigo,
+                  disabledBackgroundColor: p.border,
+                  minimumSize: const Size(38, 38),
+                ),
+                icon: isSending
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.arrow_upward_rounded, size: 18),
               ),
-              icon: const Icon(Icons.arrow_upward, size: 18),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// Kept in sync with the same helper in project_discussion_screen.dart so
+/// the feed and this detail screen agree on one color per tag. Small
+/// enough that duplicating it beats a shared file for one six-line
+/// function — pull it into core/theme if a third screen ever needs it.
+(Color, Color) _tagColors(AppPalette p, PostTag tag) {
+  return switch (tag) {
+    PostTag.question => (p.indigo, p.indigoLight),
+    PostTag.update => (p.greenText, p.greenLight),
+    PostTag.announcement => (p.amberText, p.amberLight),
+    PostTag.general => (p.textMuted, p.surface1),
+  };
 }

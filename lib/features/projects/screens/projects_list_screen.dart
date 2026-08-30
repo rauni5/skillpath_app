@@ -7,7 +7,9 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../career/providers/career_provider.dart';
 import '../../dashboard/widgets/project_card.dart';
+import '../../skills/providers/skills_provider.dart';
 import '../data/membership_alert_service.dart';
 import '../providers/project_management_provider.dart';
 import '../providers/projects_provider.dart';
@@ -22,11 +24,16 @@ class ProjectsListScreen extends StatefulWidget {
 
 class _ProjectsListScreenState extends State<ProjectsListScreen> {
   final _searchCtrl = TextEditingController();
+  final _showClearButton = ValueNotifier<bool>(false);
   final _alertService = MembershipAlertService();
 
   @override
   void initState() {
     super.initState();
+
+    _searchCtrl.addListener(() {
+      _showClearButton.value = _searchCtrl.text.isNotEmpty;
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
@@ -36,12 +43,17 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
       if (userId != null) {
         context.read<ProjectManagementProvider>().loadMyInvites(userId);
       }
+      final skills = context.read<SkillsProvider>();
+      if (skills.catalog.isEmpty) skills.loadCatalog();
+      final career = context.read<CareerProvider>();
+      if (career.roles.isEmpty) career.loadRoles();
     });
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _showClearButton.dispose();
     super.dispose();
   }
 
@@ -54,137 +66,159 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
     if (userId == null) return;
 
     final changes = await _alertService.checkForChanges(userId);
-
     if (!mounted) return;
 
     for (final c in changes) {
       final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Your request to join "${c.projectName}" was $verb.'),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final projects = context.watch<ProjectsProvider>();
-
     final invitesCount = context
         .watch<ProjectManagementProvider>()
         .myInvites
         .length;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Projects'),
-        actions: [
-          IconButton(
-            tooltip: 'My Invites',
-            onPressed: () => context.push('/projects/invites'),
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.mail_outline),
-                if (invitesCount > 0)
-                  Positioned(
-                    right: -4,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: p.indigo,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      constraints: const BoxConstraints(minWidth: 15),
-                      child: Text(
-                        '$invitesCount',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
+      backgroundColor: p.surface0,
+      body: RefreshIndicator(
+        onRefresh: () async => _load(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 110,
+              floating: true,
+              pinned: true,
+              elevation: 0,
+              backgroundColor: p.surface0,
+              surfaceTintColor: Colors.transparent,
+              flexibleSpace: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+                title: Text(
+                  'Explore Projects',
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+              ),
+              actions: [
+                _InviteIconButton(invitesCount: invitesCount, palette: p),
+                IconButton(
+                  tooltip: 'My Projects',
+                  icon: const Icon(Icons.folder_outlined),
+                  onPressed: () => context.push('/projects/mine'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12, left: 4),
+                  child: IconButton.filledTonal(
+                    tooltip: 'New Project',
+                    style: IconButton.styleFrom(
+                      backgroundColor: p.indigoLight,
+                      foregroundColor: p.indigo,
+                    ),
+                    icon: const Icon(Icons.add, size: 20),
+                    onPressed: () => context.push('/projects/new'),
+                  ),
+                ),
+              ],
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (v) {
+                            context.read<ProjectsProvider>().setSearchQuery(v);
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Search projects, skills...',
+                            hintStyle: TextStyle(
+                              color: p.textMuted,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              size: 20,
+                              color: p.textMuted,
+                            ),
+                            suffixIcon: ValueListenableBuilder<bool>(
+                              valueListenable: _showClearButton,
+                              builder: (context, show, _) {
+                                if (!show) return const SizedBox.shrink();
+                                return IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                    context
+                                        .read<ProjectsProvider>()
+                                        .setSearchQuery('');
+                                  },
+                                );
+                              },
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'New Project',
-            icon: const Icon(Icons.add),
-            onPressed: () => context.push('/projects/new'),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) {
-                      context.read<ProjectsProvider>().setSearchQuery(v);
-                      setState(() {});
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Search projects…',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _searchCtrl.text.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                context.read<ProjectsProvider>().setSearchQuery(
-                                  '',
-                                );
-                                setState(() {});
-                              },
-                            ),
-                      isDense: true,
+                    const SizedBox(width: 10),
+                    _FilterActionButton(
+                      hasActiveFilters: projects.hasActiveFilters,
+                      onPressed: () => showProjectFilterSheet(context),
+                      palette: p,
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _RowIconButton(
-                  tooltip: 'Filter',
-                  icon: Icons.tune,
-                  showDot: projects.hasActiveFilters,
-                  onPressed: () => showProjectFilterSheet(context),
-                ),
-                const SizedBox(width: 8),
-                _RowIconButton(
-                  tooltip: 'My Projects',
-                  icon: Icons.folder_outlined,
-                  onPressed: () => context.push('/projects/mine'),
-                ),
-              ],
+              ),
             ),
-          ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: _buildBody(context, p, projects),
-            ),
-          ),
-        ],
+
+            if (projects.hasActiveFilters)
+              SliverToBoxAdapter(
+                child: _ActiveFiltersRow(capitalize: _capitalize),
+              ),
+
+            _buildSliverBody(context, p, projects),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBody(
+  Widget _buildSliverBody(
     BuildContext context,
     AppPalette p,
     ProjectsProvider projects,
@@ -192,13 +226,17 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
     switch (projects.listState) {
       case ProjectsLoadState.initial:
       case ProjectsLoadState.loading:
-        return const LoadingView(key: ValueKey('loading'));
+        return const SliverFillRemaining(
+          child: LoadingView(key: ValueKey('loading')),
+        );
 
       case ProjectsLoadState.error:
-        return ErrorView(
-          key: const ValueKey('error'),
-          message: projects.listError ?? 'Something went wrong.',
-          onRetry: _load,
+        return SliverFillRemaining(
+          child: ErrorView(
+            key: const ValueKey('error'),
+            message: projects.listError ?? 'Something went wrong.',
+            onRetry: _load,
+          ),
         );
 
       case ProjectsLoadState.loaded:
@@ -206,104 +244,140 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
           final hasQuery = projects.searchQuery.trim().isNotEmpty;
           final filtered = hasQuery || projects.hasActiveFilters;
 
-          return RefreshIndicator(
-            key: const ValueKey('empty'),
-            onRefresh: () async => _load(),
-            child: ListView(
+          return SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 80),
-                Center(
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: p.indigoLight,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      filtered
-                          ? Icons.search_off
-                          : Icons.rocket_launch_outlined,
-                      size: 32,
-                      color: p.indigo,
-                    ),
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: p.indigoLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    filtered
+                        ? Icons.search_off_rounded
+                        : Icons.rocket_launch_outlined,
+                    size: 32,
+                    color: p.indigo,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 Text(
                   filtered
-                      ? 'No projects match this search'
+                      ? 'No projects match your criteria'
                       : 'No open projects yet',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: p.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (!filtered) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Be the first to start one.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: p.textMuted, fontSize: 12.5),
-                  ),
-                ],
-                const SizedBox(height: 18),
-                Center(
-                  child: filtered
-                      ? TextButton(
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            projects.clearSearchAndFilters();
-                          },
-                          child: const Text('Clear search & filters'),
-                        )
-                      : FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          onPressed: () => context.push('/projects/new'),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Create a project'),
-                        ),
+                const SizedBox(height: 4),
+                Text(
+                  filtered
+                      ? 'Try adjusting your search terms or filters'
+                      : 'Be the first creator to start a project.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: p.textMuted, fontSize: 13),
                 ),
+                const SizedBox(height: 16),
+                if (filtered)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: p.indigo,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      projects.clearSearchAndFilters();
+                    },
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text(
+                      'Clear filters',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: p.indigo,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => context.push('/projects/new'),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text(
+                      'Create a project',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
               ],
             ),
           );
         }
 
-        return RefreshIndicator(
-          key: const ValueKey('loaded'),
-          onRefresh: () async => _load(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.pixels >=
-                  notification.metrics.maxScrollExtent - 200) {
-                projects.loadMore();
-              }
-              return false;
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              itemCount: projects.projects.length + 1,
-              itemBuilder: (context, index) {
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.metrics.pixels >=
+                notification.metrics.maxScrollExtent - 200) {
+              projects.loadMore();
+            }
+            return false;
+          },
+          child: SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
                 if (index == projects.projects.length) {
                   if (!projects.hasMore) {
-                    return const SizedBox(height: 8);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Row(
+                        children: [
+                          Expanded(child: Divider(color: p.border, height: 1)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              "No more projects",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: p.textMuted,
+                              ),
+                            ),
+                          ),
+                          Expanded(child: Divider(color: p.border, height: 1)),
+                        ],
+                      ),
+                    );
                   }
 
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Center(
                       child: SizedBox(
-                        width: 18,
-                        height: 18,
+                        width: 22,
+                        height: 22,
                         child: projects.isLoadingMore
                             ? CircularProgressIndicator(
-                                strokeWidth: 2,
+                                strokeWidth: 2.5,
                                 color: p.indigo,
                               )
                             : const SizedBox.shrink(),
@@ -315,7 +389,7 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                 final project = projects.projects[index];
 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: ProjectCard(
                     project: project,
                     onTap: () {
@@ -323,7 +397,6 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                           .read<AuthProvider>()
                           .currentUser
                           ?.id;
-
                       final isMine =
                           userId != null && userId == project.ownerId;
 
@@ -335,7 +408,7 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
                     },
                   ),
                 );
-              },
+              }, childCount: projects.projects.length + 1),
             ),
           ),
         );
@@ -343,64 +416,185 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
   }
 }
 
-/// Compact icon button sized to sit next to the search field, with either
-/// a small "active" dot (filter) or a numeric badge (invites).
-class _RowIconButton extends StatelessWidget {
-  const _RowIconButton({
-    required this.tooltip,
-    required this.icon,
+class _InviteIconButton extends StatelessWidget {
+  const _InviteIconButton({required this.invitesCount, required this.palette});
+
+  final int invitesCount;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'My Invites',
+      onPressed: () => context.push('/projects/invites'),
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(Icons.mail_outline),
+          if (invitesCount > 0)
+            Positioned(
+              right: -3,
+              top: -3,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: palette.indigo,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                child: Text(
+                  '$invitesCount',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterActionButton extends StatelessWidget {
+  const _FilterActionButton({
+    required this.hasActiveFilters,
     required this.onPressed,
-    this.showDot = false,
+    required this.palette,
   });
 
-  final String tooltip;
-  final IconData icon;
+  final bool hasActiveFilters;
   final VoidCallback onPressed;
-  final bool showDot;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: hasActiveFilters ? palette.indigo : Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: IconButton(
+        tooltip: 'Filter Projects',
+        onPressed: onPressed,
+        icon: Icon(
+          Icons.tune,
+          color: hasActiveFilters ? Colors.white : palette.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveFiltersRow extends StatelessWidget {
+  const _ActiveFiltersRow({required this.capitalize});
+
+  final String Function(String) capitalize;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final hasBadge = showDot;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onPressed,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: p.border),
+    final projects = context.watch<ProjectsProvider>();
+    final skills = context.watch<SkillsProvider>();
+    final career = context.watch<CareerProvider>();
+
+    String skillName(int id) {
+      final matches = skills.catalog.where((s) => s.id == id);
+      return matches.isEmpty ? 'Skill' : matches.first.name;
+    }
+
+    String roleName(int id) {
+      final matches = career.roles.where((r) => r.id == id);
+      return matches.isEmpty ? 'Role' : matches.first.name;
+    }
+
+    final chips = <Widget>[];
+    if (projects.filterDifficulty != null) {
+      chips.add(
+        _FilterChip(
+          label: capitalize(projects.filterDifficulty!),
+          onRemove: () => projects.setDifficultyFilter(null),
+        ),
+      );
+    }
+    for (final id in projects.filterSkillIds) {
+      chips.add(
+        _FilterChip(
+          label: skillName(id),
+          onRemove: () => projects.toggleSkillFilter(id),
+        ),
+      );
+    }
+    for (final id in projects.filterRoleIds) {
+      chips.add(
+        _FilterChip(
+          label: roleName(id),
+          onRemove: () => projects.toggleRoleFilter(id),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SizedBox(
+        height: 32,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          children: [
+            ...chips.map(
+              (c) =>
+                  Padding(padding: const EdgeInsets.only(right: 8), child: c),
             ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Icon(icon, size: 20, color: p.textPrimary),
-                if (hasBadge)
-                  Positioned(
-                    right: 3,
-                    top: 3,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: p.indigo,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: p.surface2, width: 1),
-                      ),
-                    ),
-                  ),
-              ],
+            ActionChip(
+              label: const Text('Clear all', style: TextStyle(fontSize: 12)),
+              onPressed: () => projects.clearFilters(),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              side: BorderSide(color: p.border),
             ),
-          ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({required this.label, required this.onRemove});
+
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Chip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: p.indigo,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      backgroundColor: p.indigoLight,
+      deleteIcon: Icon(Icons.close, size: 14, color: p.indigo),
+      onDeleted: onRemove,
+      elevation: 0,
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 }

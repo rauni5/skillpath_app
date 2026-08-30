@@ -113,6 +113,24 @@ class ProjectsRepository {
     return _api.unwrap((dio) => dio.post('/api/v1/projects/$id/join'), (_) {});
   }
 
+  /// POST /api/v1/projects/{id}/complete — owner only. Marks the project
+  /// done and auto-generates portfolio entries for the team.
+  Future<Project> completeProject(int id) {
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/projects/$id/complete'),
+      (data) => Project.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// POST /api/v1/projects/{id}/cancel — owner only. Notifies accepted
+  /// members.
+  Future<Project> cancelProject(int id) {
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/projects/$id/cancel'),
+      (data) => Project.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
   /// GET /api/v1/projects/{id}/recommended-members — owner only.
   Future<List<RecommendedMember>> getRecommendedMembers(int id) {
     return _api.unwrap(
