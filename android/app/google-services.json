@@ -1,0 +1,178 @@
+{
+  "project_info": {
+    "project_number": "767618215357",
+    "project_id": "skillpaths-1d118",
+    "storage_bucket": "skillpaths-1d118.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:767618215357:android:84cf617f1e42f3202536d4",
+        "android_client_info": {
+          "package_name": "com.aichat.skillpath"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "767618215357-3lrrles4dfjm97i3jdfpd2082n6ef4io.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aichat.skillpath",
+            "certificate_hash": "8c130474265b7b1ea61288f5b4a72a8eb9d6b12d"
+          }
+        },
+        {
+          "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAeMTU6watKhvOUoD91daZ0ocHfQ1VwG6Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "767618215357-b54rtevob4colc61p6e5798rr4ef27mg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.skillpaths.skillpathsApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:767618215357:android:86e4e8a2daa5c1692536d4",
+        "android_client_info": {
+          "package_name": "com.skillpath.skillpath"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "767618215357-ca39bhgml185ed004bpvqjo5jeu0aoq6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.skillpath.skillpath",
+            "certificate_hash": "8c130474265b7b1ea61288f5b4a72a8eb9d6b12d"
+          }
+        },
+        {
+          "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAeMTU6watKhvOUoD91daZ0ocHfQ1VwG6Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "767618215357-b54rtevob4colc61p6e5798rr4ef27mg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.skillpaths.skillpathsApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:767618215357:android:dfe59b429f6f784c2536d4",
+        "android_client_info": {
+          "package_name": "com.skillpath.skillpath_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAeMTU6watKhvOUoD91daZ0ocHfQ1VwG6Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "767618215357-b54rtevob4colc61p6e5798rr4ef27mg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.skillpaths.skillpathsApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:767618215357:android:b1a3314e1cf5fe7b2536d4",
+        "android_client_info": {
+          "package_name": "com.skillpaths.skillpaths_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "767618215357-dvumb2u6usr4ls0drv0i0keaq71vkg3v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.skillpaths.skillpaths_app",
+            "certificate_hash": "8c130474265b7b1ea61288f5b4a72a8eb9d6b12d"
+          }
+        },
+        {
+          "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAeMTU6watKhvOUoD91daZ0ocHfQ1VwG6Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767618215357-mdb4pn1bffp1ch6mb4j0qvrsr5fqpprs.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "767618215357-b54rtevob4colc61p6e5798rr4ef27mg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.skillpaths.skillpathsApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
