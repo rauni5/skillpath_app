@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/discussion_post.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/user_avatar.dart';
@@ -59,9 +60,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (!ok && mounted) {
       final err = context.read<DiscussionProvider>().commentError;
       if (err != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(err)));
+        showErrorDialog(context, err, title: 'Failed to post comment');
       }
     }
   }

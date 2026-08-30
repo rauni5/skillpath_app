@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/project_member.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -70,11 +71,10 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
 
     for (final c in changes) {
       final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Your request to join "${c.projectName}" was $verb.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      showInfoDialog(
+        context,
+        title: 'Project Invitation',
+        message: 'Your request to join "${c.projectName}" was $verb.',
       );
     }
   }

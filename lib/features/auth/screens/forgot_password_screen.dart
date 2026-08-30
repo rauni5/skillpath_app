@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/app_dialogs.dart';
+import '../../../shared/widgets/brand_mark.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_text_field.dart';
 
@@ -43,18 +44,36 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
+      backgroundColor: p.surface0,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/login'),
         ),
         title: const Text('Reset password'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: _sent ? _buildSentState(p) : _buildFormState(p, auth),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: p.surface2,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: p.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: _sent ? _buildSentState(p) : _buildFormState(p, auth),
+            ),
           ),
         ),
       ),
@@ -67,20 +86,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 24),
-          Icon(Icons.lock_reset, size: 40, color: p.indigo),
+          Center(child: BrandMark(color: p.indigo, size: 52)),
           const SizedBox(height: 16),
           Text(
-            'Enter the email you signed up with and we\'ll send you a link '
-            'to reset your password.',
+            'Reset Password',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: p.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Enter the email you signed up with and we\'ll send you a link to reset your password.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
           AuthTextField(
             label: 'Email',
+            icon: Icons.mail_outline,
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
             validator: (v) =>
                 (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
           ),
@@ -107,26 +137,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 24),
-        Icon(Icons.mark_email_read_outlined, size: 40, color: p.green),
+        const SizedBox(height: 12),
+        Icon(Icons.mark_email_read_outlined, size: 48, color: p.green),
         const SizedBox(height: 16),
         Text(
           'Check your inbox',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
             color: p.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'If an account exists for ${_emailCtrl.text.trim()}, a password '
-          'reset link is on its way.',
+          'If an account exists for ${_emailCtrl.text.trim()}, a password reset link is on its way.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 24),
         OutlinedButton(
           onPressed: () => context.go('/login'),
           child: const Text('Back to log in'),

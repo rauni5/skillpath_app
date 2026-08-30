@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:skillpath_app/core/models/project_member.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/elevated_card.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
@@ -44,7 +45,19 @@ class _MyInvitesScreenState extends State<MyInvitesScreen> {
     final mgmt = context.watch<ProjectManagementProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Invites & Requests')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/projects');
+            }
+          },
+        ),
+        title: const Text('Invites & Requests'),
+      ),
       body: Column(
         children: [
           const SizedBox(height: 12),
@@ -364,9 +377,11 @@ class _InviteCard extends StatelessWidget {
         ? await mgmt.acceptInvite(userId, invite.projectId)
         : await mgmt.declineInvite(userId, invite.projectId);
     if (!ok && context.mounted && mgmt.myInvitesError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(mgmt.myInvitesError!)));
+        mgmt.myInvitesError!,
+        title: 'Failed to respond to invite',
+      );
     }
   }
 }
@@ -502,9 +517,11 @@ class _JoinRequestCard extends StatelessWidget {
         ? await mgmt.acceptJoinRequest(request.projectId, request.requesterId)
         : await mgmt.declineJoinRequest(request.projectId, request.requesterId);
     if (!ok && context.mounted && mgmt.myJoinRequestsError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(mgmt.myJoinRequestsError!)));
+        mgmt.myJoinRequestsError!,
+        title: 'Failed to respond to request',
+      );
     }
   }
 }

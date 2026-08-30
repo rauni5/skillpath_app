@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../career/providers/career_provider.dart';
 import '../providers/projects_provider.dart';
 import '../widgets/skill_picker_field.dart';
@@ -59,9 +60,11 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     if (created != null) {
       context.pop();
     } else if (projects.createError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(projects.createError!)));
+        projects.createError!,
+        title: 'Failed to create project',
+      );
     }
   }
 

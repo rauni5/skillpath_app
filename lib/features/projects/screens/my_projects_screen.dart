@@ -36,7 +36,19 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
     final mgmt = context.watch<ProjectManagementProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Projects')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/projects');
+            }
+          },
+        ),
+        title: const Text('My Projects'),
+      ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         child: _buildBody(context, p, mgmt),

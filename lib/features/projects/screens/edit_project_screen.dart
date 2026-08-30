@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../career/providers/career_provider.dart';
 import '../providers/project_management_provider.dart';
 import '../widgets/skill_picker_field.dart';
@@ -90,9 +91,11 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     if (ok) {
       context.pop();
     } else if (mgmt.updateError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(mgmt.updateError!)));
+        mgmt.updateError!,
+        title: 'Failed to update project',
+      );
     }
   }
 

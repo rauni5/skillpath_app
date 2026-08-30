@@ -3,6 +3,7 @@ import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:skillpath_app/shared/widgets/app_dialogs.dart';
 
 import '../../../core/models/project.dart';
 import '../../../core/models/project_member.dart';
@@ -41,14 +42,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final projects = context.read<ProjectsProvider>();
     final ok = await projects.joinProject(widget.projectId);
     if (!ok && mounted && projects.detailError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(projects.detailError!)));
+        projects.detailError!,
+        title: 'Failed to send request',
+      );
     } else if (ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("You're in! Request sent to the project owner."),
-        ),
+      showInfoDialog(
+        context,
+        title: 'Request Sent',
+        message: "Request sent to the project owner.",
       );
     }
   }
@@ -67,15 +70,17 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         widget.projectId,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(accept ? "You're on the team!" : 'Invite declined.'),
-        ),
+      showInfoDialog(
+        context,
+        title: 'Invite Response',
+        message: accept ? "You're on the team!" : 'Invite declined.',
       );
     } else if (mgmt.myInvitesError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(mgmt.myInvitesError!)));
+        mgmt.myInvitesError!,
+        title: 'Failed to respond to invite',
+      );
     }
   }
 
@@ -91,6 +96,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/projects');
+            }
+          },
+        ),
         title: const Text('Project Overview'),
         centerTitle: true,
         actions: [
@@ -441,9 +456,11 @@ class _LinkRow extends StatelessWidget {
           icon: Icon(Icons.copy, size: 16, color: p.textMuted),
           onPressed: () {
             Clipboard.setData(ClipboardData(text: link));
-            ScaffoldMessenger.of(
+            showInfoDialog(
               context,
-            ).showSnackBar(const SnackBar(content: Text('Link copied.')));
+              title: 'Link Copied',
+              message: 'The project link has been copied to your clipboard.',
+            );
           },
         ),
       ],
@@ -547,9 +564,11 @@ class _CopyableEmail extends StatelessWidget {
           onTap: () {
             Clipboard.setData(ClipboardData(text: email));
             HapticFeedback.selectionClick();
-            ScaffoldMessenger.of(
+            showInfoDialog(
               context,
-            ).showSnackBar(const SnackBar(content: Text('Email copied.')));
+              title: 'Email Copied',
+              message: 'The email address has been copied to your clipboard.',
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(2),

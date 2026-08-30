@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../core/router/chat_action_parser.dart';
 import '../../../shared/widgets/chat_error_notice.dart';
 import '../../../shared/widgets/chat_message_bubble.dart';
 import '../../../shared/widgets/suggested_prompts.dart';
@@ -14,14 +15,17 @@ import 'assistant_message_widget.dart';
 /// over whatever screen the user is currently on. Always binds to the
 /// user's active session, auto-creating one on first use — this is meant
 /// to feel instant, not like navigating to a new page.
-void showAssistantChatSheet(BuildContext context) {
-  showModalBottomSheet(
+Future<void> showAssistantChatSheet(BuildContext context) async {
+  final route = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => const _AssistantChatSheet(),
   );
+  if (route != null && context.mounted) {
+    navigateToChatAction(context, route);
+  }
 }
 
 class _AssistantChatSheet extends StatefulWidget {
@@ -79,6 +83,7 @@ class _AssistantChatSheetState extends State<_AssistantChatSheet> {
     if (userId == null) return;
     _inputFocusNode.unfocus();
     _inputCtrl.clear();
+    _scrollToBottom();
     await context.read<AssistantChatProvider>().sendMessage(userId, message);
     _scrollToBottom();
   }
@@ -246,10 +251,7 @@ class _AssistantChatSheetState extends State<_AssistantChatSheet> {
           message: chat.messages[i],
           userAvatarUrl: user?.avatarUrl,
           userName: user?.name,
-          onActionTap: (route) {
-            Navigator.of(context).pop(); // close the sheet first
-            context.push(route);
-          },
+          onActionTap: (route) => Navigator.of(context).pop(route),
         );
       },
     );

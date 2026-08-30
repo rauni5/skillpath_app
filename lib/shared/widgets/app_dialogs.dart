@@ -19,6 +19,28 @@ Future<void> showAchievementUnlockedDialog(
   );
 }
 
+/// Basic informational dialog (e.g., project acceptances, general notices).
+Future<void> showInfoDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String buttonText = 'Got it',
+  IconData icon = Icons.info_outline_rounded,
+  Color? buttonColor,
+}) {
+  final p = AppPalette.of(context);
+  return _showBaseCustomDialog(
+    context,
+    icon: icon,
+    badgeColor: p.textMuted,
+    buttonColor:
+        buttonColor ?? p.indigo, // Standard primary action button color
+    title: title,
+    message: message,
+    buttonText: buttonText,
+  );
+}
+
 /// General-purpose "here's what happened" status dialog.
 Future<void> showOutcomeDialog(
   BuildContext context, {
@@ -26,12 +48,14 @@ Future<void> showOutcomeDialog(
   required String message,
   bool isPositive = true,
   String buttonText = 'Got it',
+  Color? buttonColor,
 }) {
   final p = AppPalette.of(context);
   return _showBaseCustomDialog(
     context,
     icon: isPositive ? Icons.check_circle_rounded : Icons.info_rounded,
     badgeColor: isPositive ? p.green : p.textMuted,
+    buttonColor: buttonColor,
     title: title,
     message: message,
     buttonText: buttonText,
@@ -44,12 +68,14 @@ Future<void> showSuccessDialog(
   String message, {
   String title = 'Success!',
   String buttonText = 'Done',
+  Color? buttonColor,
 }) {
   final p = AppPalette.of(context);
   return _showBaseCustomDialog(
     context,
     icon: Icons.check_circle_rounded,
     badgeColor: p.green,
+    buttonColor: buttonColor,
     title: title,
     message: message,
     buttonText: buttonText,
@@ -62,12 +88,14 @@ Future<void> showErrorDialog(
   String message, {
   String title = 'Something went wrong',
   String buttonText = 'Dismiss',
+  Color? buttonColor,
 }) {
   final p = AppPalette.of(context);
   return _showBaseCustomDialog(
     context,
     icon: Icons.error_rounded,
     badgeColor: p.red,
+    buttonColor: buttonColor,
     title: title,
     message: message,
     buttonText: buttonText,
@@ -82,30 +110,32 @@ Future<void> _showBaseCustomDialog(
   required String title,
   required String message,
   required String buttonText,
+  Color? buttonColor,
   String? overheadLabel,
 }) {
   return showGeneralDialog(
     context: context,
     barrierDismissible: true,
     barrierLabel: title,
-    barrierColor: Colors.black.withValues(alpha: 0.54),
-    transitionDuration: const Duration(milliseconds: 280),
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (context, animation, secondaryAnimation) =>
         const SizedBox.shrink(),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
-      final bounceCurve = CurvedAnimation(
+      final curve = CurvedAnimation(
         parent: animation,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeIn,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       );
 
       return FadeTransition(
         opacity: animation,
         child: ScaleTransition(
-          scale: bounceCurve,
+          scale: Tween<double>(begin: 0.95, end: 1.0).animate(curve),
           child: _FeedbackDialogCard(
             icon: icon,
             badgeColor: badgeColor,
+            buttonColor: buttonColor,
             overheadLabel: overheadLabel,
             title: title,
             message: message,
@@ -124,11 +154,13 @@ class _FeedbackDialogCard extends StatelessWidget {
     required this.title,
     required this.message,
     required this.buttonText,
+    this.buttonColor,
     this.overheadLabel,
   });
 
   final IconData icon;
   final Color badgeColor;
+  final Color? buttonColor;
   final String title;
   final String message;
   final String buttonText;
@@ -137,66 +169,60 @@ class _FeedbackDialogCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final effectiveButtonColor = buttonColor ?? badgeColor;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 32),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 340),
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
         decoration: BoxDecoration(
           color: p.surface2,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: p.textPrimary.withValues(alpha: 0.06),
+            color: p.textPrimary.withValues(alpha: 0.08),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 32,
-              offset: const Offset(0, 16),
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Layered Icon Badge with Glow
+            // Icon Container
             Container(
-              width: 68,
-              height: 68,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: badgeColor.withValues(alpha: 0.12),
+                color: badgeColor.withValues(alpha: 0.08),
                 border: Border.all(
-                  color: badgeColor.withValues(alpha: 0.25),
-                  width: 1.5,
+                  color: badgeColor.withValues(alpha: 0.18),
+                  width: 1,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: badgeColor.withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
               ),
-              child: Icon(icon, color: badgeColor, size: 32),
+              child: Icon(icon, color: badgeColor, size: 26),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // Optional Overhead Label (e.g. "ACHIEVEMENT UNLOCKED")
+            // Optional Overhead Label
             if (overheadLabel != null) ...[
               Text(
                 overheadLabel!,
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
                   color: badgeColor,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
             ],
 
             // Main Title
@@ -204,13 +230,13 @@ class _FeedbackDialogCard extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
                 color: p.textPrimary,
                 letterSpacing: -0.2,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             // Description Body
             Text(
@@ -219,21 +245,21 @@ class _FeedbackDialogCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 color: p.textSecondary,
-                height: 1.45,
+                height: 1.4,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Full-width Dismiss Button
+            // Action Button
             SizedBox(
               width: double.infinity,
-              height: 46,
+              height: 44,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: badgeColor,
+                  backgroundColor: effectiveButtonColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),

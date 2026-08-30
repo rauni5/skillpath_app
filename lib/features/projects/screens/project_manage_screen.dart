@@ -9,6 +9,7 @@ import '../../../core/models/project_member.dart';
 import '../../../core/models/recommended_member.dart';
 import '../../../core/models/user_search_result.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -51,6 +52,16 @@ class _ProjectManageScreenState extends State<ProjectManageScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/projects');
+            }
+          },
+        ),
         title: const Text('Manage Project'),
         centerTitle: true,
         actions: [
@@ -664,9 +675,11 @@ class _CopyableEmail extends StatelessWidget {
           onTap: () {
             Clipboard.setData(ClipboardData(text: email));
             HapticFeedback.selectionClick();
-            ScaffoldMessenger.of(
+            showInfoDialog(
               context,
-            ).showSnackBar(const SnackBar(content: Text('Email copied.')));
+              title: 'Email Copied',
+              message: 'The email address has been copied to your clipboard.',
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(2),
@@ -1166,15 +1179,15 @@ class _ProjectLifecycleSection extends StatelessWidget {
     );
     if (!context.mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(
+      showSuccessDialog(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Project marked complete.')));
+        'This project has been marked complete. Portfolio entries have been created for all accepted members.',
+        title: 'Project Complete',
+      );
     } else {
       final err = context.read<ProjectManagementProvider>().manageError;
       if (err != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(err)));
+        showErrorDialog(context, err, title: 'Failed to mark project complete');
       }
     }
   }
@@ -1206,15 +1219,16 @@ class _ProjectLifecycleSection extends StatelessWidget {
     );
     if (!context.mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(
+      showInfoDialog(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Project cancelled.')));
+        title: 'Project cancelled',
+        message:
+            'All accepted members have been notified that this project was cancelled.',
+      );
     } else {
       final err = context.read<ProjectManagementProvider>().manageError;
       if (err != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(err)));
+        showErrorDialog(context, err, title: 'Failed to cancel project');
       }
     }
   }

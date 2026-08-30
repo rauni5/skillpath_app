@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/discussion_post.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../providers/discussion_provider.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -47,9 +48,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (post != null) {
       context.pop();
     } else if (provider.createPostError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(provider.createPostError!)));
+        provider.createPostError!,
+        title: 'Failed to create post',
+      );
     }
   }
 

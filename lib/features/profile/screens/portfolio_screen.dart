@@ -114,9 +114,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _isSelf ? 'Portfolio' : (portfolio.data?.name ?? 'Portfolio'),
-        ),
+        title: Text(_isSelf ? 'Profile' : (portfolio.data?.name ?? 'Profile')),
         actions: [
           if (_isSelf && portfolio.data != null)
             CvMenuButton(
