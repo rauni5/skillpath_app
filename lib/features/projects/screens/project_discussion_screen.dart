@@ -102,6 +102,16 @@ class _ProjectDiscussionScreenState extends State<ProjectDiscussionScreen>
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/projects');
+            }
+          },
+        ),
         title: Text(widget.projectName),
         bottom: widget.isMember
             ? TabBar(

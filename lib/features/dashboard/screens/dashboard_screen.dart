@@ -42,7 +42,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _load() async {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
-    await context.read<DashboardProvider>().load(userId);
+    await Future.wait([
+      context.read<DashboardProvider>().load(userId),
+      context.read<NotificationsProvider>().refreshUnreadCount(userId),
+    ]);
     unawaited(_loadAiSummary(userId));
     unawaited(_loadGamification(userId));
     final changes = await _alertService.checkForChanges(userId);

@@ -239,16 +239,10 @@ class NotificationService {
     final context = rootNavigatorKey.currentContext;
     if (context != null) {
       debugPrint('NotificationService: navigating to $route');
-      GoRouter.of(context).push(route);
+      GoRouter.of(context).go(route);
       return;
     }
 
-    // Most commonly hit on a cold start: the app was launched by tapping
-    // the notification, so getInitialMessage() resolves before runApp()
-    // has built the widget tree - rootNavigatorKey isn't attached to
-    // anything yet. Rather than silently dropping the navigation, retry a
-    // few times a beat apart, which is enough for the router to exist and
-    // (usually) for auth state to have settled too.
     if (attempt >= 20) {
       debugPrint(
         'NotificationService: giving up navigating to $route - '
