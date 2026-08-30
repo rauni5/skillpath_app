@@ -40,9 +40,6 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
   }
 
   Future<void> _openSkillCheck(RoadmapStep step) async {
-    // The skill-check screen pops with `true` when the attempt was passed
-    // (and the step therefore just flipped to done), so the roadmap only
-    // needs to reload in that case.
     final passed = await context.push<bool>(
       '/roadmap/skill/${step.skillId}/skill-check',
       extra: step.skillName,
@@ -52,54 +49,114 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final roadmap = context.watch<RoadmapProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your roadmap')),
+      backgroundColor: p.surface0,
       body: RefreshIndicator(
         onRefresh: () async => _load(),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          child: _buildBody(context, roadmap),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 110,
+              floating: true,
+              pinned: true,
+              elevation: 0,
+              backgroundColor: p.surface0,
+              surfaceTintColor: Colors.transparent,
+              flexibleSpace: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+                title: Text(
+                  'Your Roadmap',
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+              ),
+            ),
+            _buildSliverBody(context, p, roadmap),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context, RoadmapProvider roadmap) {
-    final p = AppPalette.of(context);
+  Widget _buildSliverBody(
+    BuildContext context,
+    AppPalette p,
+    RoadmapProvider roadmap,
+  ) {
     switch (roadmap.state) {
       case RoadmapLoadState.initial:
       case RoadmapLoadState.loading:
-        return const LoadingView(key: ValueKey('loading'));
-      case RoadmapLoadState.error:
-        return ErrorView(
-          key: const ValueKey('error'),
-          message: roadmap.errorMessage ?? 'Something went wrong.',
-          onRetry: _load,
+        return const SliverFillRemaining(
+          child: LoadingView(key: ValueKey('loading')),
         );
+
+      case RoadmapLoadState.error:
+        return SliverFillRemaining(
+          child: ErrorView(
+            key: const ValueKey('error'),
+            message: roadmap.errorMessage ?? 'Something went wrong.',
+            onRetry: _load,
+          ),
+        );
+
       case RoadmapLoadState.loaded:
         if (roadmap.steps.isEmpty) {
-          return ListView(
-            key: const ValueKey('empty'),
-            children: [
-              const SizedBox(height: 90),
-              Icon(Icons.map_outlined, size: 40, color: p.textMuted),
-              const SizedBox(height: 14),
-              Text(
-                'Set a career goal to generate a roadmap.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: p.textMuted, fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              Center(
-                child: FilledButton.icon(
+          return SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: p.indigoLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.map_outlined, size: 32, color: p.indigo),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No roadmap active',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Set a career goal to generate your personalized path.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: p.textMuted, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: p.indigo,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
                   onPressed: () => context.push('/profile/career-goal'),
                   icon: const Icon(Icons.flag_outlined, size: 16),
-                  label: const Text('Set career goal'),
+                  label: const Text(
+                    'Set career goal',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         }
 
@@ -124,152 +181,164 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                   .toList()
             : roadmap.steps;
 
-        return ListView(
-          key: const ValueKey('loaded'),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: p.indigo,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(
-                          begin: 0,
-                          end: total == 0 ? 0 : (completed / total) * 100,
-                        ),
-                        duration: const Duration(milliseconds: 800),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) => Text(
-                          '${value.round()}%',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 5),
-                        child: Text(
-                          'through your path',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  AnimatedProgressBar(
-                    value: total == 0 ? 0 : completed / total,
-                    valueColor: Colors.white,
-                    backgroundColor: Colors.white.withValues(alpha: 0.25),
-                    height: 7,
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _statPill(
-                        icon: Icons.check_circle_outline,
-                        label: '$completed done',
-                      ),
-                      _statPill(
-                        icon: Icons.hourglass_empty,
-                        label: '$remaining left',
-                      ),
-                      _statPill(
-                        icon: Icons.category_outlined,
-                        label: '$categories tracks',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (upNext != null) ...[
-              const SizedBox(height: 14),
-              _UpNextCard(
-                step: upNext,
-                onChat: () => _openChat(upNext),
-                onSkillCheck: () => _openSkillCheck(upNext),
-              ),
-            ],
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Text(
-                  'ALL STEPS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: p.textMuted,
-                    letterSpacing: 0.5,
-                  ),
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: p.indigo,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: p.indigo.withOpacity(0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                if (completed > 0)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _hideCompleted = !_hideCompleted);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 4,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _hideCompleted
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            size: 13,
-                            color: p.textMuted,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(
+                            begin: 0,
+                            end: total == 0 ? 0 : (completed / total) * 100,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _hideCompleted
-                                ? 'Show completed'
-                                : 'Hide completed',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: p.textMuted,
+                          duration: const Duration(milliseconds: 800),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, _) => Text(
+                            '${value.round()}%',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'through your path',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    AnimatedProgressBar(
+                      value: total == 0 ? 0 : completed / total,
+                      valueColor: Colors.white,
+                      backgroundColor: Colors.white.withValues(alpha: 0.25),
+                      height: 6,
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _statPill(
+                          icon: Icons.check_circle_outline,
+                          label: '$completed done',
+                        ),
+                        _statPill(
+                          icon: Icons.hourglass_empty,
+                          label: '$remaining left',
+                        ),
+                        _statPill(
+                          icon: Icons.category_outlined,
+                          label: '$categories tracks',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              if (upNext != null) ...[
+                const SizedBox(height: 16),
+                _UpNextCard(
+                  step: upNext,
+                  onChat: () => _openChat(upNext),
+                  onSkillCheck: () => _openSkillCheck(upNext),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Text(
+                    'ALL STEPS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: p.textMuted,
+                      letterSpacing: 0.5,
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            for (int i = 0; i < visibleSteps.length; i++)
-              RoadmapStepTile(
-                key: ValueKey(visibleSteps[i].id),
-                step: visibleSteps[i],
-                isLast: i == visibleSteps.length - 1,
-                isUpNext: upNext != null && visibleSteps[i].id == upNext.id,
-                onChat: () => _openChat(visibleSteps[i]),
-                onSkillCheck: () => _openSkillCheck(visibleSteps[i]),
+                  const Spacer(),
+                  if (completed > 0)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _hideCompleted = !_hideCompleted);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _hideCompleted
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 13,
+                              color: p.textMuted,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _hideCompleted
+                                  ? 'Show completed'
+                                  : 'Hide completed',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: p.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(height: 10),
+
+              for (int i = 0; i < visibleSteps.length; i++)
+                RoadmapStepTile(
+                  key: ValueKey(visibleSteps[i].id),
+                  step: visibleSteps[i],
+                  isLast: i == visibleSteps.length - 1,
+                  isUpNext: upNext != null && visibleSteps[i].id == upNext.id,
+                  onChat: () => _openChat(visibleSteps[i]),
+                  onSkillCheck: () => _openSkillCheck(visibleSteps[i]),
+                ),
+            ]),
+          ),
         );
     }
   }
@@ -300,9 +369,6 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
   }
 }
 
-/// Spotlight card for the very next step — pulled out above the timeline so
-/// it's actionable without scrolling, instead of relying on the "UP NEXT"
-/// badge buried inline in the list.
 class _UpNextCard extends StatelessWidget {
   const _UpNextCard({
     required this.step,
@@ -321,24 +387,27 @@ class _UpNextCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: p.indigoLight,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: p.indigo.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: p.indigo.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: p.indigo,
+              color: p.indigoLight,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Icons.bolt_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
+            child: Icon(Icons.bolt_rounded, color: p.indigo, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
