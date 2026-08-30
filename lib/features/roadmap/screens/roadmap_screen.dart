@@ -192,7 +192,7 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: p.indigo.withOpacity(0.25),
+                      color: p.indigo.withValues(alpha: 0.25),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
