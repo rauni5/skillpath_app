@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_exception.dart';
-import '../data/app_notification.dart';
+import '../../../core/models/app_notification.dart';
 import '../data/notifications_repository.dart';
 
 enum NotificationsLoadState { initial, loading, loaded, error }

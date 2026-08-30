@@ -1,4 +1,4 @@
-import 'push_notification_type.dart';
+import '../../features/notifications/data/push_notification_type.dart';
 
 class AppNotification {
   final int id;
