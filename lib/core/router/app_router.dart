@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -24,10 +25,11 @@ import '../../features/auth/screens/verify_email_screen.dart';
 import '../../features/career/screens/career_goal_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
+import '../../features/profile/providers/portfolio_provider.dart';
+import '../../features/profile/screens/cv_preview_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/portfolio_screen.dart';
 import '../../features/profile/screens/settings_screen.dart';
-import '../../features/profile/providers/portfolio_provider.dart';
 import '../../features/projects/screens/create_post_screen.dart';
 import '../../features/projects/screens/create_project_screen.dart';
 import '../../features/projects/screens/edit_project_screen.dart';
@@ -39,16 +41,17 @@ import '../../features/projects/screens/project_discussion_screen.dart';
 import '../../features/projects/screens/project_manage_screen.dart';
 import '../../features/projects/screens/projects_list_screen.dart';
 import '../../features/roadmap/screens/roadmap_screen.dart';
-import '../../features/skills/screens/skills_screen.dart';
 import '../../features/skills/screens/add_skills_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
-import 'skill_check_route_args.dart';
+import '../../features/skills/screens/skills_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../models/discussion_post.dart';
+import '../models/portfolio.dart';
 import 'navigation_keys.dart';
+import 'skill_check_route_args.dart';
 
 GoRouter buildRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -172,9 +175,12 @@ GoRouter buildRouter(AuthProvider authProvider) {
           ),
           GoRoute(
             path: '/admin/skills/:id',
-            builder: (context, state) => AdminSkillDetailScreen(
-              skillId: int.parse(state.pathParameters['id']!),
-            ),
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              return id == null
+                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
+                  : AdminSkillDetailScreen(skillId: id);
+            },
           ),
           GoRoute(
             path: '/admin/roles',
@@ -182,16 +188,26 @@ GoRouter buildRouter(AuthProvider authProvider) {
           ),
           GoRoute(
             path: '/admin/roles/:id',
-            builder: (context, state) => AdminRoleDetailScreen(
-              roleId: int.parse(state.pathParameters['id']!),
-            ),
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              return id == null
+                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
+                  : AdminRoleDetailScreen(roleId: id);
+            },
           ),
           GoRoute(
             path: '/admin/roles/:roleid/branches/:id',
-            builder: (context, state) => AdminBranchDetailScreen(
-              roleId: int.parse(state.pathParameters['roleid']!),
-              branchId: int.parse(state.pathParameters['id']!),
-            ),
+            builder: (context, state) {
+              final roleId = int.tryParse(state.pathParameters['roleid'] ?? '');
+              final branchId = int.tryParse(state.pathParameters['id'] ?? '');
+              if (roleId == null || branchId == null) {
+                return const Scaffold(body: Center(child: Text('Invalid ID')));
+              }
+              return AdminBranchDetailScreen(
+                roleId: roleId,
+                branchId: branchId,
+              );
+            },
           ),
           GoRoute(
             path: '/admin/achievements',
@@ -203,32 +219,42 @@ GoRouter buildRouter(AuthProvider authProvider) {
           ),
           GoRoute(
             path: '/admin/achievements/:id',
-            builder: (context, state) => AdminAchievementFormScreen(
-              achievementId: int.parse(state.pathParameters['id']!),
-            ),
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              return id == null
+                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
+                  : AdminAchievementFormScreen(achievementId: id);
+            },
           ),
         ],
       ),
-      //! full screen routes
+      //! full screen routes (No bottom navbar)
       GoRoute(
         path: '/roadmap/skill/:skillId/chat',
-        builder: (context, state) => TutorChatScreen(
-          skillId: int.parse(state.pathParameters['skillId']!),
-          skillName: state.extra as String? ?? 'Skill',
-        ),
+        builder: (context, state) {
+          final skillId = int.tryParse(state.pathParameters['skillId'] ?? '');
+          return skillId == null
+              ? const Scaffold(body: Center(child: Text('Invalid Skill ID')))
+              : TutorChatScreen(
+                  skillId: skillId,
+                  skillName: state.extra as String? ?? 'Skill',
+                );
+        },
       ),
       GoRoute(
         path: '/roadmap/skill/:skillId/skill-check',
         builder: (context, state) {
+          final skillId = int.tryParse(state.pathParameters['skillId'] ?? '');
+          if (skillId == null) {
+            return const Scaffold(
+              body: Center(child: Text('Invalid Skill ID')),
+            );
+          }
           final extra = state.extra;
           final args = extra is SkillCheckRouteArgs
               ? extra
               : SkillCheckRouteArgs(extra as String? ?? 'Skill');
-          return SkillCheckScreen(
-            skillId: int.parse(state.pathParameters['skillId']!),
-            skillName: args.skillName,
-            returnLabel: args.returnLabel ?? 'Back to Roadmap',
-          );
+          return SkillCheckScreen(skillId: skillId, skillName: args.skillName);
         },
       ),
       GoRoute(
@@ -237,16 +263,34 @@ GoRouter buildRouter(AuthProvider authProvider) {
       ),
       GoRoute(
         path: '/projects/mine/:id/edit',
-        builder: (context, state) => EditProjectScreen(
-          projectId: int.parse(state.pathParameters['id']!),
-        ),
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid Project ID')))
+              : EditProjectScreen(projectId: id);
+        },
+      ),
+      GoRoute(
+        path: '/projects/mine/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid Project ID')))
+              : ProjectManageScreen(projectId: id);
+        },
       ),
       GoRoute(
         path: '/projects/:id/discussion',
         builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          if (id == null) {
+            return const Scaffold(
+              body: Center(child: Text('Invalid Project ID')),
+            );
+          }
           final extra = state.extra as Map<String, dynamic>? ?? {};
           return ProjectDiscussionScreen(
-            projectId: int.parse(state.pathParameters['id']!),
+            projectId: id,
             projectName: extra['name'] as String? ?? 'Discussion',
             isMember: extra['isMember'] as bool? ?? false,
           );
@@ -254,18 +298,30 @@ GoRouter buildRouter(AuthProvider authProvider) {
         routes: [
           GoRoute(
             path: 'new',
-            builder: (context, state) => CreatePostScreen(
-              projectId: int.parse(state.pathParameters['id']!),
-              channel:
-                  state.extra as DiscussionChannel? ?? DiscussionChannel.public,
-            ),
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              return id == null
+                  ? const Scaffold(
+                      body: Center(child: Text('Invalid Project ID')),
+                    )
+                  : CreatePostScreen(
+                      projectId: id,
+                      channel:
+                          state.extra as DiscussionChannel? ??
+                          DiscussionChannel.public,
+                    );
+            },
           ),
           GoRoute(
             path: 'post/:postId',
-            builder: (context, state) => PostDetailScreen(
-              projectId: int.parse(state.pathParameters['id']!),
-              postId: int.parse(state.pathParameters['postId']!),
-            ),
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              final postId = int.tryParse(state.pathParameters['postId'] ?? '');
+              if (id == null || postId == null) {
+                return const Scaffold(body: Center(child: Text('Invalid ID')));
+              }
+              return PostDetailScreen(projectId: id, postId: postId);
+            },
           ),
         ],
       ),
@@ -275,12 +331,16 @@ GoRouter buildRouter(AuthProvider authProvider) {
       ),
       GoRoute(
         path: '/users/:id/portfolio',
-        builder: (context, state) => ChangeNotifierProvider(
-          create: (_) => PortfolioProvider(),
-          child: PortfolioScreen(
-            userId: int.parse(state.pathParameters['id']!),
-          ),
-        ),
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          if (id == null) {
+            return const Scaffold(body: Center(child: Text('Invalid User ID')));
+          }
+          return ChangeNotifierProvider(
+            create: (_) => PortfolioProvider(),
+            child: PortfolioScreen(userId: id),
+          );
+        },
       ),
       GoRoute(
         path: '/profile/settings',
@@ -301,9 +361,40 @@ GoRouter buildRouter(AuthProvider authProvider) {
         ],
       ),
       GoRoute(
+        path: '/profile/cv-preview',
+        builder: (context, state) {
+          final data = state.extra;
+          if (data is! PortfolioData) {
+            return const Scaffold(
+              body: Center(child: Text('Invalid Portfolio Data')),
+            );
+          }
+          return CvPreviewScreen(data: data);
+        },
+      ),
+      GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsScreen(),
       ),
+      GoRoute(
+        path: '/projects/mine',
+        builder: (context, state) => const MyProjectsScreen(),
+      ),
+      GoRoute(
+        path: '/projects/invites',
+        builder: (context, state) => const MyInvitesScreen(),
+      ),
+      GoRoute(
+        path: '/projects/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid Project ID')))
+              : ProjectDetailScreen(projectId: id);
+        },
+      ),
+
+      //! Nav Bar Routes (Inside AppShell)
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -316,35 +407,11 @@ GoRouter buildRouter(AuthProvider authProvider) {
               ),
             ],
           ),
-          //! nav bar routes
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/roadmap',
                 builder: (context, state) => const RoadmapScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'skill/:skillId/chat',
-                    builder: (context, state) => TutorChatScreen(
-                      skillId: int.parse(state.pathParameters['skillId']!),
-                      skillName: state.extra as String? ?? 'Skill',
-                    ),
-                  ),
-                  GoRoute(
-                    path: 'skill/:skillId/skill-check',
-                    builder: (context, state) {
-                      final extra = state.extra;
-                      final args = extra is SkillCheckRouteArgs
-                          ? extra
-                          : SkillCheckRouteArgs(extra as String? ?? 'Skill');
-                      return SkillCheckScreen(
-                        skillId: int.parse(state.pathParameters['skillId']!),
-                        skillName: args.skillName,
-                        returnLabel: args.returnLabel ?? 'Back to Roadmap',
-                      );
-                    },
-                  ),
-                ],
               ),
             ],
           ),
@@ -353,30 +420,6 @@ GoRouter buildRouter(AuthProvider authProvider) {
               GoRoute(
                 path: '/projects',
                 builder: (context, state) => const ProjectsListScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'invites',
-                    builder: (context, state) => const MyInvitesScreen(),
-                  ),
-                  GoRoute(
-                    path: 'mine',
-                    builder: (context, state) => const MyProjectsScreen(),
-                    routes: [
-                      GoRoute(
-                        path: ':id',
-                        builder: (context, state) => ProjectManageScreen(
-                          projectId: int.parse(state.pathParameters['id']!),
-                        ),
-                      ),
-                    ],
-                  ),
-                  GoRoute(
-                    path: ':id',
-                    builder: (context, state) => ProjectDetailScreen(
-                      projectId: int.parse(state.pathParameters['id']!),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),

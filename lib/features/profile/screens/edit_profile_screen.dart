@@ -1,3 +1,4 @@
+// edit_profile_screen.dart (Redesigned)
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -13,8 +14,6 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/avatar_upload_service.dart';
 import '../providers/portfolio_provider.dart';
 
-/// Combines everything that lives on the User record: name, contact
-/// number, bio, experience level, availability. Reached from Settings.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -69,9 +68,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _changeAvatar() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Wrap(
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
@@ -116,13 +117,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
-    // Unfocus active keyboard
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) return;
     final name = _nameController.text.trim();
 
-    // Capture Providers and Messenger before async gaps
     final auth = context.read<AuthProvider>();
     final portfolio = context.read<PortfolioProvider>();
     final navigator = Navigator.of(context);
@@ -175,15 +174,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       appBar: AppBar(
         title: const Text('Edit Profile'),
         actions: [
-          TextButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Save'),
+            ),
           ),
         ],
       ),
@@ -193,15 +198,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // Avatar Section
               Center(
                 child: GestureDetector(
                   onTap: _uploadingAvatar ? null : _changeAvatar,
                   child: Stack(
-                    clipBehavior: Clip.none,
                     children: [
                       _localAvatarPreview != null
                           ? CircleAvatar(
-                              radius: 44,
+                              radius: 48,
                               backgroundImage: MemoryImage(
                                 _localAvatarPreview!,
                               ),
@@ -209,40 +214,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           : UserAvatar(
                               avatarUrl: user?.avatarUrl,
                               initials: user?.initials ?? '?',
-                              radius: 44,
+                              radius: 48,
                             ),
-                      if (_uploadingAvatar)
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.black.withValues(alpha: 0.35),
-                            ),
-                            child: const Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: p.indigo,
-                            border: Border.all(color: p.surface0, width: 2),
-                          ),
+                        right: 0,
+                        bottom: 0,
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: p.indigo,
                           child: const Icon(
                             Icons.camera_alt,
-                            size: 14,
+                            size: 16,
                             color: Colors.white,
                           ),
                         ),
@@ -253,155 +235,180 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 24),
 
-              Text(
-                'IDENTITY',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                  color: p.textMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _nameController,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? "Name can't be empty"
-                    : null,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Contact number',
-                  hintText: '+977-9841431258',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Location',
-                  hintText: 'City, Country',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              Text(
-                'LINKS',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                  color: p.textMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _githubController,
-                keyboardType: TextInputType.url,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                validator: _validateUrl,
-                decoration: const InputDecoration(
-                  labelText: 'GitHub profile',
-                  hintText: 'https://github.com/yourname',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _linkedinController,
-                keyboardType: TextInputType.url,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                validator: _validateUrl,
-                decoration: const InputDecoration(
-                  labelText: 'LinkedIn profile',
-                  hintText: 'https://linkedin.com/in/yourname',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              Text(
-                'PORTFOLIO DETAILS',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                  color: p.textMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _bioController,
-                maxLines: 4,
-                maxLength: 1000,
-                decoration: const InputDecoration(
-                  labelText: 'Bio',
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Experience level',
-                style: TextStyle(fontSize: 12, color: p.textMuted),
-              ),
-              const SizedBox(height: 6),
-              SegmentedButton<ExperienceLevel>(
-                segments: const [
-                  ButtonSegment(
-                    value: ExperienceLevel.beginner,
-                    label: Text('Beginner'),
+              // Identity Group
+              _FormCard(
+                title: 'PERSONAL INFORMATION',
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? "Name can't be empty"
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
                   ),
-                  ButtonSegment(
-                    value: ExperienceLevel.intermediate,
-                    label: Text('Intermediate'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller:
+                        _phoneController, // Add final _phoneCtrl = TextEditingController(); in State
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone number (optional)',
+                      hintText: '98XXXXXXXX',
+                      prefixIcon: Icon(Icons.phone, size: 20),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return null;
+                      final digitsOnly = v.replaceAll(RegExp(r'\D'), '');
+                      if (digitsOnly.length < 10) {
+                        return 'Enter a valid phone number';
+                      }
+                      return null;
+                    },
                   ),
-                  ButtonSegment(
-                    value: ExperienceLevel.advanced,
-                    label: Text('Advanced'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _locationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Location',
+                      hintText: 'City, Country',
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                    ),
                   ),
                 ],
-                selected: {_experienceLevel},
-                onSelectionChanged: (s) =>
-                    setState(() => _experienceLevel = s.first),
-                showSelectedIcon: false,
               ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Available for projects'),
-                value: _availability,
-                onChanged: (v) => setState(() => _availability = v),
+              const SizedBox(height: 16),
+
+              // Links Group
+              _FormCard(
+                title: 'SOCIAL LINKS',
+                children: [
+                  TextFormField(
+                    controller: _githubController,
+                    keyboardType: TextInputType.url,
+                    validator: _validateUrl,
+                    decoration: const InputDecoration(
+                      labelText: 'GitHub Profile',
+                      prefixIcon: Icon(Icons.code),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _linkedinController,
+                    keyboardType: TextInputType.url,
+                    validator: _validateUrl,
+                    decoration: const InputDecoration(
+                      labelText: 'LinkedIn Profile',
+                      prefixIcon: Icon(Icons.link),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _softSkillsController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Soft skills',
-                  hintText: 'Communication, Time management, Teamwork',
-                  helperText: 'Separate with commas or new lines',
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your photo,GitHub, LinkedIn, location, bio, experience level, availability, and soft skills all show on your Portfolio and CV.',
-                style: TextStyle(fontSize: 11.5, color: p.textMuted),
+              const SizedBox(height: 16),
+
+              // Portfolio Details Group
+              _FormCard(
+                title: 'PORTFOLIO DETAILS',
+                children: [
+                  TextField(
+                    controller: _bioController,
+                    maxLines: 3,
+                    maxLength: 1000,
+                    decoration: const InputDecoration(
+                      labelText: 'Bio',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Experience Level',
+                    style: TextStyle(fontSize: 12, color: p.textMuted),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<ExperienceLevel>(
+                      segments: const [
+                        ButtonSegment(
+                          value: ExperienceLevel.beginner,
+                          label: Text('Beginner'),
+                        ),
+                        ButtonSegment(
+                          value: ExperienceLevel.intermediate,
+                          label: Text('Intermediate'),
+                        ),
+                        ButtonSegment(
+                          value: ExperienceLevel.advanced,
+                          label: Text('Advanced'),
+                        ),
+                      ],
+                      selected: {_experienceLevel},
+                      onSelectionChanged: (s) =>
+                          setState(() => _experienceLevel = s.first),
+                      showSelectedIcon: false,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Available for projects'),
+                    value: _availability,
+                    onChanged: (v) => setState(() => _availability = v),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _softSkillsController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Soft Skills',
+                      hintText: 'Communication, Teamwork',
+                      helperText: 'Separate with commas',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FormCard extends StatelessWidget {
+  const _FormCard({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Card(
+      elevation: 0,
+      color: p.surface2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: p.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.8,
+                color: p.textMuted,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
         ),
       ),
     );
