@@ -7,7 +7,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../data/app_notification.dart';
+import '../../../core/models/app_notification.dart';
 import '../data/push_notification_type.dart';
 import '../providers/notifications_provider.dart';
 

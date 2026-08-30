@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/theme/app_palette.dart';
 
 /// Route-aware skeleton loading widget.
@@ -11,123 +13,135 @@ class LoadingView extends StatefulWidget {
 
 class _LoadingViewState extends State<LoadingView>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _animationController;
+  late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
 
-    _animationController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1300),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final route = ModalRoute.of(context)?.settings.name ?? '';
     final palette = AppPalette.of(context);
+    final route = GoRouterState.of(context).matchedLocation;
 
-    if (_isDashboard(route)) {
-      return _DashboardSkeleton(
-        animation: _animationController,
-        palette: palette,
-      );
+    // Do not change the Admin loading experience.
+    if (route.startsWith('/admin')) {
+      return _SpinnerLoading(palette: palette);
     }
 
-    if (_isProjects(route)) {
-      return _ProjectsSkeleton(
-        animation: _animationController,
-        palette: palette,
-      );
+    // Small/embedded loading states should remain compact.
+    if (route == '/onboarding' ||
+        route == '/login' ||
+        route == '/register' ||
+        route == '/forgot-password' ||
+        route == '/verify-email' ||
+        route == '/splash') {
+      return _SpinnerLoading(palette: palette);
     }
 
-    if (_isProfile(route)) {
-      return _ProfileSkeleton(
-        animation: _animationController,
-        palette: palette,
-      );
+    if (route == '/dashboard') {
+      return _DashboardSkeleton(controller: _controller, palette: palette);
     }
 
-    if (_isRoadmap(route)) {
-      return _RoadmapSkeleton(
-        animation: _animationController,
-        palette: palette,
-      );
+    if (route == '/roadmap') {
+      return _RoadmapSkeleton(controller: _controller, palette: palette);
     }
 
-    if (_isSkills(route)) {
-      return _SkillsSkeleton(animation: _animationController, palette: palette);
+    if (route == '/profile') {
+      return _ProfileSkeleton(controller: _controller, palette: palette);
     }
 
-    if (_isCareer(route)) {
-      return _CareerSkeleton(animation: _animationController, palette: palette);
+    if (route == '/profile/skills') {
+      return _SkillsSkeleton(controller: _controller, palette: palette);
     }
 
-    if (_isNotifications(route)) {
-      return _NotificationsSkeleton(
-        animation: _animationController,
-        palette: palette,
-      );
+    if (route == '/profile/career-goal') {
+      return _CareerSkeleton(controller: _controller, palette: palette);
     }
 
-    if (_isAssistant(route)) {
-      return _ChatSkeleton(animation: _animationController, palette: palette);
+    if (route == '/projects') {
+      return _ProjectsSkeleton(controller: _controller, palette: palette);
     }
 
-    // Generic fallback for screens that don't need a specialised layout.
-    return _GenericSkeleton(animation: _animationController, palette: palette);
-  }
+    if (route == '/projects/mine') {
+      return _MyProjectsSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isDashboard(String route) {
-    return route == '/dashboard';
-  }
+    if (route == '/projects/invites') {
+      return _InvitesSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isProjects(String route) {
-    return route.startsWith('/projects');
-  }
+    if (route.startsWith('/projects/') && route.endsWith('/discussion')) {
+      return _DiscussionSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isProfile(String route) {
-    return route.startsWith('/profile') || route.contains('/portfolio');
-  }
+    if (route.startsWith('/projects/') && route.contains('/post/')) {
+      return _PostDetailSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isRoadmap(String route) {
-    return route.startsWith('/roadmap');
-  }
+    if (route.startsWith('/projects/') && route.contains('/edit')) {
+      return _ProjectFormSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isSkills(String route) {
-    return route == '/profile/skills';
-  }
+    if (route.startsWith('/projects/mine/')) {
+      return _ProjectManageSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isCareer(String route) {
-    return route == '/profile/career-goal';
-  }
+    if (route.startsWith('/projects/')) {
+      return _ProjectDetailSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isNotifications(String route) {
-    return route == '/notifications';
-  }
+    if (route == '/notifications') {
+      return _NotificationsSkeleton(controller: _controller, palette: palette);
+    }
 
-  bool _isAssistant(String route) {
-    return route.startsWith('/assistant');
+    if (route.startsWith('/assistant')) {
+      return _ChatSkeleton(controller: _controller, palette: palette);
+    }
+
+    if (route.startsWith('/roadmap/skill/')) {
+      return _ChatSkeleton(controller: _controller, palette: palette);
+    }
+
+    return _GenericSkeleton(controller: _controller, palette: palette);
+  }
+}
+
+class _SpinnerLoading extends StatelessWidget {
+  const _SpinnerLoading({required this.palette});
+
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: CircularProgressIndicator(color: palette.indigo, strokeWidth: 2.5),
+    );
   }
 }
 
 class _SkeletonBox extends StatelessWidget {
   const _SkeletonBox({
-    required this.animation,
+    required this.controller,
     required this.palette,
     this.width,
     this.height = 14,
     this.radius = 8,
   });
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
   final double? width;
   final double height;
@@ -139,17 +153,16 @@ class _SkeletonBox extends StatelessWidget {
 
     final baseColor = isLight
         ? const Color(0xFFE1E4E8)
-        : const Color(0xFF2A2D32);
+        : const Color(0xFF292D33);
 
     final highlightColor = isLight
-        ? const Color(0xFFF4F5F6)
-        : const Color(0xFF41454C);
+        ? const Color(0xFFF7F8F9)
+        : const Color(0xFF454A52);
 
     return AnimatedBuilder(
-      animation: animation,
+      animation: controller,
       builder: (context, child) {
-        // Move the highlight from left → right.
-        final position = (animation.value * 2.5) - 0.75;
+        final position = (controller.value * 2.4) - 0.7;
 
         return ShaderMask(
           blendMode: BlendMode.srcATop,
@@ -166,9 +179,9 @@ class _SkeletonBox extends StatelessWidget {
               ],
               stops: [
                 (position - 0.45).clamp(0.0, 1.0),
-                (position - 0.20).clamp(0.0, 1.0),
+                (position - 0.18).clamp(0.0, 1.0),
                 position.clamp(0.0, 1.0),
-                (position + 0.20).clamp(0.0, 1.0),
+                (position + 0.18).clamp(0.0, 1.0),
                 (position + 0.45).clamp(0.0, 1.0),
               ],
             ).createShader(bounds);
@@ -189,12 +202,12 @@ class _SkeletonBox extends StatelessWidget {
 
 class _SkeletonCircle extends StatelessWidget {
   const _SkeletonCircle({
-    required this.animation,
+    required this.controller,
     required this.palette,
     required this.size,
   });
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
   final double size;
 
@@ -204,16 +217,16 @@ class _SkeletonCircle extends StatelessWidget {
 
     final baseColor = isLight
         ? const Color(0xFFE1E4E8)
-        : const Color(0xFF2A2D32);
+        : const Color(0xFF292D33);
 
     final highlightColor = isLight
-        ? const Color(0xFFF4F5F6)
-        : const Color(0xFF41454C);
+        ? const Color(0xFFF7F8F9)
+        : const Color(0xFF454A52);
 
     return AnimatedBuilder(
-      animation: animation,
+      animation: controller,
       builder: (context, child) {
-        final position = (animation.value * 2.5) - 0.75;
+        final position = (controller.value * 2.4) - 0.7;
 
         return ShaderMask(
           blendMode: BlendMode.srcATop,
@@ -230,9 +243,9 @@ class _SkeletonCircle extends StatelessWidget {
               ],
               stops: [
                 (position - 0.45).clamp(0.0, 1.0),
-                (position - 0.20).clamp(0.0, 1.0),
+                (position - 0.18).clamp(0.0, 1.0),
                 position.clamp(0.0, 1.0),
-                (position + 0.20).clamp(0.0, 1.0),
+                (position + 0.18).clamp(0.0, 1.0),
                 (position + 0.45).clamp(0.0, 1.0),
               ],
             ).createShader(bounds);
@@ -250,13 +263,13 @@ class _SkeletonCircle extends StatelessWidget {
 
 class _SkeletonCard extends StatelessWidget {
   const _SkeletonCard({
-    required this.animation,
+    required this.controller,
     required this.palette,
     required this.child,
     this.padding = const EdgeInsets.all(16),
   });
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
   final Widget child;
   final EdgeInsets padding;
@@ -266,7 +279,7 @@ class _SkeletonCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: palette.surface0,
+        color: palette.surface1,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: palette.border.withValues(alpha: 0.45)),
       ),
@@ -275,10 +288,41 @@ class _SkeletonCard extends StatelessWidget {
   }
 }
 
-class _DashboardSkeleton extends StatelessWidget {
-  const _DashboardSkeleton({required this.animation, required this.palette});
+class _SkeletonTextBlock extends StatelessWidget {
+  const _SkeletonTextBlock({
+    required this.controller,
+    required this.palette,
+    this.lines = 3,
+  });
 
-  final Animation<double> animation;
+  final Animation<double> controller;
+  final AppPalette palette;
+  final int lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(
+        lines,
+        (index) => Padding(
+          padding: EdgeInsets.only(bottom: index == lines - 1 ? 0 : 8),
+          child: _SkeletonBox(
+            controller: controller,
+            palette: palette,
+            width: index == lines - 1 ? 180 : double.infinity,
+            height: 10,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardSkeleton extends StatelessWidget {
+  const _DashboardSkeleton({required this.controller, required this.palette});
+
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -289,60 +333,65 @@ class _DashboardSkeleton extends StatelessWidget {
       children: [
         Row(
           children: [
-            _SkeletonCircle(animation: animation, palette: palette, size: 48),
+            _SkeletonCircle(controller: controller, palette: palette, size: 48),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SkeletonBox(
-                    animation: animation,
+                    controller: controller,
                     palette: palette,
-                    width: 145,
-                    height: 16,
+                    width: 150,
+                    height: 17,
                   ),
                   const SizedBox(height: 8),
                   _SkeletonBox(
-                    animation: animation,
+                    controller: controller,
                     palette: palette,
                     width: 210,
-                    height: 11,
+                    height: 10,
                   ),
                 ],
               ),
             ),
           ],
         ),
+
         const SizedBox(height: 20),
 
         _SkeletonCard(
-          animation: animation,
+          controller: controller,
           palette: palette,
           child: Row(
             children: [
-              _SkeletonCircle(animation: animation, palette: palette, size: 68),
+              _SkeletonCircle(
+                controller: controller,
+                palette: palette,
+                size: 64,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SkeletonBox(
-                      animation: animation,
+                      controller: controller,
                       palette: palette,
-                      width: 130,
-                      height: 16,
+                      width: 140,
+                      height: 17,
                     ),
                     const SizedBox(height: 10),
                     _SkeletonBox(
-                      animation: animation,
+                      controller: controller,
                       palette: palette,
                       height: 10,
                     ),
                     const SizedBox(height: 7),
                     _SkeletonBox(
-                      animation: animation,
+                      controller: controller,
                       palette: palette,
-                      width: 170,
+                      width: 180,
                       height: 10,
                     ),
                   ],
@@ -357,11 +406,17 @@ class _DashboardSkeleton extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _SkeletonStatCard(animation: animation, palette: palette),
+              child: _DashboardStatSkeleton(
+                controller: controller,
+                palette: palette,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _SkeletonStatCard(animation: animation, palette: palette),
+              child: _DashboardStatSkeleton(
+                controller: controller,
+                palette: palette,
+              ),
             ),
           ],
         ),
@@ -369,31 +424,35 @@ class _DashboardSkeleton extends StatelessWidget {
         const SizedBox(height: 14),
 
         _SkeletonCard(
-          animation: animation,
+          controller: controller,
           palette: palette,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                width: 145,
+                width: 130,
                 height: 17,
               ),
               const SizedBox(height: 18),
-              _SkeletonBox(animation: animation, palette: palette, height: 11),
-              const SizedBox(height: 9),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
+                palette: palette,
+                height: 10,
+              ),
+              const SizedBox(height: 8),
+              _SkeletonBox(
+                controller: controller,
                 palette: palette,
                 width: 260,
-                height: 11,
+                height: 10,
               ),
               const SizedBox(height: 18),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                width: 120,
+                width: 115,
                 height: 34,
                 radius: 10,
               ),
@@ -404,16 +463,16 @@ class _DashboardSkeleton extends StatelessWidget {
         const SizedBox(height: 14),
 
         _SkeletonCard(
-          animation: animation,
+          controller: controller,
           palette: palette,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                width: 125,
-                height: 16,
+                width: 120,
+                height: 17,
               ),
               const SizedBox(height: 16),
               ...List.generate(
@@ -423,14 +482,14 @@ class _DashboardSkeleton extends StatelessWidget {
                   child: Row(
                     children: [
                       _SkeletonCircle(
-                        animation: animation,
+                        controller: controller,
                         palette: palette,
                         size: 38,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _SkeletonBox(
-                          animation: animation,
+                          controller: controller,
                           palette: palette,
                           height: 11,
                         ),
@@ -447,32 +506,35 @@ class _DashboardSkeleton extends StatelessWidget {
   }
 }
 
-class _SkeletonStatCard extends StatelessWidget {
-  const _SkeletonStatCard({required this.animation, required this.palette});
+class _DashboardStatSkeleton extends StatelessWidget {
+  const _DashboardStatSkeleton({
+    required this.controller,
+    required this.palette,
+  });
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
   Widget build(BuildContext context) {
     return _SkeletonCard(
-      animation: animation,
+      controller: controller,
       palette: palette,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SkeletonBox(
-            animation: animation,
+            controller: controller,
             palette: palette,
             width: 70,
             height: 10,
           ),
           const SizedBox(height: 12),
           _SkeletonBox(
-            animation: animation,
+            controller: controller,
             palette: palette,
-            width: 90,
-            height: 23,
+            width: 85,
+            height: 22,
           ),
         ],
       ),
@@ -481,9 +543,9 @@ class _SkeletonStatCard extends StatelessWidget {
 }
 
 class _ProjectsSkeleton extends StatelessWidget {
-  const _ProjectsSkeleton({required this.animation, required this.palette});
+  const _ProjectsSkeleton({required this.controller, required this.palette});
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -496,7 +558,7 @@ class _ProjectsSkeleton extends StatelessWidget {
           children: [
             Expanded(
               child: _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
                 height: 44,
                 radius: 12,
@@ -504,7 +566,7 @@ class _ProjectsSkeleton extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             _SkeletonBox(
-              animation: animation,
+              controller: controller,
               palette: palette,
               width: 48,
               height: 44,
@@ -512,43 +574,43 @@ class _ProjectsSkeleton extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 18),
-
+        const SizedBox(height: 16),
         Row(
           children: [
             _SkeletonBox(
-              animation: animation,
-              palette: palette,
-              width: 80,
-              height: 32,
-              radius: 16,
-            ),
-            const SizedBox(width: 8),
-            _SkeletonBox(
-              animation: animation,
-              palette: palette,
-              width: 95,
-              height: 32,
-              radius: 16,
-            ),
-            const SizedBox(width: 8),
-            _SkeletonBox(
-              animation: animation,
+              controller: controller,
               palette: palette,
               width: 75,
-              height: 32,
-              radius: 16,
+              height: 30,
+              radius: 15,
+            ),
+            const SizedBox(width: 8),
+            _SkeletonBox(
+              controller: controller,
+              palette: palette,
+              width: 90,
+              height: 30,
+              radius: 15,
+            ),
+            const SizedBox(width: 8),
+            _SkeletonBox(
+              controller: controller,
+              palette: palette,
+              width: 72,
+              height: 30,
+              radius: 15,
             ),
           ],
         ),
-
         const SizedBox(height: 16),
-
         ...List.generate(
-          3,
+          4,
           (index) => Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: _ProjectCardSkeleton(animation: animation, palette: palette),
+            child: _ProjectCardSkeleton(
+              controller: controller,
+              palette: palette,
+            ),
           ),
         ),
       ],
@@ -557,15 +619,15 @@ class _ProjectsSkeleton extends StatelessWidget {
 }
 
 class _ProjectCardSkeleton extends StatelessWidget {
-  const _ProjectCardSkeleton({required this.animation, required this.palette});
+  const _ProjectCardSkeleton({required this.controller, required this.palette});
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
   Widget build(BuildContext context) {
     return _SkeletonCard(
-      animation: animation,
+      controller: controller,
       palette: palette,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,57 +636,61 @@ class _ProjectCardSkeleton extends StatelessWidget {
             children: [
               Expanded(
                 child: _SkeletonBox(
-                  animation: animation,
+                  controller: controller,
                   palette: palette,
-                  width: 170,
+                  width: 150,
                   height: 17,
                 ),
               ),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                width: 64,
+                width: 65,
                 height: 24,
                 radius: 12,
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          _SkeletonBox(animation: animation, palette: palette, height: 10),
-          const SizedBox(height: 8),
+          const SizedBox(height: 13),
+          _SkeletonBox(controller: controller, palette: palette, height: 10),
+          const SizedBox(height: 7),
           _SkeletonBox(
-            animation: animation,
+            controller: controller,
             palette: palette,
-            width: 250,
+            width: 240,
             height: 10,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 15),
           Row(
             children: [
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
                 width: 62,
-                height: 24,
+                height: 23,
                 radius: 12,
               ),
               const SizedBox(width: 7),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                width: 72,
-                height: 24,
+                width: 70,
+                height: 23,
                 radius: 12,
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 15),
           Row(
             children: [
-              _SkeletonCircle(animation: animation, palette: palette, size: 30),
+              _SkeletonCircle(
+                controller: controller,
+                palette: palette,
+                size: 30,
+              ),
               const SizedBox(width: 8),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
                 width: 110,
                 height: 10,
@@ -637,10 +703,282 @@ class _ProjectCardSkeleton extends StatelessWidget {
   }
 }
 
-class _ProfileSkeleton extends StatelessWidget {
-  const _ProfileSkeleton({required this.animation, required this.palette});
+class _MyProjectsSkeleton extends StatelessWidget {
+  const _MyProjectsSkeleton({required this.controller, required this.palette});
 
-  final Animation<double> animation;
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _SkeletonBox(
+                controller: controller,
+                palette: palette,
+                width: 170,
+                height: 20,
+              ),
+            ),
+            _SkeletonBox(
+              controller: controller,
+              palette: palette,
+              width: 44,
+              height: 40,
+              radius: 10,
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        ...List.generate(
+          3,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _ProjectCardSkeleton(
+              controller: controller,
+              palette: palette,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProjectDetailSkeleton extends StatelessWidget {
+  const _ProjectDetailSkeleton({
+    required this.controller,
+    required this.palette,
+  });
+
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 220,
+          height: 23,
+        ),
+        const SizedBox(height: 10),
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 100,
+          height: 25,
+          radius: 13,
+        ),
+        const SizedBox(height: 18),
+        _SkeletonCard(
+          controller: controller,
+          palette: palette,
+          child: _SkeletonTextBlock(
+            controller: controller,
+            palette: palette,
+            lines: 4,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SkeletonCard(
+          controller: controller,
+          palette: palette,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonBox(
+                controller: controller,
+                palette: palette,
+                width: 110,
+                height: 17,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _SkeletonCircle(
+                    controller: controller,
+                    palette: palette,
+                    size: 40,
+                  ),
+                  const SizedBox(width: 10),
+                  _SkeletonBox(
+                    controller: controller,
+                    palette: palette,
+                    width: 130,
+                    height: 11,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _SkeletonCircle(
+                    controller: controller,
+                    palette: palette,
+                    size: 40,
+                  ),
+                  const SizedBox(width: 10),
+                  _SkeletonBox(
+                    controller: controller,
+                    palette: palette,
+                    width: 155,
+                    height: 11,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProjectManageSkeleton extends StatelessWidget {
+  const _ProjectManageSkeleton({
+    required this.controller,
+    required this.palette,
+  });
+
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 200,
+          height: 22,
+        ),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Expanded(
+              child: _SkeletonBox(
+                controller: controller,
+                palette: palette,
+                height: 42,
+                radius: 10,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _SkeletonBox(
+                controller: controller,
+                palette: palette,
+                height: 42,
+                radius: 10,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _SkeletonCard(
+          controller: controller,
+          palette: palette,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonBox(
+                controller: controller,
+                palette: palette,
+                width: 130,
+                height: 16,
+              ),
+              const SizedBox(height: 16),
+              ...List.generate(
+                3,
+                (index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 13),
+                  child: Row(
+                    children: [
+                      _SkeletonCircle(
+                        controller: controller,
+                        palette: palette,
+                        size: 38,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          height: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProjectFormSkeleton extends StatelessWidget {
+  const _ProjectFormSkeleton({required this.controller, required this.palette});
+
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 180,
+          height: 22,
+        ),
+        const SizedBox(height: 22),
+        ...List.generate(
+          5,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _SkeletonBox(
+              controller: controller,
+              palette: palette,
+              height: index == 2 ? 110 : 48,
+              radius: 10,
+            ),
+          ),
+        ),
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 120,
+          height: 44,
+          radius: 10,
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileSkeleton extends StatelessWidget {
+  const _ProfileSkeleton({required this.controller, required this.palette});
+
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -650,41 +988,45 @@ class _ProfileSkeleton extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _SkeletonCard(
-          animation: animation,
+          controller: controller,
           palette: palette,
           child: Column(
             children: [
-              _SkeletonCircle(animation: animation, palette: palette, size: 86),
+              _SkeletonCircle(
+                controller: controller,
+                palette: palette,
+                size: 88,
+              ),
               const SizedBox(height: 14),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                width: 145,
-                height: 18,
+                width: 150,
+                height: 19,
               ),
-              const SizedBox(height: 9),
+              const SizedBox(height: 8),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
                 width: 200,
-                height: 11,
+                height: 10,
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _SkeletonBox(
-                    animation: animation,
+                    controller: controller,
                     palette: palette,
-                    width: 80,
+                    width: 82,
                     height: 32,
                     radius: 16,
                   ),
                   const SizedBox(width: 8),
                   _SkeletonBox(
-                    animation: animation,
+                    controller: controller,
                     palette: palette,
-                    width: 80,
+                    width: 82,
                     height: 32,
                     radius: 16,
                   ),
@@ -694,151 +1036,30 @@ class _ProfileSkeleton extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        _ProfileSectionSkeleton(
-          animation: animation,
-          palette: palette,
-          titleWidth: 100,
-        ),
-        const SizedBox(height: 14),
-        _ProfileSectionSkeleton(
-          animation: animation,
-          palette: palette,
-          titleWidth: 130,
-        ),
-        const SizedBox(height: 14),
-        _ProfileSectionSkeleton(
-          animation: animation,
-          palette: palette,
-          titleWidth: 85,
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileSectionSkeleton extends StatelessWidget {
-  const _ProfileSectionSkeleton({
-    required this.animation,
-    required this.palette,
-    required this.titleWidth,
-  });
-
-  final Animation<double> animation;
-  final AppPalette palette;
-  final double titleWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SkeletonCard(
-      animation: animation,
-      palette: palette,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SkeletonBox(
-            animation: animation,
-            palette: palette,
-            width: titleWidth,
-            height: 16,
-          ),
-          const SizedBox(height: 16),
-          _SkeletonBox(animation: animation, palette: palette, height: 10),
-          const SizedBox(height: 8),
-          _SkeletonBox(
-            animation: animation,
-            palette: palette,
-            width: 245,
-            height: 10,
-          ),
-          const SizedBox(height: 14),
-          _SkeletonBox(
-            animation: animation,
-            palette: palette,
-            width: 125,
-            height: 10,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoadmapSkeleton extends StatelessWidget {
-  const _RoadmapSkeleton({required this.animation, required this.palette});
-
-  final Animation<double> animation;
-  final AppPalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
-        _SkeletonBox(
-          animation: animation,
-          palette: palette,
-          width: 150,
-          height: 20,
-        ),
-        const SizedBox(height: 9),
-        _SkeletonBox(
-          animation: animation,
-          palette: palette,
-          width: 260,
-          height: 10,
-        ),
-        const SizedBox(height: 22),
         ...List.generate(
-          5,
+          3,
           (index) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  children: [
-                    _SkeletonCircle(
-                      animation: animation,
-                      palette: palette,
-                      size: 36,
-                    ),
-                    if (index != 4)
-                      Container(width: 2, height: 54, color: palette.surface2),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SkeletonCard(
-                    animation: animation,
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _SkeletonCard(
+              controller: controller,
+              palette: palette,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkeletonBox(
+                    controller: controller,
                     palette: palette,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SkeletonBox(
-                          animation: animation,
-                          palette: palette,
-                          width: 150,
-                          height: 15,
-                        ),
-                        const SizedBox(height: 10),
-                        _SkeletonBox(
-                          animation: animation,
-                          palette: palette,
-                          height: 10,
-                        ),
-                        const SizedBox(height: 7),
-                        _SkeletonBox(
-                          animation: animation,
-                          palette: palette,
-                          width: 190,
-                          height: 10,
-                        ),
-                      ],
-                    ),
+                    width: 110 + (index * 15),
+                    height: 16,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  _SkeletonTextBlock(
+                    controller: controller,
+                    palette: palette,
+                    lines: 3,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -848,9 +1069,9 @@ class _RoadmapSkeleton extends StatelessWidget {
 }
 
 class _SkillsSkeleton extends StatelessWidget {
-  const _SkillsSkeleton({required this.animation, required this.palette});
+  const _SkillsSkeleton({required this.controller, required this.palette});
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -859,37 +1080,42 @@ class _SkillsSkeleton extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        _SkeletonBox(
-          animation: animation,
-          palette: palette,
-          width: 140,
-          height: 20,
+        Row(
+          children: [
+            Expanded(
+              child: _SkeletonBox(
+                controller: controller,
+                palette: palette,
+                width: 150,
+                height: 20,
+              ),
+            ),
+            _SkeletonBox(
+              controller: controller,
+              palette: palette,
+              width: 42,
+              height: 40,
+              radius: 10,
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         Row(
           children: [
             _SkeletonBox(
-              animation: animation,
+              controller: controller,
               palette: palette,
               width: 82,
-              height: 32,
-              radius: 16,
+              height: 30,
+              radius: 15,
             ),
             const SizedBox(width: 8),
             _SkeletonBox(
-              animation: animation,
+              controller: controller,
               palette: palette,
-              width: 96,
-              height: 32,
-              radius: 16,
-            ),
-            const SizedBox(width: 8),
-            _SkeletonBox(
-              animation: animation,
-              palette: palette,
-              width: 75,
-              height: 32,
-              radius: 16,
+              width: 95,
+              height: 30,
+              radius: 15,
             ),
           ],
         ),
@@ -899,13 +1125,13 @@ class _SkillsSkeleton extends StatelessWidget {
           (index) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _SkeletonCard(
-              animation: animation,
+              controller: controller,
               palette: palette,
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
                   _SkeletonCircle(
-                    animation: animation,
+                    controller: controller,
                     palette: palette,
                     size: 42,
                   ),
@@ -915,27 +1141,20 @@ class _SkillsSkeleton extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _SkeletonBox(
-                          animation: animation,
+                          controller: controller,
                           palette: palette,
-                          width: 125,
+                          width: 130,
                           height: 14,
                         ),
                         const SizedBox(height: 8),
                         _SkeletonBox(
-                          animation: animation,
+                          controller: controller,
                           palette: palette,
-                          width: 190,
+                          width: 180,
                           height: 9,
                         ),
                       ],
                     ),
-                  ),
-                  _SkeletonBox(
-                    animation: animation,
-                    palette: palette,
-                    width: 45,
-                    height: 22,
-                    radius: 11,
                   ),
                 ],
               ),
@@ -948,9 +1167,9 @@ class _SkillsSkeleton extends StatelessWidget {
 }
 
 class _CareerSkeleton extends StatelessWidget {
-  const _CareerSkeleton({required this.animation, required this.palette});
+  const _CareerSkeleton({required this.controller, required this.palette});
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -960,44 +1179,44 @@ class _CareerSkeleton extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _SkeletonBox(
-          animation: animation,
+          controller: controller,
           palette: palette,
-          width: 180,
+          width: 175,
           height: 21,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 9),
         _SkeletonBox(
-          animation: animation,
+          controller: controller,
           palette: palette,
-          width: 275,
+          width: 270,
           height: 10,
         ),
         const SizedBox(height: 20),
         _SkeletonCard(
-          animation: animation,
+          controller: controller,
           palette: palette,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
                 width: 125,
                 height: 16,
               ),
               const SizedBox(height: 16),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                height: 44,
-                radius: 12,
+                height: 45,
+                radius: 11,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _SkeletonBox(
-                animation: animation,
+                controller: controller,
                 palette: palette,
-                height: 44,
-                radius: 12,
+                height: 45,
+                radius: 11,
               ),
             ],
           ),
@@ -1008,29 +1227,352 @@ class _CareerSkeleton extends StatelessWidget {
           (index) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _SkeletonCard(
-              animation: animation,
+              controller: controller,
               palette: palette,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SkeletonBox(
-                    animation: animation,
+                    controller: controller,
                     palette: palette,
-                    width: 150,
+                    width: 155,
                     height: 16,
                   ),
-                  const SizedBox(height: 10),
-                  _SkeletonBox(
-                    animation: animation,
+                  const SizedBox(height: 11),
+                  _SkeletonTextBlock(
+                    controller: controller,
                     palette: palette,
-                    height: 10,
+                    lines: 2,
                   ),
-                  const SizedBox(height: 7),
-                  _SkeletonBox(
-                    animation: animation,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoadmapSkeleton extends StatelessWidget {
+  const _RoadmapSkeleton({required this.controller, required this.palette});
+
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 150,
+          height: 21,
+        ),
+        const SizedBox(height: 9),
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 260,
+          height: 10,
+        ),
+        const SizedBox(height: 22),
+        ...List.generate(
+          5,
+          (index) => Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  _SkeletonCircle(
+                    controller: controller,
                     palette: palette,
-                    width: 220,
-                    height: 10,
+                    size: 36,
+                  ),
+                  if (index < 4)
+                    Container(width: 2, height: 62, color: palette.surface2),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _SkeletonCard(
+                    controller: controller,
+                    palette: palette,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          width: 150,
+                          height: 15,
+                        ),
+                        const SizedBox(height: 10),
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          height: 10,
+                        ),
+                        const SizedBox(height: 7),
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          width: 190,
+                          height: 10,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InvitesSkeleton extends StatelessWidget {
+  const _InvitesSkeleton({required this.controller, required this.palette});
+
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 150,
+          height: 21,
+        ),
+        const SizedBox(height: 18),
+        ...List.generate(
+          4,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _SkeletonCard(
+              controller: controller,
+              palette: palette,
+              child: Row(
+                children: [
+                  _SkeletonCircle(
+                    controller: controller,
+                    palette: palette,
+                    size: 48,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          width: 145,
+                          height: 14,
+                        ),
+                        const SizedBox(height: 8),
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          width: 190,
+                          height: 10,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _SkeletonBox(
+                              controller: controller,
+                              palette: palette,
+                              width: 70,
+                              height: 28,
+                              radius: 14,
+                            ),
+                            const SizedBox(width: 8),
+                            _SkeletonBox(
+                              controller: controller,
+                              palette: palette,
+                              width: 70,
+                              height: 28,
+                              radius: 14,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DiscussionSkeleton extends StatelessWidget {
+  const _DiscussionSkeleton({required this.controller, required this.palette});
+
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 180,
+          height: 21,
+        ),
+        const SizedBox(height: 18),
+        ...List.generate(
+          4,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _SkeletonCard(
+              controller: controller,
+              palette: palette,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkeletonCircle(
+                    controller: controller,
+                    palette: palette,
+                    size: 42,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          width: 130,
+                          height: 14,
+                        ),
+                        const SizedBox(height: 9),
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          height: 10,
+                        ),
+                        const SizedBox(height: 7),
+                        _SkeletonBox(
+                          controller: controller,
+                          palette: palette,
+                          width: 220,
+                          height: 10,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PostDetailSkeleton extends StatelessWidget {
+  const _PostDetailSkeleton({required this.controller, required this.palette});
+
+  final Animation<double> controller;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SkeletonCard(
+          controller: controller,
+          palette: palette,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _SkeletonCircle(
+                    controller: controller,
+                    palette: palette,
+                    size: 44,
+                  ),
+                  const SizedBox(width: 10),
+                  _SkeletonBox(
+                    controller: controller,
+                    palette: palette,
+                    width: 130,
+                    height: 13,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SkeletonBox(
+                controller: controller,
+                palette: palette,
+                width: 200,
+                height: 18,
+              ),
+              const SizedBox(height: 13),
+              _SkeletonTextBlock(
+                controller: controller,
+                palette: palette,
+                lines: 4,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SkeletonBox(
+          controller: controller,
+          palette: palette,
+          width: 100,
+          height: 17,
+        ),
+        const SizedBox(height: 12),
+        ...List.generate(
+          3,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _SkeletonCard(
+              controller: controller,
+              palette: palette,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkeletonCircle(
+                    controller: controller,
+                    palette: palette,
+                    size: 34,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _SkeletonTextBlock(
+                      controller: controller,
+                      palette: palette,
+                      lines: 2,
+                    ),
                   ),
                 ],
               ),
@@ -1044,11 +1586,11 @@ class _CareerSkeleton extends StatelessWidget {
 
 class _NotificationsSkeleton extends StatelessWidget {
   const _NotificationsSkeleton({
-    required this.animation,
+    required this.controller,
     required this.palette,
   });
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -1060,42 +1602,46 @@ class _NotificationsSkeleton extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         return _SkeletonCard(
-          animation: animation,
+          controller: controller,
           palette: palette,
           padding: const EdgeInsets.all(14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SkeletonCircle(animation: animation, palette: palette, size: 42),
+              _SkeletonCircle(
+                controller: controller,
+                palette: palette,
+                size: 42,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SkeletonBox(
-                      animation: animation,
+                      controller: controller,
                       palette: palette,
-                      width: 155,
+                      width: 150,
                       height: 13,
                     ),
                     const SizedBox(height: 8),
                     _SkeletonBox(
-                      animation: animation,
+                      controller: controller,
                       palette: palette,
                       height: 10,
                     ),
                     const SizedBox(height: 6),
                     _SkeletonBox(
-                      animation: animation,
+                      controller: controller,
                       palette: palette,
                       width: 200,
                       height: 10,
                     ),
-                    const SizedBox(height: 9),
+                    const SizedBox(height: 8),
                     _SkeletonBox(
-                      animation: animation,
+                      controller: controller,
                       palette: palette,
-                      width: 70,
+                      width: 65,
                       height: 8,
                     ),
                   ],
@@ -1110,9 +1656,9 @@ class _NotificationsSkeleton extends StatelessWidget {
 }
 
 class _ChatSkeleton extends StatelessWidget {
-  const _ChatSkeleton({required this.animation, required this.palette});
+  const _ChatSkeleton({required this.controller, required this.palette});
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -1123,8 +1669,8 @@ class _ChatSkeleton extends StatelessWidget {
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: _ChatBubbleSkeleton(
-            animation: animation,
+          child: _ChatBubble(
+            controller: controller,
             palette: palette,
             width: 250,
           ),
@@ -1132,8 +1678,8 @@ class _ChatSkeleton extends StatelessWidget {
         const SizedBox(height: 14),
         Align(
           alignment: Alignment.centerRight,
-          child: _ChatBubbleSkeleton(
-            animation: animation,
+          child: _ChatBubble(
+            controller: controller,
             palette: palette,
             width: 190,
           ),
@@ -1141,19 +1687,10 @@ class _ChatSkeleton extends StatelessWidget {
         const SizedBox(height: 14),
         Align(
           alignment: Alignment.centerLeft,
-          child: _ChatBubbleSkeleton(
-            animation: animation,
+          child: _ChatBubble(
+            controller: controller,
             palette: palette,
             width: 285,
-          ),
-        ),
-        const SizedBox(height: 14),
-        Align(
-          alignment: Alignment.centerRight,
-          child: _ChatBubbleSkeleton(
-            animation: animation,
-            palette: palette,
-            width: 220,
           ),
         ),
       ],
@@ -1161,14 +1698,14 @@ class _ChatSkeleton extends StatelessWidget {
   }
 }
 
-class _ChatBubbleSkeleton extends StatelessWidget {
-  const _ChatBubbleSkeleton({
-    required this.animation,
+class _ChatBubble extends StatelessWidget {
+  const _ChatBubble({
+    required this.controller,
     required this.palette,
     required this.width,
   });
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
   final double width;
 
@@ -1184,10 +1721,10 @@ class _ChatBubbleSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SkeletonBox(animation: animation, palette: palette, height: 10),
+          _SkeletonBox(controller: controller, palette: palette, height: 10),
           const SizedBox(height: 7),
           _SkeletonBox(
-            animation: animation,
+            controller: controller,
             palette: palette,
             width: width * 0.65,
             height: 10,
@@ -1199,9 +1736,9 @@ class _ChatBubbleSkeleton extends StatelessWidget {
 }
 
 class _GenericSkeleton extends StatelessWidget {
-  const _GenericSkeleton({required this.animation, required this.palette});
+  const _GenericSkeleton({required this.controller, required this.palette});
 
-  final Animation<double> animation;
+  final Animation<double> controller;
   final AppPalette palette;
 
   @override
@@ -1211,10 +1748,10 @@ class _GenericSkeleton extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _SkeletonBox(
-          animation: animation,
+          controller: controller,
           palette: palette,
           width: 180,
-          height: 20,
+          height: 21,
         ),
         const SizedBox(height: 18),
         ...List.generate(
@@ -1222,40 +1759,21 @@ class _GenericSkeleton extends StatelessWidget {
           (index) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _SkeletonCard(
-              animation: animation,
+              controller: controller,
               palette: palette,
               child: Row(
                 children: [
                   _SkeletonCircle(
-                    animation: animation,
+                    controller: controller,
                     palette: palette,
                     size: 44,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SkeletonBox(
-                          animation: animation,
-                          palette: palette,
-                          width: 145,
-                          height: 14,
-                        ),
-                        const SizedBox(height: 8),
-                        _SkeletonBox(
-                          animation: animation,
-                          palette: palette,
-                          height: 10,
-                        ),
-                        const SizedBox(height: 6),
-                        _SkeletonBox(
-                          animation: animation,
-                          palette: palette,
-                          width: 180,
-                          height: 10,
-                        ),
-                      ],
+                    child: _SkeletonTextBlock(
+                      controller: controller,
+                      palette: palette,
+                      lines: 3,
                     ),
                   ),
                 ],
