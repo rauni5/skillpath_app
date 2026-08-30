@@ -42,8 +42,13 @@ ParsedChatMessage parseChatActions(String content) {
 /// gets its own back arrow, same as everywhere else it's linked to).
 void navigateToChatAction(BuildContext context, String route) {
   if (kChatActionShellTabs.contains(route)) {
-    context.go(route);
+    goToShellRoute(context, route);
   } else {
     context.push(route);
   }
+}
+
+void goToShellRoute(BuildContext context, String route) {
+  Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+  context.go(route);
 }

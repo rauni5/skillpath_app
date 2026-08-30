@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../audio/sound_effects_service.dart';
 import '../../../core/models/skill_check_question.dart';
 import '../../../core/models/skill_check_result.dart';
 import '../../../core/network/api_exception.dart';
@@ -67,12 +68,14 @@ class SkillCheckProvider extends ChangeNotifier {
 
   void selectAnswer(int optionIndex) {
     answers[currentIndex] = optionIndex;
+    SoundEffectsService.instance.play(SoundEffect.buttonTap);
     notifyListeners();
   }
 
   void goNext() {
     if (currentIndex < questions.length - 1) {
       currentIndex++;
+      SoundEffectsService.instance.play(SoundEffect.buttonTap2);
       notifyListeners();
     }
   }
@@ -80,6 +83,7 @@ class SkillCheckProvider extends ChangeNotifier {
   void goBack() {
     if (currentIndex > 0) {
       currentIndex--;
+      SoundEffectsService.instance.play(SoundEffect.buttonTap);
       notifyListeners();
     }
   }
@@ -100,6 +104,9 @@ class SkillCheckProvider extends ChangeNotifier {
         answers: orderedAnswers,
       );
       phase = SkillCheckPhase.result;
+      SoundEffectsService.instance.play(
+        result!.passed ? SoundEffect.quizPass : SoundEffect.quizFail,
+      );
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message

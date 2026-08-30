@@ -36,7 +36,19 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
     final mgmt = context.watch<ProjectManagementProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Projects')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/projects');
+            }
+          },
+        ),
+        title: const Text('My Projects'),
+      ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         child: _buildBody(context, p, mgmt),
@@ -66,13 +78,50 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
             onRefresh: () async => _load(),
             child: ListView(
               children: [
-                const SizedBox(height: 100),
-                Icon(Icons.folder_off_outlined, size: 40, color: p.textMuted),
-                const SizedBox(height: 14),
+                const SizedBox(height: 90),
+                Center(
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: p.indigoLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.folder_off_outlined,
+                      size: 32,
+                      color: p.indigo,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
                 Text(
-                  "You don't own any projects yet.\nCreate one from the Projects tab.",
+                  "You don't own any projects yet",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: p.textMuted, fontSize: 13),
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Start one and build your team.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: p.textMuted, fontSize: 12.5),
+                ),
+                const SizedBox(height: 18),
+                Center(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    onPressed: () => context.push('/projects/new'),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Create a project'),
+                  ),
                 ),
               ],
             ),
@@ -89,7 +138,17 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
               final project = mgmt.ownedProjects[i];
               return ProjectCard(
                 project: project,
-                onTap: () => context.push('/projects/mine/${project.id}'),
+                onTap: () {
+                  final userId = context.read<AuthProvider>().currentUser?.id;
+
+                  final isMine = userId != null && userId == project.ownerId;
+
+                  context.push(
+                    isMine
+                        ? '/projects/mine/${project.id}'
+                        : '/projects/${project.id}',
+                  );
+                },
               );
             },
           ),

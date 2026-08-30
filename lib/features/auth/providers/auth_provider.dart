@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
 
 import '../../../core/models/user.dart';
 import '../../../core/network/api_exception.dart';
@@ -241,9 +242,21 @@ class AuthProvider extends ChangeNotifier {
     );
   });
 
+  Future<bool> uploadAvatar(XFile file) => _run(() async {
+    currentUser = await _repo.uploadAvatar(file);
+  });
+
+  final List<VoidCallback> _signOutListeners = [];
+  void registerSignOutListener(VoidCallback listener) {
+    _signOutListeners.add(listener);
+  }
+
   Future<void> signOut() async {
     await NotificationService.instance.handleSignOut();
     await _repo.signOut();
+    for (final listener in _signOutListeners) {
+      listener();
+    }
   }
 
   Future<bool> _run(Future<void> Function() action) async {

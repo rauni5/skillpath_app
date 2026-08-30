@@ -1,8 +1,10 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'features/audio/sound_effects_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
@@ -17,6 +19,7 @@ import 'features/career/providers/career_provider.dart';
 import 'features/dashboard/providers/dashboard_ai_provider.dart';
 import 'features/dashboard/providers/dashboard_provider.dart';
 import 'features/dashboard/providers/gamification_provider.dart';
+import 'features/notifications/providers/notifications_provider.dart';
 import 'features/notifications/data/notification_service.dart';
 import 'features/profile/providers/portfolio_provider.dart';
 import 'features/projects/providers/discussion_provider.dart';
@@ -33,6 +36,18 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.instance.initialize();
+  await AudioPlayer.global.setAudioContext(
+    AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: false,
+        stayAwake: false,
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.game,
+        audioFocus: AndroidAudioFocus.none,
+      ),
+    ),
+  );
+  await SoundEffectsService.instance.preload();
   runApp(const SkillPathApp());
 }
 
@@ -63,6 +78,7 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SkillCheckProvider()),
         ChangeNotifierProvider(create: (_) => DashboardAiProvider()),
         ChangeNotifierProvider(create: (_) => GamificationProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
         ChangeNotifierProvider(create: (_) => AssistantChatProvider()),
       ],
       child: const _RouterHost(),
@@ -83,7 +99,16 @@ class _RouterHostState extends State<_RouterHost> {
   @override
   void initState() {
     super.initState();
-    _router = buildRouter(context.read<AuthProvider>());
+    final auth = context.read<AuthProvider>();
+    _router = buildRouter(auth);
+    // Achievement "newly unlocked" tracking lives in GamificationProvider,
+    // which — like the other providers — is created once for the app's
+    // whole process lifetime, not per login. Without this, signing out and
+    // back in would diff fresh achievements against stale data from the
+    // previous session and re-show toasts for things already seen.
+    auth.registerSignOutListener(
+      () => context.read<GamificationProvider>().reset(),
+    );
   }
 
   @override

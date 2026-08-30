@@ -1,9 +1,18 @@
 import '../../../core/models/portfolio.dart';
+import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
 
 /// GET /api/v1/users/{userId}/portfolio
 class ProfileRepository {
   final ApiClient _api = ApiClient.instance;
+
+  /// GET /api/v1/users/{userId} — just the basics (name, avatarUrl,
+  Future<AppUser> getUser(int userId) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/users/$userId'),
+      (data) => AppUser.fromJson(data as Map<String, dynamic>),
+    );
+  }
 
   Future<PortfolioData> getPortfolio(int userId) {
     return _api.unwrap(

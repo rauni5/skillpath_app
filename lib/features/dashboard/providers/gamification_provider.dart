@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../audio/sound_effects_service.dart';
 import '../../../core/models/achievement.dart';
 import '../../../core/models/streak.dart';
 import '../../../core/network/api_exception.dart';
@@ -37,6 +38,10 @@ class GamificationProvider extends ChangeNotifier {
           ? _diffNewlyUnlocked(previous: achievements, fresh: freshAchievements)
           : [];
 
+      if (newlyUnlocked.isNotEmpty) {
+        SoundEffectsService.instance.play(SoundEffect.achievementUnlock);
+      }
+
       achievements = freshAchievements;
       streak = results[1] as Streak;
       state = GamificationLoadState.loaded;
@@ -66,6 +71,16 @@ class GamificationProvider extends ChangeNotifier {
   void clearNewlyUnlocked() {
     if (newlyUnlocked.isEmpty) return;
     newlyUnlocked = [];
+    notifyListeners();
+  }
+
+  void reset() {
+    state = GamificationLoadState.initial;
+    achievements = [];
+    streak = null;
+    errorMessage = null;
+    newlyUnlocked = [];
+    _hasLoadedOnce = false;
     notifyListeners();
   }
 }

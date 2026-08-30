@@ -6,6 +6,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../career/providers/career_provider.dart';
 import '../../career/widgets/role_card.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 
@@ -35,6 +36,10 @@ class _OnboardingGoalStepState extends State<OnboardingGoalStep> {
     HapticFeedback.selectionClick();
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
+
+    // Show the glow immediately, and hold for a beat before the network
+    // call — otherwise a fast response can move on to the next onboarding
+    // step before the highlight ever gets painted.
     setState(() {
       _isProcessing = true;
       _selectedRoleId = roleId;
@@ -53,9 +58,7 @@ class _OnboardingGoalStepState extends State<OnboardingGoalStep> {
         _selectedRoleId = null;
       });
       if (career.errorMessage != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(career.errorMessage!)));
+        showErrorDialog(context, career.errorMessage!);
       }
     }
   }

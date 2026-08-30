@@ -2,25 +2,32 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/models/portfolio.dart';
-import '../../../core/models/project.dart';
 import '../../../core/models/skill.dart';
 import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/animated_progress_bar.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/cv_generator.dart';
+import '../data/save_pdf.dart';
+import '../../../core/models/cv_checklist.dart';
 import '../providers/portfolio_provider.dart';
+import '../widgets/add_certification_sheet.dart';
+import '../widgets/add_education_sheet.dart';
+import '../widgets/cv_menu_button.dart';
+import '../widgets/portfolio_widgets.dart';
+import '../widgets/profile_incomplete_dialog.dart';
 
 class PortfolioScreen extends StatefulWidget {
-  const PortfolioScreen({super.key});
+  const PortfolioScreen({super.key, this.userId});
+  final int? userId;
 
   @override
   State<PortfolioScreen> createState() => _PortfolioScreenState();
@@ -30,14 +37,20 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     with WidgetsBindingObserver {
   bool _generatingCv = false;
   Timer? _refreshTimer;
+  bool _isSelf = true;
   static const _refreshInterval = Duration(seconds: 20);
+
+  int? get _targetUserId =>
+      widget.userId ?? context.read<AuthProvider>().currentUser?.id;
 
   @override
   void initState() {
     super.initState();
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    _isSelf = widget.userId == null || widget.userId == currentUserId;
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-    _startRefreshTimer();
+    if (_isSelf) _startRefreshTimer();
   }
 
   void _startRefreshTimer() {
@@ -47,7 +60,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Don't keep polling while the app is backgrounded.
+    if (!_isSelf) return;
     if (state == AppLifecycleState.resumed) {
       _load();
       _startRefreshTimer();
@@ -64,7 +77,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   }
 
   Future<void> _load() async {
-    final userId = context.read<AuthProvider>().currentUser?.id;
+    final userId = _targetUserId;
     if (userId == null) return;
     await context.read<PortfolioProvider>().load(userId);
   }
@@ -73,17 +86,26 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     setState(() => _generatingCv = true);
     try {
       final bytes = await buildCvPdf(data);
-      final fileName =
-          '${data.name.trim().isEmpty ? 'cv' : data.name.trim().replaceAll(' ', '_')}_CV.pdf';
-      await Printing.sharePdf(bytes: bytes, filename: fileName);
+      if (!mounted) return;
+      await savePdfBytes(context, bytes, cvFileName(data));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not generate your CV. Try again.')),
-      );
+      showErrorDialog(context, 'Could not generate your CV. Try again.');
     } finally {
       if (mounted) setState(() => _generatingCv = false);
     }
+  }
+
+  void _previewCv(PortfolioData data) {
+    context.push('/profile/cv-preview', extra: data);
+  }
+
+  Future<void> _handleCvTap(PortfolioData data) async {
+    if (isCvReady(data)) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ProfileIncompleteDialog(data: data),
+    );
   }
 
   @override
@@ -92,43 +114,53 @@ class _PortfolioScreenState extends State<PortfolioScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Portfolio'),
+        title: Text(_isSelf ? 'Profile' : (portfolio.data?.name ?? 'Profile')),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () => context.push('/profile/settings'),
-          ),
+          if (_isSelf && portfolio.data != null)
+            CvMenuButton(
+              data: portfolio.data!,
+              generating: _generatingCv,
+              onIncompleteTap: () => _handleCvTap(portfolio.data!),
+              onPreview: () => _previewCv(portfolio.data!),
+              onDownload: () => _downloadCv(portfolio.data!),
+            ),
+          if (_isSelf)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Settings',
+              onPressed: () => context.push('/profile/settings'),
+            ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: switch (portfolio.state) {
-          PortfolioLoadState.initial ||
-          PortfolioLoadState.loading => const LoadingView(),
-          PortfolioLoadState.error => ErrorView(
-            message: portfolio.errorMessage ?? 'Something went wrong.',
-            onRetry: _load,
-          ),
-          PortfolioLoadState.loaded => _PortfolioBody(
-            data: portfolio.data!,
-            generatingCv: _generatingCv,
-            onDownloadCv: () => _downloadCv(portfolio.data!),
-            onAddEducation: _addEducation,
-            onDeleteEducation: _deleteEducation,
-            onAddCertification: _addCertification,
-            onDeleteCertification: _deleteCertification,
-          ),
-        },
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: switch (portfolio.state) {
+            PortfolioLoadState.initial ||
+            PortfolioLoadState.loading => const LoadingView(),
+            PortfolioLoadState.error => ErrorView(
+              message: portfolio.errorMessage ?? 'Something went wrong.',
+              onRetry: _load,
+            ),
+            PortfolioLoadState.loaded => _PortfolioBody(
+              data: portfolio.data!,
+              isSelf: _isSelf,
+              onAddEducation: _addEducation,
+              onDeleteEducation: _deleteEducation,
+              onAddCertification: _addCertification,
+              onDeleteCertification: _deleteCertification,
+            ),
+          },
+        ),
       ),
     );
   }
 
   Future<void> _addEducation() async {
-    final result = await showModalBottomSheet<_NewEducation>(
+    final result = await showModalBottomSheet<NewEducation>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _AddEducationSheet(),
+      builder: (_) => const AddEducationSheet(),
     );
     if (result == null || !mounted) return;
 
@@ -143,9 +175,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not add education.')),
-      );
+      showErrorDialog(context, message ?? 'Could not add education.');
     }
   }
 
@@ -173,17 +203,15 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not remove education.')),
-      );
+      showErrorDialog(context, message ?? 'Could not remove education.');
     }
   }
 
   Future<void> _addCertification() async {
-    final result = await showModalBottomSheet<_NewCertification>(
+    final result = await showModalBottomSheet<NewCertification>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _AddCertificationSheet(),
+      builder: (_) => const AddCertificationSheet(),
     );
     if (result == null || !mounted) return;
 
@@ -196,9 +224,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not add certification.')),
-      );
+      showErrorDialog(context, message ?? 'Could not add certification.');
     }
   }
 
@@ -228,18 +254,15 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (!mounted) return;
     if (!ok) {
       final message = context.read<PortfolioProvider>().mutationError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message ?? 'Could not remove certification.')),
-      );
+      showErrorDialog(context, message ?? 'Could not remove certification.');
     }
   }
 }
 
-class _PortfolioBody extends StatelessWidget {
+class _PortfolioBody extends StatefulWidget {
   const _PortfolioBody({
     required this.data,
-    required this.generatingCv,
-    required this.onDownloadCv,
+    required this.isSelf,
     required this.onAddEducation,
     required this.onDeleteEducation,
     required this.onAddCertification,
@@ -247,369 +270,358 @@ class _PortfolioBody extends StatelessWidget {
   });
 
   final PortfolioData data;
-  final bool generatingCv;
-  final VoidCallback onDownloadCv;
+  final bool isSelf;
   final VoidCallback onAddEducation;
   final void Function(int eduId) onDeleteEducation;
   final VoidCallback onAddCertification;
   final void Function(int certId) onDeleteCertification;
 
   @override
+  State<_PortfolioBody> createState() => _PortfolioBodyState();
+}
+
+class _PortfolioBodyState extends State<_PortfolioBody> {
+  int _selectedTab = 0;
+
+  @override
   Widget build(BuildContext context) {
     final portfolio = context.watch<PortfolioProvider>();
     final p = AppPalette.of(context);
-    final skillsByCategory = <String, List<SkillWithProficiency>>{};
-    for (final s in data.skills) {
-      skillsByCategory.putIfAbsent(s.category.label, () => []).add(s);
-    }
+    final data = widget.data;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       children: [
-        // --- Header ---
-        SizedBox(
-          height: 132,
-          child: Stack(
-            clipBehavior: Clip.none,
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
             children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 92,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [p.indigo, p.indigoTint],
+              UserAvatar(
+                avatarUrl: data.avatarUrl,
+                initials: data.initials,
+                radius: 40,
+                ringColor: p.surface0,
+                ringWidth: 3,
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildStatColumn('${data.projects.length}', 'Projects', p),
+                    _buildStatColumn(
+                      '${data.education.length}',
+                      'Education',
+                      p,
                     ),
-                  ),
+                    _buildStatColumn(
+                      '${data.certifications.length}',
+                      'Certs',
+                      p,
+                    ),
+                  ],
                 ),
               ),
-              Positioned(
-                top: 52,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: p.surface0,
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data.name,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: p.textPrimary,
+                ),
+              ),
+              if (data.bio != null && data.bio!.trim().isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  data.bio!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: p.textSecondary,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    data.email,
+                    style: TextStyle(fontSize: 12, color: p.textMuted),
+                  ),
+                  if (data.phoneNumber != null &&
+                      data.phoneNumber!.trim().isNotEmpty)
+                    Text(
+                      '• ${data.phoneNumber!}',
+                      style: TextStyle(fontSize: 12, color: p.textMuted),
                     ),
-                    child: CircleAvatar(
-                      radius: 36,
-                      backgroundColor: p.indigoLight,
-                      child: Text(
-                        data.initials,
-                        style: TextStyle(
-                          color: p.indigo,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                  if (data.location != null && data.location!.trim().isNotEmpty)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.place_outlined,
+                          size: 12,
+                          color: p.textMuted,
                         ),
-                      ),
+                        const SizedBox(width: 2),
+                        Text(
+                          data.location!,
+                          style: TextStyle(fontSize: 12, color: p.textMuted),
+                        ),
+                      ],
                     ),
+                ],
+              ),
+              if ((data.githubUrl != null &&
+                      data.githubUrl!.trim().isNotEmpty) ||
+                  (data.linkedinUrl != null &&
+                      data.linkedinUrl!.trim().isNotEmpty))
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Wrap(
+                    spacing: 12,
+                    children: [
+                      if (data.githubUrl != null &&
+                          data.githubUrl!.trim().isNotEmpty)
+                        LinkChip(
+                          icon: Icons.code,
+                          label:
+                              extractProfileUsername(data.githubUrl) ??
+                              'GitHub',
+                          url: data.githubUrl!,
+                        ),
+                      if (data.linkedinUrl != null &&
+                          data.linkedinUrl!.trim().isNotEmpty)
+                        LinkChip(
+                          icon: Icons.business_center_outlined,
+                          label:
+                              extractProfileUsername(data.linkedinUrl) ??
+                              'LinkedIn',
+                          url: data.linkedinUrl!,
+                        ),
+                    ],
                   ),
                 ),
-              ),
             ],
           ),
         ),
         const SizedBox(height: 14),
-        Center(
-          child: Text(
-            data.name,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-              color: p.textPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 3),
-        Center(
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 6,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
             children: [
-              Text(
-                data.email,
-                style: TextStyle(fontSize: 12.5, color: p.textMuted),
-              ),
-              if (data.phoneNumber != null &&
-                  data.phoneNumber!.trim().isNotEmpty) ...[
-                Text('·', style: TextStyle(fontSize: 12.5, color: p.textMuted)),
-                Text(
-                  data.phoneNumber!,
-                  style: TextStyle(fontSize: 12.5, color: p.textMuted),
+              Expanded(
+                child: StatusPill(
+                  icon: Icons.bar_chart_rounded,
+                  label: _experienceLabel(data.experienceLevel),
+                  background: p.indigoLight,
+                  foreground: p.indigo,
                 ),
-              ],
-            ],
-          ),
-        ),
-        if (data.location != null && data.location!.trim().isNotEmpty) ...[
-          const SizedBox(height: 3),
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.place_outlined, size: 13, color: p.textMuted),
-                const SizedBox(width: 3),
-                Text(
-                  data.location!,
-                  style: TextStyle(fontSize: 12.5, color: p.textMuted),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: StatusPill(
+                  icon: data.availability
+                      ? Icons.check_circle
+                      : Icons.remove_circle_outline,
+                  label: data.availability ? 'Available' : 'Unavailable',
+                  background: data.availability ? p.greenLight : p.surface1,
+                  foreground: data.availability ? p.greenText : p.textSecondary,
                 ),
-              ],
-            ),
-          ),
-        ],
-        if ((data.githubUrl != null && data.githubUrl!.trim().isNotEmpty) ||
-            (data.linkedinUrl != null && data.linkedinUrl!.trim().isNotEmpty))
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Center(
-              child: Wrap(
-                spacing: 14,
-                alignment: WrapAlignment.center,
-                children: [
-                  if (data.githubUrl != null &&
-                      data.githubUrl!.trim().isNotEmpty)
-                    _LinkChip(
-                      icon: Icons.code,
-                      label: extractProfileUsername(data.githubUrl) ?? 'GitHub',
-                      url: data.githubUrl!,
-                    ),
-                  if (data.linkedinUrl != null &&
-                      data.linkedinUrl!.trim().isNotEmpty)
-                    _LinkChip(
-                      icon: Icons.business_center_outlined,
-                      label:
-                          extractProfileUsername(data.linkedinUrl) ??
-                          'LinkedIn',
-                      url: data.linkedinUrl!,
-                    ),
-                ],
-              ),
-            ),
-          ),
-        if (data.bio != null && data.bio!.trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(
-            data.bio!,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: p.textSecondary, height: 1.4),
-          ),
-        ],
-        const SizedBox(height: 16),
-        Center(
-          child: Wrap(
-            spacing: 8,
-            children: [
-              _StatusPill(
-                icon: Icons.bar_chart_rounded,
-                label: _experienceLabel(data.experienceLevel),
-                background: p.indigoLight,
-                foreground: p.indigo,
-              ),
-              _StatusPill(
-                icon: data.availability
-                    ? Icons.check_circle
-                    : Icons.remove_circle_outline,
-                label: data.availability ? 'Available' : 'Not available',
-                background: data.availability ? p.greenLight : p.surface1,
-                foreground: data.availability ? p.greenText : p.textSecondary,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              elevation: 0,
-            ),
-            onPressed: generatingCv ? null : onDownloadCv,
-            icon: generatingCv
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.download_outlined, size: 18),
-            label: Text(generatingCv ? 'Preparing CV…' : 'Download CV'),
-          ),
-        ),
-        const SizedBox(height: 28),
-
-        // --- Career goal progress ---
         if (data.careerGoalRoleName != null) ...[
-          SectionHeader(label: 'CAREER GOAL', icon: Icons.flag_outlined),
-          const SizedBox(height: 8),
-          _SectionCard(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data.careerGoalRoleName!,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: p.textPrimary,
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SectionCard(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.flag_outlined, size: 18, color: p.indigo),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Goal: ${data.careerGoalRoleName!}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: p.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          AnimatedProgressBar(
+                            value: data.careerProgressPercent / 100,
+                            backgroundColor: p.surface1,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  AnimatedProgressBar(
-                    value: data.careerProgressPercent / 100,
-                    backgroundColor: p.surface1,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${data.careerProgressPercent}% ready',
-                    style: TextStyle(fontSize: 11.5, color: p.textMuted),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-
-        // --- Skills ---
-        SectionHeader(label: 'SKILLS', icon: Icons.psychology_outlined),
-        const SizedBox(height: 8),
-        if (skillsByCategory.isEmpty)
-          _emptyCard(p, 'No skills added yet.')
-        else
-          _SectionCard(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final entry in skillsByCategory.entries) ...[
-                    if (entry.key != skillsByCategory.keys.first)
-                      const SizedBox(height: 12),
+                    const SizedBox(width: 10),
                     Text(
-                      entry.key,
+                      '${data.careerProgressPercent}%',
                       style: TextStyle(
                         fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
                         color: p.textMuted,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: entry.value
-                          .map((s) => _proficiencyChip(p, s))
-                          .toList(),
-                    ),
                   ],
-                ],
+                ),
               ),
             ),
           ),
-        const SizedBox(height: 24),
-
-        // --- Soft skills ---
-        if (data.softSkills.isNotEmpty) ...[
-          SectionHeader(label: 'SOFT SKILLS', icon: Icons.diversity_3_outlined),
-          const SizedBox(height: 8),
-          _SectionCard(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: data.softSkills
-                    .map(
-                      (s) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: p.surface1,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          s,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: p.textSecondary,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
         ],
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: p.border, width: 1),
+              bottom: BorderSide(color: p.border, width: 1),
+            ),
+          ),
+          child: Row(
+            children: [
+              _buildTabItem(0, Icons.grid_on_outlined, 'Projects', p),
+              _buildTabItem(1, Icons.school_outlined, 'Education', p),
+              _buildTabItem(2, Icons.verified_outlined, 'Certs', p),
+              _buildTabItem(3, Icons.psychology_outlined, 'Skills', p),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: switch (_selectedTab) {
+            0 => _buildProjectsTab(data, p),
+            1 => _buildEducationTab(data, portfolio, p),
+            2 => _buildCertificationsTab(data, portfolio, p),
+            3 => _buildSkillsTab(data, p),
+            _ => const SizedBox.shrink(),
+          },
+        ),
+      ],
+    );
+  }
 
-        // --- Projects ---
-        SectionHeader(label: 'PROJECTS', icon: Icons.groups_outlined),
-        const SizedBox(height: 8),
-        if (data.projects.isEmpty)
-          _emptyCard(
-            p,
-            'No projects yet — join or start one to build your portfolio.',
-          )
-        else
-          ...data.projects.map(
+  Widget _buildStatColumn(String count, String label, AppPalette p) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          count,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: p.textPrimary,
+          ),
+        ),
+        Text(label, style: TextStyle(fontSize: 12, color: p.textMuted)),
+      ],
+    );
+  }
+
+  Widget _buildTabItem(int index, IconData icon, String label, AppPalette p) {
+    final isSelected = _selectedTab == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedTab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? p.indigo : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: isSelected ? p.indigo : p.textMuted,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectsTab(PortfolioData data, AppPalette p) {
+    if (data.projects.isEmpty) {
+      return _emptyCard(
+        p,
+        'No projects yet — join or start one to build your portfolio.',
+      );
+    }
+    return Column(
+      children: data.projects
+          .map(
             (project) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _PortfolioProjectTile(
+              child: PortfolioProjectTile(
                 project: project,
                 onTap: () => context.push('/projects/${project.id}'),
               ),
             ),
-          ),
-        const SizedBox(height: 24),
+          )
+          .toList(),
+    );
+  }
 
-        // --- Education ---
+  Widget _buildEducationTab(
+    PortfolioData data,
+    PortfolioProvider portfolio,
+    AppPalette p,
+  ) {
+    return Column(
+      children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             SectionHeader(label: 'EDUCATION', icon: Icons.school_outlined),
-            IconButton(
-              icon: portfolio.mutating
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_circle_outline),
-              tooltip: 'Add education',
-              onPressed: portfolio.mutating ? null : onAddEducation,
-            ),
+            if (widget.isSelf)
+              IconButton(
+                icon: portfolio.mutating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_circle_outline),
+                tooltip: 'Add education',
+                onPressed: portfolio.mutating ? null : widget.onAddEducation,
+              ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         if (data.education.isEmpty)
           _emptyCard(
             p,
             'No education added yet — add a school or program to round out your CV.',
           )
         else
-          _SectionCard(
+          SectionCard(
             child: Column(
               children: [
                 for (final edu in data.education) ...[
@@ -656,8 +668,7 @@ class _PortfolioBody extends StatelessWidget {
                                 Text(
                                   edu.startDate == null
                                       ? 'Ongoing'
-                                      : '${_formatDate(edu.startDate!)} – '
-                                            '${edu.endDate == null ? 'Present' : _formatDate(edu.endDate!)}',
+                                      : '${_formatDate(edu.startDate!)} – ${edu.endDate == null ? 'Present' : _formatDate(edu.endDate!)}',
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     color: p.textMuted,
@@ -678,15 +689,16 @@ class _PortfolioBody extends StatelessWidget {
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            size: 19,
-                            color: p.textMuted,
+                        if (widget.isSelf)
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 19,
+                              color: p.textMuted,
+                            ),
+                            tooltip: 'Remove',
+                            onPressed: () => widget.onDeleteEducation(edu.id),
                           ),
-                          tooltip: 'Remove',
-                          onPressed: () => onDeleteEducation(edu.id),
-                        ),
                       ],
                     ),
                   ),
@@ -694,9 +706,17 @@ class _PortfolioBody extends StatelessWidget {
               ],
             ),
           ),
-        const SizedBox(height: 24),
+      ],
+    );
+  }
 
-        // --- Certifications ---
+  Widget _buildCertificationsTab(
+    PortfolioData data,
+    PortfolioProvider portfolio,
+    AppPalette p,
+  ) {
+    return Column(
+      children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -704,24 +724,32 @@ class _PortfolioBody extends StatelessWidget {
               label: 'CERTIFICATIONS',
               icon: Icons.verified_outlined,
             ),
-            IconButton(
-              icon: portfolio.mutating
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_circle_outline),
-              tooltip: 'Add certification',
-              onPressed: portfolio.mutating ? null : onAddCertification,
-            ),
+            if (widget.isSelf)
+              IconButton(
+                icon: portfolio.mutating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_circle_outline),
+                tooltip: 'Add certification',
+                onPressed: portfolio.mutating
+                    ? null
+                    : widget.onAddCertification,
+              ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         if (data.certifications.isEmpty)
-          _emptyCard(p, 'No certifications added yet.')
+          _emptyCard(
+            p,
+            widget.isSelf
+                ? 'No certifications added yet.'
+                : 'No certifications listed.',
+          )
         else
-          _SectionCard(
+          SectionCard(
             child: Column(
               children: [
                 for (final cert in data.certifications) ...[
@@ -765,20 +793,22 @@ class _PortfolioBody extends StatelessWidget {
                               if (cert.credentialUrl != null &&
                                   cert.credentialUrl!.isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                _InlineLink(url: cert.credentialUrl!),
+                                InlineLink(url: cert.credentialUrl!),
                               ],
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            size: 19,
-                            color: p.textMuted,
+                        if (widget.isSelf)
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 19,
+                              color: p.textMuted,
+                            ),
+                            tooltip: 'Remove',
+                            onPressed: () =>
+                                widget.onDeleteCertification(cert.id),
                           ),
-                          tooltip: 'Remove',
-                          onPressed: () => onDeleteCertification(cert.id),
-                        ),
                       ],
                     ),
                   ),
@@ -786,7 +816,93 @@ class _PortfolioBody extends StatelessWidget {
               ],
             ),
           ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildSkillsTab(PortfolioData data, AppPalette p) {
+    final skillsByCategory = <String, List<SkillWithProficiency>>{};
+    for (final s in data.skills) {
+      skillsByCategory.putIfAbsent(s.category.label, () => []).add(s);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          label: 'TECHNICAL SKILLS',
+          icon: Icons.psychology_outlined,
+        ),
+        const SizedBox(height: 8),
+        if (skillsByCategory.isEmpty)
+          _emptyCard(p, 'No skills added yet.')
+        else
+          SectionCard(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final entry in skillsByCategory.entries) ...[
+                    if (entry.key != skillsByCategory.keys.first)
+                      const SizedBox(height: 12),
+                    Text(
+                      entry.key,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: entry.value
+                          .map((s) => _proficiencyChip(p, s))
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        if (data.softSkills.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          SectionHeader(label: 'SOFT SKILLS', icon: Icons.diversity_3_outlined),
+          const SizedBox(height: 8),
+          SectionCard(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: data.softSkills
+                    .map(
+                      (s) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.surface1,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          s,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: p.textSecondary,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -810,7 +926,7 @@ class _PortfolioBody extends StatelessWidget {
   }
 
   Widget _emptyCard(AppPalette p, String message) {
-    return _SectionCard(
+    return SectionCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
@@ -849,662 +965,5 @@ class _PortfolioBody extends StatelessWidget {
       case ExperienceLevel.advanced:
         return 'Advanced';
     }
-  }
-}
-
-// --- Add education ---
-
-class _NewEducation {
-  _NewEducation({
-    required this.institution,
-    this.degree,
-    this.fieldOfStudy,
-    this.startDate,
-    this.endDate,
-    this.description,
-  });
-  final String institution;
-  final String? degree;
-  final String? fieldOfStudy;
-  final DateTime? startDate;
-  final DateTime? endDate;
-  final String? description;
-}
-
-class _AddEducationSheet extends StatefulWidget {
-  const _AddEducationSheet();
-
-  @override
-  State<_AddEducationSheet> createState() => _AddEducationSheetState();
-}
-
-class _AddEducationSheetState extends State<_AddEducationSheet> {
-  final _institutionController = TextEditingController();
-  final _degreeController = TextEditingController();
-  final _fieldController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  DateTime? _startDate;
-  DateTime? _endDate;
-  bool _ongoing = false;
-
-  @override
-  void dispose() {
-    _institutionController.dispose();
-    _degreeController.dispose();
-    _fieldController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate({required bool isStart}) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: (isStart ? _startDate : _endDate) ?? now,
-      firstDate: DateTime(1970),
-      lastDate: now,
-    );
-    if (picked == null) return;
-    setState(() {
-      if (isStart) {
-        _startDate = picked;
-      } else {
-        _endDate = picked;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Add education',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _institutionController,
-            maxLength: 200,
-            decoration: const InputDecoration(
-              labelText: 'Institution',
-              hintText: 'University of Example',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _degreeController,
-            maxLength: 150,
-            decoration: const InputDecoration(
-              labelText: 'Degree',
-              hintText: 'B.Sc.',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _fieldController,
-            maxLength: 150,
-            decoration: const InputDecoration(
-              labelText: 'Field of study',
-              hintText: 'Computer Science',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _pickDate(isStart: true),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Start date',
-                      border: OutlineInputBorder(),
-                    ),
-                    child: Text(
-                      _startDate == null ? 'Select' : _formatYmd(_startDate!),
-                      style: TextStyle(
-                        color: _startDate == null ? p.textMuted : p.textPrimary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: InkWell(
-                  onTap: _ongoing ? null : () => _pickDate(isStart: false),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'End date',
-                      border: const OutlineInputBorder(),
-                      enabled: !_ongoing,
-                    ),
-                    child: Text(
-                      _ongoing
-                          ? 'Present'
-                          : (_endDate == null
-                                ? 'Select'
-                                : _formatYmd(_endDate!)),
-                      style: TextStyle(
-                        color: _endDate == null && !_ongoing
-                            ? p.textMuted
-                            : p.textPrimary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          CheckboxListTile(
-            value: _ongoing,
-            onChanged: (v) => setState(() {
-              _ongoing = v ?? false;
-              if (_ongoing) _endDate = null;
-            }),
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: const Text(
-              "I'm currently studying here",
-              style: TextStyle(fontSize: 13),
-            ),
-          ),
-          TextField(
-            controller: _descriptionController,
-            maxLines: 3,
-            maxLength: 2000,
-            decoration: const InputDecoration(
-              labelText: 'Description (optional)',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(onPressed: _submit, child: const Text('Add')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatYmd(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
-
-  void _submit() {
-    final institution = _institutionController.text.trim();
-    final degree = _degreeController.text.trim();
-    final field = _fieldController.text.trim();
-    if (institution.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Institution name is required.')),
-      );
-      return;
-    }
-    if (degree.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Degree name is required.')));
-      return;
-    }
-    if (field.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Field name is required.')));
-      return;
-    }
-    Navigator.of(context).pop(
-      _NewEducation(
-        institution: institution,
-        degree: degree,
-        fieldOfStudy: field,
-        startDate: _startDate,
-        endDate: _ongoing ? null : _endDate,
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-      ),
-    );
-  }
-}
-
-/// Small tappable pill for an external profile link
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: p.border, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: p.indigo.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-}
-
-/// Small icon + label pill used for the experience-level and
-/// availability indicators under the profile header.
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({
-    required this.icon,
-    required this.label,
-    required this.background,
-    required this.foreground,
-  });
-  final IconData icon;
-  final String label;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: foreground),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: foreground,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LinkChip extends StatelessWidget {
-  const _LinkChip({required this.icon, required this.label, required this.url});
-  final IconData icon;
-  final String label;
-  final String url;
-
-  Future<void> _open(BuildContext context) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !await canLaunchUrl(uri)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not open $label link.')));
-      }
-      return;
-    }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return InkWell(
-      onTap: () => _open(context),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: p.indigo),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: p.indigo,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A project card for the Portfolio screen
-class _PortfolioProjectTile extends StatelessWidget {
-  const _PortfolioProjectTile({required this.project, required this.onTap});
-  final Project project;
-  final VoidCallback onTap;
-
-  Future<void> _openLink(BuildContext context) async {
-    final link = project.link;
-    if (link == null || link.trim().isEmpty) return;
-    final uri = Uri.tryParse(link);
-    if (uri == null || !await canLaunchUrl(uri)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open that link.')),
-        );
-      }
-      return;
-    }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  Widget _statusBadge(AppPalette p) {
-    final (bg, fg, label) = switch (project.status) {
-      ProjectStatus.open => (p.greenLight, p.greenText, 'Open'),
-      ProjectStatus.full => (p.amberLight, p.amberText, 'Full'),
-      ProjectStatus.completed => (p.surface1, p.textSecondary, 'Completed'),
-      ProjectStatus.cancelled => (p.redLight, p.red, 'Cancelled'),
-      ProjectStatus.unknown => (p.surface1, p.textSecondary, '—'),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final hasLink = project.link != null && project.link!.trim().isNotEmpty;
-
-    return _SectionCard(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: hasLink
-                        ? InkWell(
-                            onTap: () => _openLink(context),
-                            child: Text(
-                              project.name,
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                                color: p.indigo,
-                                decoration: TextDecoration.underline,
-                                decorationColor: p.indigo,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          )
-                        : Text(
-                            project.name,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: p.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                  ),
-                  const SizedBox(width: 8),
-                  _statusBadge(p),
-                ],
-              ),
-              if (project.description != null &&
-                  project.description!.trim().isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  project.description!,
-                  style: TextStyle(fontSize: 12, color: p.textMuted),
-                ),
-              ],
-              if (project.requiredSkills.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'Technologies used: ',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: p.textSecondary,
-                        ),
-                      ),
-                      TextSpan(
-                        text: project.requiredSkills
-                            .map((s) => s.name)
-                            .join(', '),
-                        style: TextStyle(fontSize: 11.5, color: p.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Inline tappable URL text, used for the certification credential link.
-class _InlineLink extends StatelessWidget {
-  const _InlineLink({required this.url});
-  final String url;
-
-  Future<void> _open(BuildContext context) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !await canLaunchUrl(uri)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open that link.')),
-        );
-      }
-      return;
-    }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return InkWell(
-      onTap: () => _open(context),
-      child: Text(
-        extractProfileUsername(url) ?? url,
-        style: TextStyle(fontSize: 12, color: p.indigo),
-      ),
-    );
-  }
-}
-
-//add certification
-
-class _NewCertification {
-  _NewCertification({
-    required this.name,
-    this.issuer,
-    this.credentialUrl,
-    this.earnedOn,
-  });
-  final String name;
-  final String? issuer;
-  final String? credentialUrl;
-  final DateTime? earnedOn;
-}
-
-class _AddCertificationSheet extends StatefulWidget {
-  const _AddCertificationSheet();
-
-  @override
-  State<_AddCertificationSheet> createState() => _AddCertificationSheetState();
-}
-
-class _AddCertificationSheetState extends State<_AddCertificationSheet> {
-  final _nameController = TextEditingController();
-  final _issuerController = TextEditingController();
-  final _urlController = TextEditingController();
-  DateTime? _earnedOn;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _issuerController.dispose();
-    _urlController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _earnedOn ?? now,
-      firstDate: DateTime(1990),
-      lastDate: now,
-    );
-    if (picked != null) setState(() => _earnedOn = picked);
-  }
-
-  void _submit() {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Certification name is required.')),
-      );
-      return;
-    }
-    Navigator.of(context).pop(
-      _NewCertification(
-        name: name,
-        issuer: _issuerController.text.trim().isEmpty
-            ? null
-            : _issuerController.text.trim(),
-        credentialUrl: _urlController.text.trim().isEmpty
-            ? null
-            : _urlController.text.trim(),
-        earnedOn: _earnedOn,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Add certification',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameController,
-            maxLength: 200,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              hintText: 'AWS Certified Cloud Practitioner',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _issuerController,
-            maxLength: 200,
-            decoration: const InputDecoration(
-              labelText: 'Issuer (optional)',
-              hintText: 'Amazon Web Services',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _urlController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'Credential link (optional)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: _pickDate,
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Date earned (optional)',
-                border: OutlineInputBorder(),
-              ),
-              child: Text(
-                _earnedOn == null
-                    ? 'Select a date'
-                    : '${_earnedOn!.year}-${_earnedOn!.month.toString().padLeft(2, '0')}-${_earnedOn!.day.toString().padLeft(2, '0')}',
-                style: TextStyle(
-                  color: _earnedOn == null ? p.textMuted : p.textPrimary,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(onPressed: _submit, child: const Text('Add')),
-          ),
-        ],
-      ),
-    );
   }
 }

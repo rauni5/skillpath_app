@@ -45,24 +45,20 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
 
   void _load() {
     final userId = context.read<AuthProvider>().currentUser?.id;
-    if (userId != null) {
-      context
-          .read<TutorChatProvider>()
-          .loadHistory(userId, widget.skillId)
-          .then((_) {
-            _scrollToBottom();
-            final chat = context.read<TutorChatProvider>();
-            if (chat.messages.isEmpty && chat.state == ChatLoadState.loaded) {
-              chat
-                  .startConversationIfEmpty(
-                    userId,
-                    widget.skillId,
-                    widget.skillName,
-                  )
-                  .then((_) => _scrollToBottom());
-            }
-          });
-    }
+    if (userId == null) return;
+    final chat = context.read<TutorChatProvider>();
+
+    chat.loadHistory(userId, widget.skillId).then((_) {
+      if (!mounted) return;
+      _scrollToBottom();
+      if (chat.messages.isEmpty && chat.state == ChatLoadState.loaded) {
+        chat
+            .startConversationIfEmpty(userId, widget.skillId, widget.skillName)
+            .then((_) {
+              if (mounted) _scrollToBottom();
+            });
+      }
+    });
   }
 
   void _scrollToBottom() {

@@ -3,9 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../career/providers/career_provider.dart';
-import '../../skills/providers/skills_provider.dart';
 import '../providers/project_management_provider.dart';
+import '../widgets/skill_picker_field.dart';
 
 class EditProjectScreen extends StatefulWidget {
   const EditProjectScreen({super.key, required this.projectId});
@@ -21,7 +22,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   final _nameCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
   final _linkCtrl = TextEditingController();
-  final _skillSearchCtrl = TextEditingController();
   String? _difficulty;
   int _teamSize = 3;
   final Set<int> _selectedSkillIds = {};
@@ -34,8 +34,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final skills = context.read<SkillsProvider>();
-      if (skills.catalog.isEmpty) skills.loadCatalog();
       final career = context.read<CareerProvider>();
       if (career.roles.isEmpty) career.loadRoles();
 
@@ -73,7 +71,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     _nameCtrl.dispose();
     _descriptionCtrl.dispose();
     _linkCtrl.dispose();
-    _skillSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -94,9 +91,11 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
     if (ok) {
       context.pop();
     } else if (mgmt.updateError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(mgmt.updateError!)));
+        mgmt.updateError!,
+        title: 'Failed to update project',
+      );
     }
   }
 
@@ -104,7 +103,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final mgmt = context.watch<ProjectManagementProvider>();
-    final skills = context.watch<SkillsProvider>();
     final career = context.watch<CareerProvider>();
 
     if (!_prefilled) {
@@ -116,19 +114,31 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-
-    final filteredCatalog = _skillSearchCtrl.text.trim().isEmpty
-        ? skills.catalog
-        : skills.catalog
-              .where(
-                (s) => s.name.toLowerCase().contains(
-                  _skillSearchCtrl.text.trim().toLowerCase(),
-                ),
-              )
-              .toList();
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit project')),
+      appBar: AppBar(
+        title: const Text('Edit project'),
+        actions: [
+          if (mgmt.isUpdating)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _submit,
+              child: Text(
+                'Save',
+                style: TextStyle(fontWeight: FontWeight.bold, color: p.indigo),
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -147,9 +157,12 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                 controller: _descriptionCtrl,
                 maxLines: 4,
                 decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
+                  labelText: 'Description',
                   alignLabelWithHint: true,
                 ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Add a description so people know what this project is'
+                    : null,
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -214,35 +227,43 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _teamSize > 1
-                            ? () => setState(() => _teamSize--)
-                            : null,
-                        icon: const Icon(Icons.remove_circle_outline),
-                        iconSize: 22,
-                      ),
-                      SizedBox(
-                        width: 28,
-                        child: Text(
-                          '$_teamSize',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: p.textPrimary,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: p.surface2,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: p.border),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: _teamSize > 1
+                              ? () => setState(() => _teamSize--)
+                              : null,
+                          icon: const Icon(Icons.remove_circle_outline),
+                          iconSize: 22,
+                        ),
+                        SizedBox(
+                          width: 28,
+                          child: Text(
+                            '$_teamSize',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: p.textPrimary,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: _teamSize < 20
-                            ? () => setState(() => _teamSize++)
-                            : null,
-                        icon: const Icon(Icons.add_circle_outline),
-                        iconSize: 22,
-                      ),
-                    ],
+                        IconButton(
+                          onPressed: _teamSize < 20
+                              ? () => setState(() => _teamSize++)
+                              : null,
+                          icon: const Icon(Icons.add_circle_outline),
+                          iconSize: 22,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -257,51 +278,14 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: _skillSearchCtrl,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  hintText: 'Search skills…',
-                  prefixIcon: Icon(Icons.search, size: 20),
-                  isDense: true,
-                ),
+              SkillPickerField(
+                selectedSkillIds: _selectedSkillIds,
+                onChanged: (ids) => setState(() {
+                  _selectedSkillIds
+                    ..clear()
+                    ..addAll(ids);
+                }),
               ),
-              const SizedBox(height: 10),
-              if (skills.catalogState == SkillsLoadState.loading)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: p.indigo,
-                    ),
-                  ),
-                )
-              else
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: filteredCatalog.map((s) {
-                    final selected = _selectedSkillIds.contains(s.id);
-                    return FilterChip(
-                      label: Text(s.name),
-                      selected: selected,
-                      onSelected: (v) => setState(() {
-                        if (v) {
-                          _selectedSkillIds.add(s.id);
-                        } else {
-                          _selectedSkillIds.remove(s.id);
-                        }
-                      }),
-                      selectedColor: p.indigoLight,
-                      labelStyle: TextStyle(
-                        fontSize: 12,
-                        color: selected ? p.indigo : p.textSecondary,
-                      ),
-                      side: BorderSide(color: selected ? p.indigo : p.border),
-                    );
-                  }).toList(),
-                ),
               const SizedBox(height: 18),
               Text(
                 'REQUIRED ROLES (optional)',
@@ -349,24 +333,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> {
                   }).toList(),
                 ),
               const SizedBox(height: 28),
-              FilledButton(
-                onPressed: mgmt.isUpdating ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: p.indigo,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: mgmt.isUpdating
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Save changes'),
-              ),
             ],
           ),
         ),

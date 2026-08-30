@@ -49,7 +49,7 @@ class CareerRepository {
     return _api.unwrap(
       (dio) => dio.post(
         '/api/v1/users/$userId/career-goal',
-        data: {'roleId': roleId, if (branchId != null) 'branchId': branchId},
+        data: {'roleId': roleId, 'branchId': ?branchId},
       ),
       (_) {},
     );

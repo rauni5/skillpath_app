@@ -3,6 +3,7 @@ import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:skillpath_app/shared/widgets/app_dialogs.dart';
 
 import '../../../core/models/project.dart';
 import '../../../core/models/project_member.dart';
@@ -10,6 +11,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../dashboard/widgets/skill_chip.dart';
 import '../providers/project_management_provider.dart';
@@ -40,14 +42,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final projects = context.read<ProjectsProvider>();
     final ok = await projects.joinProject(widget.projectId);
     if (!ok && mounted && projects.detailError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(projects.detailError!)));
+        projects.detailError!,
+        title: 'Failed to send request',
+      );
     } else if (ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("You're in! Request sent to the project owner."),
-        ),
+      showInfoDialog(
+        context,
+        title: 'Request Sent',
+        message: "Request sent to the project owner.",
       );
     }
   }
@@ -66,21 +70,22 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         widget.projectId,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(accept ? "You're on the team!" : 'Invite declined.'),
-        ),
+      showInfoDialog(
+        context,
+        title: 'Invite Response',
+        message: accept ? "You're on the team!" : 'Invite declined.',
       );
     } else if (mgmt.myInvitesError != null) {
-      ScaffoldMessenger.of(
+      showErrorDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text(mgmt.myInvitesError!)));
+        mgmt.myInvitesError!,
+        title: 'Failed to respond to invite',
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
     final projects = context.watch<ProjectsProvider>();
     final project = projects.selectedProject;
     final myId = context.watch<AuthProvider>().currentUser?.id;
@@ -91,7 +96,18 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Project'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/projects');
+            }
+          },
+        ),
+        title: const Text('Project Overview'),
+        centerTitle: true,
         actions: [
           if (project != null)
             IconButton(
@@ -104,18 +120,18 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _buildBody(context, p, projects),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: _buildBody(context, projects),
+        ),
       ),
     );
   }
 
-  Widget _buildBody(
-    BuildContext context,
-    AppPalette p,
-    ProjectsProvider projects,
-  ) {
+  Widget _buildBody(BuildContext context, ProjectsProvider projects) {
+    final p = AppPalette.of(context);
+
     switch (projects.detailState) {
       case ProjectDetailLoadState.initial:
       case ProjectDetailLoadState.loading:
@@ -133,122 +149,177 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         final canJoin =
             project.status == ProjectStatus.open && viewerStatus == null;
 
-        return ListView(
-          key: const ValueKey('loaded'),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        return Column(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    project.name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: p.textPrimary,
-                    ),
+            Expanded(
+              child: ListView(
+                key: const ValueKey('loaded'),
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          project.name,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: p.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _statusBadge(p, project.status),
+                    ],
                   ),
-                ),
-                _statusBadge(p, project.status),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                DifficultyBadge(difficulty: project.difficulty),
-                const SizedBox(width: 8),
-                Icon(Icons.groups_outlined, size: 14, color: p.textMuted),
-                const SizedBox(width: 4),
-                Text(
-                  'Team of ${project.teamSize}',
-                  style: TextStyle(fontSize: 12, color: p.textMuted),
-                ),
-              ],
-            ),
-            if (project.description != null &&
-                project.description!.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(
-                project.description!,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: p.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ],
-            if (project.link != null && project.link!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _LinkRow(link: project.link!),
-            ],
-            const SizedBox(height: 20),
-            SectionHeader(
-              label: 'REQUIRED SKILLS',
-              icon: Icons.checklist_outlined,
-            ),
-            const SizedBox(height: 8),
-            if (project.requiredSkills.isEmpty)
-              Text(
-                'No specific skills listed.',
-                style: TextStyle(fontSize: 12.5, color: p.textMuted),
-              )
-            else
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: project.requiredSkills
-                    .map((s) => SkillChipWidget(skill: s))
-                    .toList(),
-              ),
-            if (project.requiredRoles.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              SectionHeader(label: 'TARGET ROLES', icon: Icons.badge_outlined),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: project.requiredRoles.map((r) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: p.indigoLight,
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      DifficultyBadge(difficulty: project.difficulty),
+                      const SizedBox(width: 12),
+                      Icon(Icons.groups_outlined, size: 16, color: p.textMuted),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Team of ${project.teamSize}',
+                        style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                      ),
+                    ],
+                  ),
+                  if (project.ownerName != null &&
+                      project.ownerName!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    InkWell(
                       borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      r.name,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: p.indigo,
-                        fontWeight: FontWeight.w600,
+                      onTap: () =>
+                          context.push('/users/${project.ownerId}/portfolio'),
+                      child: Row(
+                        children: [
+                          UserAvatar(
+                            avatarUrl: project.ownerAvatarUrl,
+                            initials: project.ownerInitials,
+                            radius: 12,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            project.ownerName!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: p.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '· Owner',
+                            style: TextStyle(fontSize: 12, color: p.textMuted),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: _joinButton(p, project, viewerStatus, canJoin, isPending),
-            ),
-            if (viewerStatus == MemberStatus.accepted) ...[
-              const SizedBox(height: 28),
-              SectionHeader(label: 'TEAM', icon: Icons.groups_2_outlined),
-              const SizedBox(height: 10),
-              if (projects.teamLoading)
-                Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: p.indigo,
+                  ],
+                  if (project.description != null &&
+                      project.description!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      project.description!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: p.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  if (project.link != null && project.link!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _LinkRow(link: project.link!),
+                  ],
+                  const SizedBox(height: 20),
+                  const SectionHeader(
+                    label: 'REQUIRED SKILLS',
+                    icon: Icons.checklist_outlined,
                   ),
-                )
-              else
-                ...projects.team.map((m) => _TeamMemberTile(member: m)),
-            ],
+                  const SizedBox(height: 8),
+                  project.requiredSkills.isEmpty
+                      ? Text(
+                          'No specific skills listed.',
+                          style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                        )
+                      : Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: project.requiredSkills
+                              .map((s) => SkillChipWidget(skill: s))
+                              .toList(),
+                        ),
+                  if (project.requiredRoles.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: project.requiredRoles.map((r) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: p.indigoLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            r.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: p.indigo,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  if (viewerStatus == MemberStatus.accepted) ...[
+                    const SizedBox(height: 24),
+                    const SectionHeader(
+                      label: 'TEAM MEMBERS',
+                      icon: Icons.groups_2_outlined,
+                    ),
+                    const SizedBox(height: 8),
+                    projects.teamLoading
+                        ? Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: p.indigo,
+                            ),
+                          )
+                        : Column(
+                            children: projects.team
+                                .map((m) => _TeamMemberTile(member: m))
+                                .toList(),
+                          ),
+                  ],
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: p.surface1,
+                border: Border(top: BorderSide(color: p.border)),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: _joinButton(
+                  p,
+                  project,
+                  viewerStatus,
+                  canJoin,
+                  isPending,
+                ),
+              ),
+            ),
           ],
         );
     }
@@ -266,13 +337,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         return OutlinedButton.icon(
           onPressed: null,
           icon: Icon(Icons.check_circle, color: p.green, size: 18),
-          label: const Text('Accepted'),
+          label: const Text('Accepted Member'),
         );
       case MemberStatus.rejected:
         return OutlinedButton.icon(
           onPressed: null,
           icon: Icon(Icons.cancel_outlined, color: p.red, size: 18),
-          label: const Text('Request rejected'),
+          label: const Text('Request Rejected'),
         );
       case MemberStatus.pending:
         if (project.viewerInvitedByOwner) {
@@ -303,7 +374,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     backgroundColor: p.indigo,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Accept invite'),
+                  child: const Text('Accept Invite'),
                 ),
               ),
             ],
@@ -312,7 +383,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         return OutlinedButton.icon(
           onPressed: null,
           icon: Icon(Icons.hourglass_empty, color: p.textMuted, size: 18),
-          label: const Text('Request sent'),
+          label: const Text('Request Sent'),
         );
       case MemberStatus.unknown:
       case null:
@@ -333,8 +404,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 )
               : Text(
                   project.status == ProjectStatus.open
-                      ? 'Join this project'
-                      : 'Not accepting members',
+                      ? 'Join Project'
+                      : 'Not Accepting Members',
                 ),
         );
     }
@@ -349,14 +420,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       ProjectStatus.unknown => (p.surface1, p.textSecondary, '—'),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
-        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w600),
+        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -371,12 +442,12 @@ class _LinkRow extends StatelessWidget {
     final p = AppPalette.of(context);
     return Row(
       children: [
-        Icon(Icons.link, size: 14, color: p.textMuted),
-        const SizedBox(width: 6),
+        Icon(Icons.link, size: 16, color: p.indigo),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             link,
-            style: TextStyle(fontSize: 12.5, color: p.indigo),
+            style: TextStyle(fontSize: 13, color: p.indigo),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -385,9 +456,11 @@ class _LinkRow extends StatelessWidget {
           icon: Icon(Icons.copy, size: 16, color: p.textMuted),
           onPressed: () {
             Clipboard.setData(ClipboardData(text: link));
-            ScaffoldMessenger.of(
+            showInfoDialog(
               context,
-            ).showSnackBar(const SnackBar(content: Text('Link copied.')));
+              title: 'Link Copied',
+              message: 'The project link has been copied to your clipboard.',
+            );
           },
         ),
       ],
@@ -412,39 +485,33 @@ class _TeamMemberTile extends StatelessWidget {
               .join()
               .toUpperCase();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: p.border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: p.indigoLight,
-            child: Text(
-              initials,
-              style: TextStyle(
-                color: p.indigo,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+          GestureDetector(
+            onTap: () => context.push('/users/${member.userId}/portfolio'),
+            child: UserAvatar(
+              avatarUrl: member.avatarUrl,
+              initials: initials,
+              radius: 16,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  member.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.textPrimary,
+                GestureDetector(
+                  onTap: () =>
+                      context.push('/users/${member.userId}/portfolio'),
+                  child: Text(
+                    member.name,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
                 if (member.email != null && member.email!.isNotEmpty)
@@ -454,7 +521,7 @@ class _TeamMemberTile extends StatelessWidget {
           ),
           if (member.role == 'Owner')
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: p.amberLight,
                 borderRadius: BorderRadius.circular(6),
@@ -463,7 +530,7 @@ class _TeamMemberTile extends StatelessWidget {
                 'Owner',
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                   color: p.amberText,
                 ),
               ),
@@ -497,13 +564,15 @@ class _CopyableEmail extends StatelessWidget {
           onTap: () {
             Clipboard.setData(ClipboardData(text: email));
             HapticFeedback.selectionClick();
-            ScaffoldMessenger.of(
+            showInfoDialog(
               context,
-            ).showSnackBar(const SnackBar(content: Text('Email copied.')));
+              title: 'Email Copied',
+              message: 'The email address has been copied to your clipboard.',
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(2),
-            child: Icon(Icons.copy, size: 13, color: p.textMuted),
+            child: Icon(Icons.copy, size: 12, color: p.textMuted),
           ),
         ),
       ],

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class OnboardingAboutStep extends StatefulWidget {
@@ -16,6 +17,7 @@ class OnboardingAboutStep extends StatefulWidget {
 }
 
 class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _bioCtrl;
   late ExperienceLevel _level;
@@ -37,12 +39,7 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
   }
 
   Future<void> _submit() async {
-    if (_nameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter your name to continue.')),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final ok = await auth.updateProfile(
       name: _nameCtrl.text.trim(),
@@ -52,9 +49,7 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
     if (ok) {
       widget.onContinue();
     } else if (mounted && auth.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+      showErrorDialog(context, auth.errorMessage!);
     }
   }
 
@@ -65,89 +60,103 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Tell us about you',
-            style: TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w700,
-              color: p.textPrimary,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Tell us about you',
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+                color: p.textPrimary,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            "A few details to personalise your roadmap and match you with the right teammates.",
-            style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
-          ),
-          const SizedBox(height: 28),
-          TextFormField(
-            controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Full name'),
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _bioCtrl,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Short bio (optional)',
-              alignLabelWithHint: true,
+            const SizedBox(height: 6),
+            Text(
+              "A few details to personalise your roadmap and match you with the right teammates.",
+              style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
             ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'EXPERIENCE LEVEL',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: p.textMuted,
-              letterSpacing: 0.5,
+            const SizedBox(height: 28),
+            TextFormField(
+              controller: _nameCtrl,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+              decoration: const InputDecoration(labelText: 'Full name'),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: ExperienceLevel.values.map((level) {
-              final selected = _level == level;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(_levelLabel(level)),
-                    selected: selected,
-                    onSelected: (_) {
-                      HapticFeedback.selectionClick();
-                      setState(() => _level = level);
-                    },
-                    selectedColor: p.indigoLight,
-                    labelStyle: TextStyle(
-                      color: selected ? p.indigo : p.textSecondary,
-                      fontWeight: selected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                      fontSize: 12.5,
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _bioCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Short bio (optional)',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'EXPERIENCE LEVEL',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: p.textMuted,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: ExperienceLevel.values.map((level) {
+                final selected = _level == level;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: ChoiceChip(
+                      label: Center(
+                        child: Text(
+                          _levelLabel(level),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      selected: selected,
+                      onSelected: (_) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _level = level);
+                      },
+                      selectedColor: p.indigoLight,
+                      labelPadding: EdgeInsets.zero,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      labelStyle: TextStyle(
+                        color: selected ? p.indigo : p.textSecondary,
+                        // Keeping font weight constant prevents text sizing shifts
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                      ),
+                      side: BorderSide(color: selected ? p.indigo : p.border),
                     ),
-                    side: BorderSide(color: selected ? p.indigo : p.border),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: auth.isLoading ? null : _submit,
-            child: auth.isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Continue'),
-          ),
-        ],
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: auth.isLoading ? null : _submit,
+              child: auth.isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Continue'),
+            ),
+          ],
+        ),
       ),
     );
   }

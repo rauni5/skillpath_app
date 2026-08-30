@@ -9,6 +9,10 @@ enum SkillCategory {
   database,
   dataEngineering,
   uiUx,
+  gameDev,
+  cybersecurity,
+  qaTesting,
+  aiMl,
   unknown,
 }
 
@@ -79,6 +83,14 @@ SkillCategory skillCategoryFromString(String? value) {
       return SkillCategory.dataEngineering;
     case 'UI_UX':
       return SkillCategory.uiUx;
+    case 'GAME_DEV':
+      return SkillCategory.gameDev;
+    case 'CYBERSECURITY':
+      return SkillCategory.cybersecurity;
+    case 'QA_TESTING':
+      return SkillCategory.qaTesting;
+    case 'AI_ML':
+      return SkillCategory.aiMl;
     default:
       return SkillCategory.unknown;
   }
@@ -102,6 +114,14 @@ String skillCategoryToApiString(SkillCategory category) {
       return 'DATA_ENGINEERING';
     case SkillCategory.uiUx:
       return 'UI_UX';
+    case SkillCategory.gameDev:
+      return 'GAME_DEV';
+    case SkillCategory.cybersecurity:
+      return 'CYBERSECURITY';
+    case SkillCategory.qaTesting:
+      return 'QA_TESTING';
+    case SkillCategory.aiMl:
+      return 'AI_ML';
     case SkillCategory.unknown:
       return 'BACKEND';
   }
@@ -126,6 +146,14 @@ extension SkillCategoryLabel on SkillCategory {
         return 'Data Engineering';
       case SkillCategory.uiUx:
         return 'UI/UX';
+      case SkillCategory.gameDev:
+        return 'Game Dev';
+      case SkillCategory.cybersecurity:
+        return 'Cybersecurity';
+      case SkillCategory.qaTesting:
+        return 'QA & Testing';
+      case SkillCategory.aiMl:
+        return 'AI & ML';
       case SkillCategory.unknown:
         return 'Other';
     }
@@ -150,6 +178,14 @@ extension SkillCategoryLabel on SkillCategory {
         return Icons.insights_outlined;
       case SkillCategory.uiUx:
         return Icons.palette_outlined;
+      case SkillCategory.gameDev:
+        return Icons.sports_esports_outlined;
+      case SkillCategory.cybersecurity:
+        return Icons.security_outlined;
+      case SkillCategory.qaTesting:
+        return Icons.bug_report_outlined;
+      case SkillCategory.aiMl:
+        return Icons.psychology_outlined;
       case SkillCategory.unknown:
         return Icons.extension_outlined;
     }

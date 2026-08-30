@@ -24,6 +24,10 @@ class CategoryFilterRow extends StatelessWidget {
     SkillCategory.database,
     SkillCategory.dataEngineering,
     SkillCategory.uiUx,
+    SkillCategory.gameDev,
+    SkillCategory.cybersecurity,
+    SkillCategory.qaTesting,
+    SkillCategory.aiMl,
   ];
 
   @override

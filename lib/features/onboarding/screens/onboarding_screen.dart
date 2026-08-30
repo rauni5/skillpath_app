@@ -37,6 +37,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _goTo(int step) {
+    // Unfocus active keyboard inputs before changing step/screen
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _step = step);
     _pageController.animateToPage(
       step,

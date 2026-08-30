@@ -142,6 +142,46 @@ class ProjectManagementProvider extends ChangeNotifier {
     }
   }
 
+  bool isCompletingOrCancelling = false;
+
+  Future<bool> completeProject(int projectId) async {
+    isCompletingOrCancelling = true;
+    manageError = null;
+    notifyListeners();
+    try {
+      managedProject = await _repo.completeProject(projectId);
+      return true;
+    } catch (e) {
+      manageError = e is ApiException
+          ? e.message
+          : 'Could not mark this project complete.';
+      return false;
+    } finally {
+      isCompletingOrCancelling = false;
+      notifyListeners();
+    }
+  }
+
+  /// Cancels the managed project — a terminal state; accepted members are
+  /// notified server-side.
+  Future<bool> cancelProject(int projectId) async {
+    isCompletingOrCancelling = true;
+    manageError = null;
+    notifyListeners();
+    try {
+      managedProject = await _repo.cancelProject(projectId);
+      return true;
+    } catch (e) {
+      manageError = e is ApiException
+          ? e.message
+          : 'Could not cancel this project.';
+      return false;
+    } finally {
+      isCompletingOrCancelling = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> acceptRequest(int projectId, int userId) =>
       _updateStatus(projectId, userId, 'ACCEPTED');
   Future<bool> rejectRequest(int projectId, int userId) =>
@@ -224,6 +264,56 @@ class ProjectManagementProvider extends ChangeNotifier {
       myInvitesError = e is ApiException
           ? e.message
           : 'Could not respond to that invite.';
+      return false;
+    } finally {
+      respondingProjectIds.remove(projectId);
+      notifyListeners();
+    }
+  }
+
+  MyInvitesLoadState myJoinRequestsState = MyInvitesLoadState.initial;
+  String? myJoinRequestsError;
+  List<ProjectJoinRequest> myJoinRequests = [];
+
+  Future<void> loadMyJoinRequests(int userId) async {
+    myJoinRequestsState = MyInvitesLoadState.loading;
+    notifyListeners();
+    try {
+      myJoinRequests = await _repo.getMyJoinRequests(userId);
+      myJoinRequestsState = MyInvitesLoadState.loaded;
+    } catch (e) {
+      myJoinRequestsError = e is ApiException
+          ? e.message
+          : 'Could not load join requests.';
+      myJoinRequestsState = MyInvitesLoadState.error;
+    }
+    notifyListeners();
+  }
+
+  Future<bool> acceptJoinRequest(int projectId, int requesterId) =>
+      _respondToJoinRequest(projectId, requesterId, 'ACCEPTED');
+  Future<bool> declineJoinRequest(int projectId, int requesterId) =>
+      _respondToJoinRequest(projectId, requesterId, 'REJECTED');
+
+  Future<bool> _respondToJoinRequest(
+    int projectId,
+    int requesterId,
+    String status,
+  ) async {
+    respondingProjectIds.add(projectId);
+    notifyListeners();
+    try {
+      await _repo.updateMemberStatus(projectId, requesterId, status);
+      myJoinRequests = myJoinRequests
+          .where(
+            (r) => r.projectId != projectId || r.requesterId != requesterId,
+          )
+          .toList();
+      return true;
+    } catch (e) {
+      myJoinRequestsError = e is ApiException
+          ? e.message
+          : 'Could not respond to that request.';
       return false;
     } finally {
       respondingProjectIds.remove(projectId);

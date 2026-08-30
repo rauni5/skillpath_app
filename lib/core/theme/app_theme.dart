@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
@@ -13,10 +14,10 @@ class AppTheme {
         surface: AppColors.surface2,
       ),
       scaffoldBackgroundColor: AppColors.surface0,
-      fontFamily: 'Roboto',
     );
 
     return base.copyWith(
+      textTheme: GoogleFonts.robotoTextTheme(base.textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surface0,
         foregroundColor: AppColors.textPrimary,
@@ -112,10 +113,13 @@ class AppTheme {
         surface: AppColorsDark.surface2,
       ),
       scaffoldBackgroundColor: AppColorsDark.surface0,
-      fontFamily: 'Roboto',
     );
 
     return base.copyWith(
+      textTheme: GoogleFonts.robotoTextTheme(base.textTheme).apply(
+        bodyColor: AppColorsDark.textPrimary,
+        displayColor: AppColorsDark.textPrimary,
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColorsDark.surface0,
         foregroundColor: AppColorsDark.textPrimary,
@@ -197,10 +201,6 @@ class AppTheme {
       dividerTheme: const DividerThemeData(
         color: AppColorsDark.border,
         thickness: 0.75,
-      ),
-      textTheme: base.textTheme.apply(
-        bodyColor: AppColorsDark.textPrimary,
-        displayColor: AppColorsDark.textPrimary,
       ),
     );
   }

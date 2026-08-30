@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/models/branch_recommendation.dart';
 import '../../../core/models/career_role.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -124,9 +125,7 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
       _resetToViewing();
       _refreshDependents(userId);
     } else if (mounted && career.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(career.errorMessage!)));
+      showErrorDialog(context, career.errorMessage!);
     }
   }
 
@@ -139,9 +138,7 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
       _resetToViewing();
       _refreshDependents(userId);
     } else if (mounted && career.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(career.errorMessage!)));
+      showErrorDialog(context, career.errorMessage!);
     }
   }
 
