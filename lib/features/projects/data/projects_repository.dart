@@ -213,6 +213,18 @@ class ProjectsRepository {
     );
   }
 
+  /// GET /api/v1/users/{userId}/join-requests — pending requests to join
+  /// any project this user owns (the flip side of getMyInvites: this user
+  /// is the one being asked, not the one asking).
+  Future<List<ProjectJoinRequest>> getMyJoinRequests(int userId) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/users/$userId/join-requests'),
+      (data) => (data as List<dynamic>)
+          .map((e) => ProjectJoinRequest.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
   /// GET /api/v1/users/{userId}/memberships — this user's own join
   /// requests/invites at any status, used to detect accept/reject changes.
   Future<List<MembershipStatusEntry>> getMyMemberships(int userId) {

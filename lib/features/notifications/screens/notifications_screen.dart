@@ -38,8 +38,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _onScroll() {
-    // Trigger the next page a bit before actually hitting the bottom, so
-    // it's ready by the time the person gets there.
     if (_scrollCtrl.position.pixels >
         _scrollCtrl.position.maxScrollExtent - 300) {
       final userId = _userId;
@@ -67,8 +65,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (userId != null) {
       context.read<NotificationsProvider>().markRead(userId, notification);
     }
+
     final route = notification.route;
     if (route == null) return;
+
+    // Navigate using context.go to ensure the AppShell and tab navigation context are active
     context.go(route);
   }
 
@@ -177,6 +178,10 @@ class _NotificationTile extends StatelessWidget {
     final accent = positive ? p.indigo : p.textMuted;
     final accentBg = positive ? p.indigoLight : p.surface1;
 
+    final isInviteOrRequest =
+        notification.type == PushNotificationType.inviteReceived ||
+        notification.type == PushNotificationType.joinRequestReceived;
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -237,6 +242,33 @@ class _NotificationTile extends StatelessWidget {
                       height: 1.35,
                     ),
                   ),
+                  if (isInviteOrRequest) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 28,
+                      child: OutlinedButton.icon(
+                        onPressed: onTap,
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                        label: Text(
+                          notification.type ==
+                                  PushNotificationType.inviteReceived
+                              ? 'View Invites'
+                              : 'View Requests',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: p.indigo,
+                          side: BorderSide(
+                            color: p.indigo.withValues(alpha: 0.4),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          textStyle: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
