@@ -2,19 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/admin_user_summary.dart';
-import '../../../core/models/admin_user_analytics.dart';
 import '../../../core/models/admin_users_query.dart';
 import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
-import '../../../shared/widgets/error_view.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/admin_users_provider.dart';
+import '../widgets/admin_bits.dart';
 import '../widgets/admin_card.dart';
+import '../widgets/admin_page_header.dart';
 import '../widgets/fade_slide_in.dart';
-import '../widgets/mini_bar_chart.dart';
 import '../widgets/shimmer_skeleton.dart';
-import '../widgets/stat_card.dart';
-import '../widgets/stat_card_grid.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -29,11 +26,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final admin = context.read<AdminUsersProvider>();
-      admin.loadUsers();
-      admin.loadAnalytics();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
@@ -54,24 +47,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final admin = context.watch<AdminUsersProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Users'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async => _load(),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          children: [
-            _AnalyticsHeader(admin: admin, p: p),
-            const SizedBox(height: 24),
-            TextField(
+      backgroundColor: p.surface2,
+      body: Column(
+        children: [
+          AdminPageHeader(
+            icon: Icons.people_outline,
+            title: 'Users',
+            subtitle:
+                '${admin.totalElements} user${admin.totalElements == 1 ? '' : 's'} on the platform.',
+            trailing: IconButton(
+              tooltip: 'Refresh',
+              icon: const Icon(Icons.refresh),
+              onPressed: _load,
+            ),
+            bottom: TextField(
               controller: _searchCtrl,
               onChanged: (v) =>
                   context.read<AdminUsersProvider>().setSearchQuery(v),
@@ -81,71 +70,121 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 12),
-            _StatusFilterRow(admin: admin, p: p),
-            const SizedBox(height: 14),
-            _buildBody(context, p, admin),
-          ],
-        ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _load(),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                children: [
+                  _StatStrip(admin: admin, p: p),
+                  const SizedBox(height: 18),
+                  _StatusFilterRow(admin: admin, p: p),
+                  const SizedBox(height: 16),
+                  _ListBody(admin: admin, p: p),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A slim inline strip of key numbers instead of a full stat-card grid —
+/// useful context without the page opening on a wall of analytics.
+class _StatStrip extends StatelessWidget {
+  const _StatStrip({required this.admin, required this.p});
+
+  final AdminUsersProvider admin;
+  final AppPalette p;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = admin.analytics;
+    if (admin.analyticsState == AdminAnalyticsLoadState.loading && a == null) {
+      return const ShimmerBox(width: double.infinity, height: 62, radius: 14);
+    }
+    if (a == null) return const SizedBox.shrink();
+
+    final items = [
+      ('Total', '${a.totalUsers}', Icons.people_outline, p.indigo),
+      ('Admins', '${a.adminCount}', Icons.shield_outlined, p.amber),
+      ('Active', '${a.availableCount}', Icons.check_circle_outline, p.green),
+      ('New this week', '${a.newUsersLast7Days}', Icons.trending_up, p.red),
+      (
+        'Avg skills/user',
+        a.avgSkillsPerUser.toStringAsFixed(1),
+        Icons.psychology_outlined,
+        p.indigo,
+      ),
+    ];
+
+    return AdminCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 560;
+          final row = Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i != 0) _divider(),
+                Expanded(child: _statItem(items[i])),
+              ],
+            ],
+          );
+          if (!isNarrow) return row;
+          return Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            children: [for (final item in items) _statItem(item)],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildBody(
-    BuildContext context,
-    AppPalette p,
-    AdminUsersProvider admin,
-  ) {
-    switch (admin.state) {
-      case AdminUsersLoadState.initial:
-      case AdminUsersLoadState.loading:
-        return Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Column(
-            children: List.generate(
-              6,
-              (_) => const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: ShimmerListRow(),
-              ),
-            ),
-          ),
-        );
-      case AdminUsersLoadState.error:
-        return Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: ErrorView(
-            key: const ValueKey('error'),
-            message: admin.error ?? 'Something went wrong.',
-            onRetry: _load,
-          ),
-        );
-      case AdminUsersLoadState.loaded:
-        if (admin.users.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 40),
-            child: Center(
-              key: const ValueKey('empty'),
-              child: Text(
-                admin.searchQuery.isEmpty
-                    ? 'No users match this filter.'
-                    : 'No users match "${admin.searchQuery}".',
-                style: TextStyle(color: p.textMuted, fontSize: 13),
-              ),
-            ),
-          );
-        }
+  Widget _divider() => Container(
+    width: 1,
+    height: 32,
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    color: p.border,
+  );
 
-        return Column(
-          key: const ValueKey('loaded'),
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _statItem((String, String, IconData, Color) item) {
+    final (label, value, icon, color) = item;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _UsersTable(admin: admin, p: p),
-            const SizedBox(height: 12),
-            _Pager(admin: admin),
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: p.textMuted,
+              ),
+            ),
           ],
-        );
-    }
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: p.textPrimary,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -168,13 +207,13 @@ class _StatusFilterRow extends StatelessWidget {
               onSelected: (_) => admin.setStatusFilter(filter),
               labelStyle: TextStyle(
                 fontSize: 12.5,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: admin.statusFilter == filter
                     ? p.indigo
                     : p.textSecondary,
               ),
               selectedColor: p.indigoLight,
-              backgroundColor: p.surface2,
+              backgroundColor: p.surface1,
               side: BorderSide(color: p.border),
               showCheckmark: false,
             ),
@@ -186,28 +225,72 @@ class _StatusFilterRow extends StatelessWidget {
   }
 }
 
-class _Pager extends StatelessWidget {
-  const _Pager({required this.admin});
+class _ListBody extends StatelessWidget {
+  const _ListBody({required this.admin, required this.p});
 
   final AdminUsersProvider admin;
+  final AppPalette p;
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
+    switch (admin.state) {
+      case AdminUsersLoadState.initial:
+      case AdminUsersLoadState.loading:
+        return Column(
+          children: List.generate(
+            6,
+            (_) => const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: ShimmerListRow(),
+            ),
+          ),
+        );
+      case AdminUsersLoadState.error:
+        return InlineErrorState(
+          message: admin.error ?? 'Something went wrong.',
+          onRetry: () {
+            admin.loadUsers();
+            admin.loadAnalytics();
+          },
+        );
+      case AdminUsersLoadState.loaded:
+        if (admin.users.isEmpty) {
+          return EmptyState(
+            icon: Icons.people_outline,
+            message: admin.searchQuery.isEmpty
+                ? 'No users match this filter.'
+                : 'No users match "${admin.searchQuery}".',
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _UsersTable(admin: admin, p: p),
+            const SizedBox(height: 12),
+            _Pager(admin: admin, p: p),
+          ],
+        );
+    }
+  }
+}
+
+class _Pager extends StatelessWidget {
+  const _Pager({required this.admin, required this.p});
+
+  final AdminUsersProvider admin;
+  final AppPalette p;
+
+  @override
+  Widget build(BuildContext context) {
     if (admin.totalPages <= 1) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          '${admin.totalElements} user${admin.totalElements == 1 ? '' : 's'} total',
-          style: TextStyle(fontSize: 12, color: p.textMuted),
-        ),
+      return Text(
+        '${admin.totalElements} user${admin.totalElements == 1 ? '' : 's'} total',
+        style: TextStyle(fontSize: 12, color: p.textMuted),
       );
     }
-
     final currentPage = admin.page;
     final canGoBack = currentPage > 0;
     final canGoForward = currentPage < admin.totalPages - 1;
-
     return Row(
       children: [
         Text(
@@ -232,236 +315,15 @@ class _Pager extends StatelessWidget {
   }
 }
 
-/// Analytics: a 3-column stat grid plus a couple of charts for variety
-/// (donut for the categorical experience-level split, bars for the
-/// signup trend over time).
-class _AnalyticsHeader extends StatelessWidget {
-  const _AnalyticsHeader({required this.admin, required this.p});
-
-  final AdminUsersProvider admin;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    final analytics = admin.analytics;
-
-    if (admin.analyticsState == AdminAnalyticsLoadState.loading &&
-        analytics == null) {
-      return const SizedBox(
-        height: 90,
-        child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-    if (analytics == null) {
-      // Analytics failed to load — don't block the user list over it.
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        StatCardGrid(
-          children: [
-            StatCard(
-              label: 'TOTAL USERS',
-              value: '${analytics.totalUsers}',
-              icon: Icons.people_outline,
-              onTap: () => admin.setStatusFilter(UserStatusFilter.all),
-            ),
-            StatCard(
-              label: 'ADMINS',
-              value: '${analytics.adminCount}',
-              icon: Icons.shield_outlined,
-              accentColor: p.amber,
-              onTap: () => admin.setStatusFilter(UserStatusFilter.admin),
-            ),
-            StatCard(
-              label: 'AVAILABLE',
-              value: '${analytics.availableCount}',
-              icon: Icons.check_circle_outline,
-              accentColor: p.green,
-              caption: '${analytics.unavailableCount} unavailable',
-            ),
-            StatCard(
-              label: 'NEW THIS WEEK',
-              value: '${analytics.newUsersLast7Days}',
-              icon: Icons.trending_up,
-              caption: '${analytics.newUsersLast30Days} in last 30 days',
-            ),
-            StatCard(
-              label: 'AVG SKILLS / USER',
-              value: analytics.avgSkillsPerUser.toStringAsFixed(1),
-              icon: Icons.psychology_outlined,
-            ),
-            StatCard(
-              label: 'CAREER GOAL SET',
-              value: '${analytics.usersWithCareerGoalSet}',
-              icon: Icons.flag_outlined,
-            ),
-          ],
-        ),
-        if (analytics.byExperienceLevel.values.any((v) => v > 0)) ...[
-          const SizedBox(height: 18),
-          _SectionLabel(text: 'BY EXPERIENCE LEVEL', p: p),
-          const SizedBox(height: 10),
-          AdminCard(
-            child: Column(
-              children: [
-                for (final entry in _levelEntries(analytics)) ...[
-                  _LevelBar(
-                    label: _titleCase(entry.key),
-                    count: entry.value,
-                    maxCount: _levelMax(analytics),
-                    color: _levelColor(entry.key, p),
-                    p: p,
-                  ),
-                  if (entry != _levelEntries(analytics).last)
-                    const SizedBox(height: 10),
-                ],
-              ],
-            ),
-          ),
-        ],
-        if (analytics.signupTrend.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          _SectionLabel(text: 'SIGNUPS — LAST 30 DAYS', p: p),
-          const SizedBox(height: 10),
-          AdminCard(
-            padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
-            child: MiniBarChart(data: analytics.signupTrend, height: 90),
-          ),
-        ],
-      ],
-    );
-  }
-
-  List<MapEntry<String, int>> _levelEntries(AdminUserAnalytics analytics) {
-    // Only show levels that are actually in use, in a stable order.
-    return analytics.byExperienceLevel.entries
-        .where((e) => e.value > 0)
-        .toList();
-  }
-
-  int _levelMax(AdminUserAnalytics analytics) {
-    return analytics.byExperienceLevel.values.fold(0, (a, b) => a > b ? a : b);
-  }
-
-  Color _levelColor(String level, AppPalette p) {
-    switch (level.toUpperCase()) {
-      case 'BEGINNER':
-        return p.amber;
-      case 'ADVANCED':
-        return p.green;
-      case 'INTERMEDIATE':
-      default:
-        return p.indigo;
-    }
-  }
-
-  String _titleCase(String s) {
-    if (s.isEmpty) return s;
-    return s[0].toUpperCase() + s.substring(1).toLowerCase();
-  }
-}
-
-class _LevelBar extends StatelessWidget {
-  const _LevelBar({
-    required this.label,
-    required this.count,
-    required this.maxCount,
-    required this.color,
-    required this.p,
-  });
-
-  final String label;
-  final int count;
-  final int maxCount;
-  final Color color;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    final fraction = maxCount == 0 ? 0.0 : count / maxCount;
-    return Row(
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 12.5, color: p.textSecondary),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: fraction.clamp(0.02, 1.0),
-              minHeight: 8,
-              backgroundColor: p.border,
-              valueColor: AlwaysStoppedAnimation(color),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 24,
-          child: Text(
-            '$count',
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: p.textPrimary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.text, required this.p});
-
-  final String text;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        color: p.textMuted,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
-}
-
-/// The actual user table — a proper Material [DataTable], horizontally
-/// scrollable, with sortable Name and Joined columns (mapped to the
-/// server-side sort), per-user stats, and Admin/Active toggles inline.
 /// Full-width table built from plain Rows/Expanded — not Material's
-/// [DataTable], which sizes columns to content and leaves a gap (or forces
-/// horizontal scrolling that hides trailing columns like the toggles).
-/// Flex-based columns always fill the available width and every column,
-/// including Access, stays on-screen without scrolling.
+/// [DataTable], which sizes columns to content and leaves a gap or forces
+/// horizontal scrolling that hides trailing columns.
 class _UsersTable extends StatelessWidget {
   const _UsersTable({required this.admin, required this.p});
 
   final AdminUsersProvider admin;
   final AppPalette p;
 
-  // Shared flex ratios between the header and every data row.
   static const _flexUser = 3;
   static const _flexLevel = 2;
   static const _flexStats = 3;
@@ -471,67 +333,82 @@ class _UsersTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: p.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
+    return AdminCard(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeader(context),
+          _header(),
           for (var i = 0; i < admin.users.length; i++)
-            _buildRow(context, admin.users[i], i),
+            _row(context, admin.users[i], i),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _header() {
     return Container(
-      color: p.surface1,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      color: p.surface2,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Expanded(
-            flex: _flexUser,
-            child: _SortableHeaderLabel(
-              label: 'User',
-              active: admin.sortBy == UserSortBy.name,
-              ascending: admin.sortDir == SortDir.asc,
-              onTap: () => admin.setSort(UserSortBy.name),
-              p: p,
-            ),
-          ),
-          Expanded(flex: _flexLevel, child: _HeaderLabel('Level', p)),
-          Expanded(flex: _flexStats, child: _HeaderLabel('Stats', p)),
-          Expanded(flex: _flexGoal, child: _HeaderLabel('Goal', p)),
+          Expanded(flex: _flexUser, child: _sortable('User', UserSortBy.name)),
+          Expanded(flex: _flexLevel, child: _label('Level')),
+          Expanded(flex: _flexStats, child: _label('Stats')),
+          Expanded(flex: _flexGoal, child: _label('Goal')),
           Expanded(
             flex: _flexJoined,
-            child: _SortableHeaderLabel(
-              label: 'Joined',
-              active: admin.sortBy == UserSortBy.createdAt,
-              ascending: admin.sortDir == SortDir.asc,
-              onTap: () => admin.setSort(UserSortBy.createdAt),
-              p: p,
-            ),
+            child: _sortable('Joined', UserSortBy.createdAt),
           ),
-          Expanded(flex: _flexAccess, child: _HeaderLabel('Access', p)),
+          Expanded(flex: _flexAccess, child: _label('Access')),
         ],
       ),
     );
   }
 
-  Widget _buildRow(BuildContext context, AdminUserSummary summary, int index) {
+  Widget _label(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: p.textMuted,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+
+  Widget _sortable(String label, UserSortBy column) {
+    final active = admin.sortBy == column;
+    final ascending = admin.sortDir == SortDir.asc;
+    return InkWell(
+      onTap: () => admin.setSort(column),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: active ? p.indigo : p.textMuted,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Icon(
+            active
+                ? (ascending ? Icons.arrow_upward : Icons.arrow_downward)
+                : Icons.unfold_more,
+            size: 12,
+            color: active ? p.indigo : p.textMuted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(BuildContext context, AdminUserSummary summary, int index) {
     final user = summary.user;
     final isSelf = context.watch<AuthProvider>().currentUser?.id == user.id;
     final isPending = admin.pendingUserIds.contains(user.id);
@@ -540,143 +417,191 @@ class _UsersTable extends StatelessWidget {
       index: index,
       perItemDelay: const Duration(milliseconds: 18),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: index.isOdd ? p.surface1.withValues(alpha: 0.35) : null,
+          color: index.isOdd ? p.surface2.withValues(alpha: 0.4) : null,
           border: Border(top: BorderSide(color: p.border)),
         ),
         child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            flex: _flexUser,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 13,
-                  backgroundColor: p.indigoLight,
-                  child: Text(
-                    user.initials,
-                    style: TextStyle(
-                      color: p.indigo,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: _flexUser,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: p.indigoLight,
+                    child: Text(
+                      user.initials,
+                      style: TextStyle(
+                        color: p.indigo,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              user.name,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: p.textPrimary,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                user.name,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          if (isSelf) ...[
-                            const SizedBox(width: 4),
-                            Text(
-                              '(you)',
-                              style: TextStyle(fontSize: 10, color: p.textMuted),
-                            ),
+                            if (isSelf) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '(you)',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: p.textMuted,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      Text(
-                        user.email,
-                        style: TextStyle(fontSize: 11, color: p.textMuted),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        ),
+                        Text(
+                          user.email,
+                          style: TextStyle(fontSize: 11, color: p.textMuted),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            flex: _flexLevel,
-            child: _LevelBadge(level: user.experienceLevel.name, p: p),
-          ),
-          Expanded(
-            flex: _flexStats,
-            child: _StatsCell(summary: summary, p: p),
-          ),
-          Expanded(
-            flex: _flexGoal,
-            child: Icon(
-              summary.careerGoalSet ? Icons.flag : Icons.flag_outlined,
-              size: 15,
-              color: summary.careerGoalSet ? p.indigo : p.textMuted,
+            Expanded(
+              flex: _flexLevel,
+              child: Pill(label: _titleCase(user.experienceLevel.name)),
             ),
-          ),
-          Expanded(
-            flex: _flexJoined,
-            child: Text(
-              user.createdAt == null ? '—' : _formatDate(user.createdAt!),
-              style: TextStyle(fontSize: 11.5, color: p.textSecondary),
+            Expanded(
+              flex: _flexStats,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 3,
+                children: [
+                  _statChip(Icons.psychology_outlined, summary.skillsCount),
+                  _statChip(
+                    Icons.folder_open_outlined,
+                    summary.ownedProjectsCount,
+                  ),
+                  _statChip(
+                    Icons.emoji_events_outlined,
+                    summary.achievementsCount,
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            flex: _flexAccess,
-            child: isPending
-                ? const _MiniSpinner()
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ToggleBadge(
-                        active: user.isAdmin,
-                        activeLabel: 'Admin',
-                        inactiveLabel: 'User',
-                        activeColor: p.amber,
-                        p: p,
-                        onTap: isSelf
-                            ? null
-                            : () => _confirmAdminToggle(
+            Expanded(
+              flex: _flexGoal,
+              child: Icon(
+                summary.careerGoalSet ? Icons.flag : Icons.flag_outlined,
+                size: 15,
+                color: summary.careerGoalSet ? p.indigo : p.textMuted,
+              ),
+            ),
+            Expanded(
+              flex: _flexJoined,
+              child: Text(
+                user.createdAt == null ? '—' : _formatDate(user.createdAt!),
+                style: TextStyle(fontSize: 11.5, color: p.textSecondary),
+              ),
+            ),
+            Expanded(
+              flex: _flexAccess,
+              child: isPending
+                  ? const MiniSpinner()
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ToggleBadge(
+                          active: user.isAdmin,
+                          activeLabel: 'Admin',
+                          inactiveLabel: 'User',
+                          activeColor: p.amber,
+                          onTap: isSelf
+                              ? null
+                              : () => _confirmAdminToggle(
                                   context,
                                   user,
                                   !user.isAdmin,
                                 ),
-                      ),
-                      const SizedBox(height: 5),
-                      _ToggleBadge(
-                        active: user.isActive,
-                        activeLabel: 'Active',
-                        inactiveLabel: 'Inactive',
-                        activeColor: p.green,
-                        p: p,
-                        onTap: isSelf
-                            ? null
-                            : () => _confirmActiveToggle(
+                        ),
+                        const SizedBox(height: 5),
+                        ToggleBadge(
+                          active: user.isActive,
+                          activeLabel: 'Active',
+                          inactiveLabel: 'Inactive',
+                          activeColor: p.green,
+                          onTap: isSelf
+                              ? null
+                              : () => _confirmActiveToggle(
                                   context,
                                   user,
                                   !user.isActive,
                                 ),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+                        ),
+                      ],
+                    ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  Widget _statChip(IconData icon, int value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: p.textMuted),
+        const SizedBox(width: 2),
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: p.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _titleCase(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1).toLowerCase();
+  }
+
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}';
   }
@@ -689,9 +614,7 @@ class _UsersTable extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(
-          makeAdmin ? 'Grant admin access?' : 'Revoke admin access?',
-        ),
+        title: Text(makeAdmin ? 'Grant admin access?' : 'Revoke admin access?'),
         content: Text(
           makeAdmin
               ? '${user.name} will be able to sign in to the admin panel and manage skills, roles, and users.'
@@ -760,247 +683,7 @@ class _UsersTable extends StatelessWidget {
   void _showErrorIfAny(BuildContext context, bool ok) {
     if (!ok && context.mounted) {
       final error = context.read<AdminUsersProvider>().error;
-      if (error != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error)));
-      }
+      if (error != null) {}
     }
-  }
-}
-
-class _HeaderLabel extends StatelessWidget {
-  const _HeaderLabel(this.text, this.p);
-
-  final String text;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        color: p.textMuted,
-        letterSpacing: 0.3,
-      ),
-    );
-  }
-}
-
-class _SortableHeaderLabel extends StatelessWidget {
-  const _SortableHeaderLabel({
-    required this.label,
-    required this.active,
-    required this.ascending,
-    required this.onTap,
-    required this.p,
-  });
-
-  final String label;
-  final bool active;
-  final bool ascending;
-  final VoidCallback onTap;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: active ? p.indigo : p.textMuted,
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(width: 2),
-          Icon(
-            active
-                ? (ascending ? Icons.arrow_upward : Icons.arrow_downward)
-                : Icons.unfold_more,
-            size: 12,
-            color: active ? p.indigo : p.textMuted,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The three per-user counts (skills/projects/achievements) as small icon
-/// chips that wrap, rather than three separate table columns — keeps the
-/// table to six columns total so it fits full-width without scrolling.
-class _StatsCell extends StatelessWidget {
-  const _StatsCell({required this.summary, required this.p});
-
-  final AdminUserSummary summary;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 3,
-      children: [
-        _StatChip(
-          icon: Icons.psychology_outlined,
-          value: summary.skillsCount,
-          p: p,
-        ),
-        _StatChip(
-          icon: Icons.folder_open_outlined,
-          value: summary.ownedProjectsCount,
-          p: p,
-        ),
-        _StatChip(
-          icon: Icons.emoji_events_outlined,
-          value: summary.achievementsCount,
-          p: p,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  const _StatChip({required this.icon, required this.value, required this.p});
-
-  final IconData icon;
-  final int value;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: p.textMuted),
-        const SizedBox(width: 2),
-        Text(
-          '$value',
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
-            color: p.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MiniSpinner extends StatelessWidget {
-  const _MiniSpinner();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 18,
-      width: 18,
-      child: CircularProgressIndicator(strokeWidth: 2),
-    );
-  }
-}
-
-/// Compact pill toggle used for Admin/Active columns — replaces the
-/// full-size Material [Switch], which was clipping inside the table's
-/// tight row height. Tap to flip; the confirm dialog decides the outcome.
-class _ToggleBadge extends StatelessWidget {
-  const _ToggleBadge({
-    required this.active,
-    required this.activeLabel,
-    required this.inactiveLabel,
-    required this.activeColor,
-    required this.p,
-    this.onTap,
-  });
-
-  final bool active;
-  final String activeLabel;
-  final String inactiveLabel;
-  final Color activeColor;
-  final AppPalette p;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = onTap == null;
-    return Opacity(
-      opacity: disabled ? 0.45 : 1,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: active ? activeColor.withValues(alpha: 0.14) : p.surface1,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: active
-                    ? activeColor.withValues(alpha: 0.4)
-                    : p.border,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  active ? Icons.check_circle : Icons.remove_circle_outline,
-                  size: 12,
-                  color: active ? activeColor : p.textMuted,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  active ? activeLabel : inactiveLabel,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: active ? activeColor : p.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LevelBadge extends StatelessWidget {
-  const _LevelBadge({required this.level, required this.p});
-
-  final String level;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = level.isEmpty
-        ? '—'
-        : level[0].toUpperCase() + level.substring(1).toLowerCase();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: p.indigoTint,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: p.indigo,
-        ),
-      ),
-    );
   }
 }

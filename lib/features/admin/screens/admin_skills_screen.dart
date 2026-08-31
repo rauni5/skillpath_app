@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
-import '../../../shared/widgets/error_view.dart';
 import '../providers/admin_skills_provider.dart';
+import '../widgets/admin_bits.dart';
+import '../widgets/admin_page_header.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/shimmer_skeleton.dart';
 
@@ -44,21 +45,20 @@ class _AdminSkillsScreenState extends State<AdminSkillsScreen> {
     final skills = context.watch<AdminSkillsProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Skills'),
-        actions: [
-          IconButton(
-            tooltip: 'New skill',
-            icon: const Icon(Icons.add),
-            onPressed: () => _showCreateDialog(context),
-          ),
-        ],
-      ),
+      backgroundColor: p.surface2,
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: TextField(
+          AdminPageHeader(
+            icon: Icons.psychology_outlined,
+            title: 'Skills',
+            subtitle:
+                '${skills.catalog.length} skill${skills.catalog.length == 1 ? '' : 's'} in the catalogue.',
+            trailing: FilledButton.icon(
+              onPressed: () => _showCreateDialog(context),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('New skill'),
+            ),
+            bottom: TextField(
               controller: _searchCtrl,
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
@@ -87,10 +87,11 @@ class _AdminSkillsScreenState extends State<AdminSkillsScreen> {
     switch (skills.listState) {
       case AdminSkillsLoadState.initial:
       case AdminSkillsLoadState.loading:
-        return Column(
+        return ListView(
           key: const ValueKey('loading'),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
           children: List.generate(
-            5,
+            6,
             (_) => const Padding(
               padding: EdgeInsets.only(bottom: 10),
               child: ShimmerListRow(),
@@ -98,19 +99,17 @@ class _AdminSkillsScreenState extends State<AdminSkillsScreen> {
           ),
         );
       case AdminSkillsLoadState.error:
-        return ErrorView(
+        return InlineErrorState(
           key: const ValueKey('error'),
           message: skills.listError ?? 'Something went wrong.',
           onRetry: _load,
         );
       case AdminSkillsLoadState.loaded:
         if (skills.catalog.isEmpty) {
-          return Center(
-            key: const ValueKey('empty'),
-            child: Text(
-              'No skills yet.',
-              style: TextStyle(color: p.textMuted, fontSize: 13),
-            ),
+          return const EmptyState(
+            key: ValueKey('empty'),
+            icon: Icons.psychology_outlined,
+            message: 'No skills yet.',
           );
         }
 
@@ -119,18 +118,15 @@ class _AdminSkillsScreenState extends State<AdminSkillsScreen> {
         final grouped = _groupByCategory(skills.catalog, query);
 
         if (grouped.isEmpty) {
-          return Center(
+          return EmptyState(
             key: const ValueKey('no-matches'),
-            child: Text(
-              'No skills match "$query".',
-              style: TextStyle(color: p.textMuted, fontSize: 13),
-            ),
+            icon: Icons.search_off,
+            message: 'No skills match "$query".',
           );
         }
 
         final categories = grouped.keys.toList()
           ..sort((a, b) {
-            // "Other" always sinks to the bottom regardless of alphabetizing.
             if (a == SkillCategory.unknown) return 1;
             if (b == SkillCategory.unknown) return -1;
             return a.label.compareTo(b.label);
@@ -140,12 +136,16 @@ class _AdminSkillsScreenState extends State<AdminSkillsScreen> {
           key: const ValueKey('loaded'),
           onRefresh: () async => _load(),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
             children: [
-              _SummaryHeader(
-                totalSkills: skills.catalog.length,
-                categoryCount: categories.length,
-                p: p,
+              Text(
+                '${skills.catalog.length} skills across ${categories.length} '
+                'categor${categories.length == 1 ? 'y' : 'ies'}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: p.textMuted,
+                ),
               ),
               const SizedBox(height: 16),
               for (var i = 0; i < categories.length; i++) ...[
@@ -296,31 +296,6 @@ class _AdminSkillsScreenState extends State<AdminSkillsScreen> {
   }
 }
 
-class _SummaryHeader extends StatelessWidget {
-  const _SummaryHeader({
-    required this.totalSkills,
-    required this.categoryCount,
-    required this.p,
-  });
-
-  final int totalSkills;
-  final int categoryCount;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '$totalSkills skill${totalSkills == 1 ? '' : 's'} across $categoryCount '
-      'categor${categoryCount == 1 ? 'y' : 'ies'}',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: p.textMuted,
-      ),
-    );
-  }
-}
-
 class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.category,
@@ -336,22 +311,20 @@ class _CategorySection extends StatelessWidget {
   final ValueChanged<bool>? onExpansionChanged;
   final AppPalette p;
 
-  Color get _accent => _accentFor(category, p);
-
   @override
   Widget build(BuildContext context) {
-    final accent = _accent;
+    final accent = _accentFor(category, p);
 
     return Container(
       decoration: BoxDecoration(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(12),
+        color: p.surface1,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: p.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -362,13 +335,13 @@ class _CategorySection extends StatelessWidget {
           initiallyExpanded: expanded,
           key: ValueKey('${category.name}-$expanded'),
           onExpansionChanged: onExpansionChanged,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
           leading: Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(9),
             ),
             child: Icon(category.icon, size: 17, color: accent),
           ),
@@ -376,28 +349,14 @@ class _CategorySection extends StatelessWidget {
             category.label,
             style: TextStyle(
               fontSize: 13.5,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: p.textPrimary,
             ),
           ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: p.surface1,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${skills.length}',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: p.textSecondary,
-                  ),
-                ),
-              ),
+              Pill(label: '${skills.length}'),
               const SizedBox(width: 4),
               Icon(
                 expanded ? Icons.expand_less : Icons.expand_more,
@@ -431,9 +390,9 @@ class _SkillRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => context.go('/admin/skills/${skill.id}'),
+      onTap: () => context.push('/admin/skills/${skill.id}'),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: p.border)),
         ),

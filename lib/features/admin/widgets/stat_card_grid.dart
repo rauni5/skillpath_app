@@ -2,27 +2,25 @@ import 'package:flutter/material.dart';
 
 import 'fade_slide_in.dart';
 
-/// Lays out stat cards (or anything) in a fixed number of equal-width
-/// columns per row, wrapping to new rows as needed. Unlike [Wrap] alone,
-/// card width is derived from the available width divided by [columns]
-/// rather than each card's intrinsic content size, so cards line up into
-/// a clean grid instead of packing as many as fit.
-///
-/// Children stagger in with a fade+slide by default — set [animate] to
-/// false to skip that (e.g. when re-rendering after a filter change,
-/// where re-animating every card would feel noisy).
+/// Lays out stat cards in equal-width columns, auto-computing how many
+/// fit based on available width and [minCardWidth] — so the grid adapts
+/// from a single column on a narrow screen to 5-6 columns on a wide
+/// monitor, rather than a fixed column count that leaves the page looking
+/// sparse (too few, stretched cards) or cramped depending on window size.
 class StatCardGrid extends StatelessWidget {
   const StatCardGrid({
     super.key,
     required this.children,
-    this.columns = 3,
-    this.spacing = 10,
-    this.runSpacing = 10,
+    this.minCardWidth = 190,
+    this.maxColumns = 6,
+    this.spacing = 12,
+    this.runSpacing = 12,
     this.animate = true,
   });
 
   final List<Widget> children;
-  final int columns;
+  final double minCardWidth;
+  final int maxColumns;
   final double spacing;
   final double runSpacing;
   final bool animate;
@@ -31,8 +29,17 @@ class StatCardGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final available = constraints.maxWidth;
+        int columns = ((available + spacing) / (minCardWidth + spacing))
+            .floor()
+            .clamp(1, maxColumns);
+        // Never use more columns than we have cards for — avoids a wide
+        // near-empty row when e.g. only 2 stats are shown on a huge screen.
+        columns = columns.clamp(1, children.isEmpty ? 1 : children.length);
+
         final totalSpacing = spacing * (columns - 1);
-        final itemWidth = (constraints.maxWidth - totalSpacing) / columns;
+        final itemWidth = (available - totalSpacing) / columns;
+
         return Wrap(
           spacing: spacing,
           runSpacing: runSpacing,

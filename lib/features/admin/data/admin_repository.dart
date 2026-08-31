@@ -1,22 +1,21 @@
-import '../../../core/models/branch_requirement.dart';
 import '../../../core/models/admin_achievement.dart';
 import '../../../core/models/admin_dashboard_stats.dart';
 import '../../../core/models/admin_role_summary.dart';
 import '../../../core/models/admin_user_analytics.dart';
 import '../../../core/models/admin_user_summary.dart';
 import '../../../core/models/admin_users_query.dart';
+import '../../../core/models/branch_requirement.dart';
 import '../../../core/models/career_role.dart';
 import '../../../core/models/daily_count.dart';
 import '../../../core/models/page_projects.dart';
 import '../../../core/models/role_branch.dart';
+import '../../../core/models/role_requirement.dart';
 import '../../../core/models/skill.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
 
 class AdminRepository {
   final ApiClient _api = ApiClient.instance;
-
-  // --- Users ---
 
   /// GET /api/v1/admin/users — paginated, 20 per page by default. [q]
   /// searches by name or email (case-insensitive). [status] filters by
@@ -216,7 +215,8 @@ class AdminRepository {
   }
 
   /// GET /api/v1/admin/career-roles — enriched with per-role stats
-  /// (required-skill count, popularity) for the admin Roles screen.
+  /// (branch count, required-skill count, popularity) for the admin
+  /// Roles screen, instead of the plain public list.
   Future<List<AdminRoleSummary>> getAdminCareerRoles() {
     return _api.unwrap(
       (dio) => dio.get('/api/v1/admin/career-roles'),
@@ -276,6 +276,18 @@ class AdminRepository {
     return _api.unwrap(
       (dio) => dio.delete('/api/v1/admin/career-roles/$id'),
       (_) {},
+    );
+  }
+
+  /// GET /api/v1/admin/career-roles/{id}/requirements
+  /// Deprecated — required skills now live on branches, not the role
+  /// directly. Left in place in case anything else still calls it.
+  Future<List<RoleRequirement>> getRoleRequirements(int roleId) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/career-roles/$roleId/requirements'),
+      (data) => (data as List<dynamic>)
+          .map((e) => RoleRequirement.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 

@@ -5,10 +5,13 @@ import 'package:provider/provider.dart';
 import '../../../core/models/branch_requirement.dart';
 import '../../../core/models/role_branch.dart';
 import '../../../core/theme/app_palette.dart';
-import '../../../shared/widgets/error_view.dart';
-import '../../../shared/widgets/loading_view.dart';
 import '../../skills/providers/skills_provider.dart';
 import '../providers/admin_roles_provider.dart';
+import '../widgets/admin_bits.dart';
+import '../widgets/admin_card.dart';
+import '../widgets/admin_page_header.dart';
+
+const _kFormMaxWidth = 720.0;
 
 class AdminBranchDetailScreen extends StatefulWidget {
   const AdminBranchDetailScreen({
@@ -29,31 +32,16 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  int? _hydratedBranchId;
+  int? _loadedBranchId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchData();
+      context.read<AdminRolesProvider>().loadBranchDetail(widget.branchId);
+      final skills = context.read<SkillsProvider>();
+      if (skills.catalog.isEmpty) skills.loadCatalog();
     });
-  }
-
-  @override
-  void didUpdateWidget(covariant AdminBranchDetailScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.branchId != widget.branchId) {
-      _hydratedBranchId = null;
-      _nameCtrl.clear();
-      _descCtrl.clear();
-      _fetchData();
-    }
-  }
-
-  void _fetchData() {
-    context.read<AdminRolesProvider>().loadBranchDetail(widget.branchId);
-    final skills = context.read<SkillsProvider>();
-    if (skills.catalog.isEmpty) skills.loadCatalog();
   }
 
   @override
@@ -64,10 +52,10 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
   }
 
   void _hydrate(RoleBranch branch) {
-    if (_hydratedBranchId == branch.id) return;
+    if (_loadedBranchId == branch.id) return;
+    _loadedBranchId = branch.id;
     _nameCtrl.text = branch.name;
     _descCtrl.text = branch.description ?? '';
-    _hydratedBranchId = branch.id;
   }
 
   @override
@@ -76,10 +64,21 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
     final roles = context.watch<AdminRolesProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Branch')),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _buildBody(context, p, roles),
+      backgroundColor: p.surface2,
+      body: Column(
+        children: [
+          const AdminPageHeader(
+            icon: Icons.alt_route,
+            title: 'Edit Branch',
+            subtitle: 'Update details and manage required skills.',
+          ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _buildBody(context, p, roles),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -92,9 +91,12 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
     switch (roles.branchDetailState) {
       case AdminBranchDetailLoadState.initial:
       case AdminBranchDetailLoadState.loading:
-        return const LoadingView(key: ValueKey('loading'));
+        return const Center(
+          key: ValueKey('loading'),
+          child: CircularProgressIndicator(),
+        );
       case AdminBranchDetailLoadState.error:
-        return ErrorView(
+        return InlineErrorState(
           key: const ValueKey('error'),
           message: roles.branchDetailError ?? 'Something went wrong.',
           onRetry: () => context.read<AdminRolesProvider>().loadBranchDetail(
@@ -102,119 +104,160 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
           ),
         );
       case AdminBranchDetailLoadState.loaded:
-        final branch = roles.selectedBranch;
-        if (branch == null) {
-          return const LoadingView(key: ValueKey('loading_null_guard'));
-        }
-
+        final branch = roles.selectedBranch!;
         _hydrate(branch);
-        return ListView(
-          key: ValueKey('loaded_${branch.id}'),
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          children: [
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _descCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Description (optional)',
+        return Center(
+          key: const ValueKey('loaded'),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _kFormMaxWidth),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Back to role'),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      alignment: Alignment.centerLeft,
                     ),
-                    maxLines: 3,
                   ),
-                  if (roles.branchDetailError != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      roles.branchDetailError!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12.5),
+                ),
+                const SizedBox(height: 12),
+                AdminCard(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _nameCtrl,
+                          decoration: const InputDecoration(labelText: 'Name'),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Required'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _descCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Description (optional)',
+                          ),
+                          maxLines: 3,
+                        ),
+                        if (roles.branchDetailError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            roles.branchDetailError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: roles.isSavingBranch
+                                    ? null
+                                    : () => _save(context, branch.id),
+                                child: roles.isSavingBranch
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Save changes',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: p.red,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  side: BorderSide(color: p.red),
+                                ),
+                                onPressed: roles.isDeletingBranch
+                                    ? null
+                                    : () => _confirmDelete(context, branch),
+                                child: roles.isDeletingBranch
+                                    ? SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: p.red,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Delete branch',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const SectionLabel('Required skills'),
+                const SizedBox(height: 4),
+                Text(
+                  'Skills someone needs to pursue this branch, weighted by importance (1–10).',
+                  style: TextStyle(fontSize: 12, color: p.textMuted),
+                ),
+                const SizedBox(height: 12),
+                if (roles.branchRequirements.isEmpty)
+                  AdminCard(
+                    child: Text(
+                      'No required skills set.',
+                      style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                    ),
+                  )
+                else
+                  Column(
                     children: [
-                      FilledButton(
-                        onPressed: roles.isSavingBranch
-                            ? null
-                            : () => _save(context, branch.id),
-                        child: roles.isSavingBranch
-                            ? const SizedBox(
-                                height: 16,
-                                width: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Save changes'),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton(
-                        onPressed: roles.isDeletingBranch
-                            ? null
-                            : () => _confirmDelete(context, branch),
-                        style: OutlinedButton.styleFrom(foregroundColor: p.red),
-                        child: roles.isDeletingBranch
-                            ? SizedBox(
-                                height: 16,
-                                width: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: p.red,
-                                ),
-                              )
-                            : const Text('Delete branch'),
-                      ),
+                      for (final req in roles.branchRequirements) ...[
+                        _RequirementRow(branchId: branch.id, requirement: req),
+                        const SizedBox(height: 8),
+                      ],
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'REQUIRED SKILLS',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: p.textMuted,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Skills someone needs for this branch, weighted by importance (1–10). '
-              "Users on this branch see this list — roles no longer have their own separate list.",
-              style: TextStyle(fontSize: 12, color: p.textMuted, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            if (roles.branchRequirements.isEmpty)
-              Text(
-                'No required skills set.',
-                style: TextStyle(fontSize: 12.5, color: p.textMuted),
-              )
-            else
-              ...roles.branchRequirements.map(
-                (req) => _BranchRequirementRow(
-                  branchId: branch.id,
-                  requirement: req,
+                const SizedBox(height: 4),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      _showAddRequirementDialog(context, branch.id, roles),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add required skill'),
                 ),
-              ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  _showAddRequirementDialog(context, branch.id, roles),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add required skill'),
+              ],
             ),
-          ],
+          ),
         );
     }
   }
@@ -228,14 +271,15 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, dynamic branch) async {
+  Future<void> _confirmDelete(BuildContext context, RoleBranch branch) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete this branch?'),
         content: Text(
-          'This removes "${branch.name}" and its required-skill list. If any user currently has '
-          'it selected as their career goal branch, deletion will be blocked until that changes.',
+          'This removes "${branch.name}" and its required-skill list. If any user '
+          'currently has it selected as their career goal branch, deletion will be '
+          'blocked until that changes.',
         ),
         actions: [
           TextButton(
@@ -252,16 +296,13 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
     if (confirmed == true && context.mounted) {
       final ok = await context.read<AdminRolesProvider>().deleteBranch(
         branch.id,
+        widget.roleId,
       );
       if (ok && context.mounted) {
-        context.go('/admin/roles/${widget.roleId}');
+        context.pop();
       } else if (context.mounted) {
         final err = context.read<AdminRolesProvider>().branchDetailError;
-        if (err != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(err)));
-        }
+        if (err != null) {}
       }
     }
   }
@@ -403,11 +444,8 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
   }
 }
 
-class _BranchRequirementRow extends StatelessWidget {
-  const _BranchRequirementRow({
-    required this.branchId,
-    required this.requirement,
-  });
+class _RequirementRow extends StatelessWidget {
+  const _RequirementRow({required this.branchId, required this.requirement});
 
   final int branchId;
   final BranchRequirement requirement;
@@ -420,14 +458,8 @@ class _BranchRequirementRow extends StatelessWidget {
       requirement.skillId,
     );
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: p.surface2,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: p.border),
-      ),
+    return AdminCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Row(
         children: [
           Expanded(
@@ -436,7 +468,7 @@ class _BranchRequirementRow extends StatelessWidget {
               requirement.name,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: p.textPrimary,
               ),
             ),
@@ -444,11 +476,7 @@ class _BranchRequirementRow extends StatelessWidget {
           Expanded(
             flex: 3,
             child: isPending
-                ? const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const MiniSpinner(size: 16)
                 : Slider(
                     value: requirement.importance.toDouble(),
                     min: 1,
