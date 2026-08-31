@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 /// Wraps a child in a fade + gentle upward-slide entrance animation.
-/// Used to stagger grids/lists in on load instead of popping in all at
-/// once — [index] controls the delay, so callers just number their items.
+/// [index] controls the delay, so callers just number their items to get
+/// a staggered cascade instead of everything popping in at once.
 class FadeSlideIn extends StatefulWidget {
   const FadeSlideIn({
     super.key,
     required this.child,
     this.index = 0,
-    this.perItemDelay = const Duration(milliseconds: 40),
-    this.duration = const Duration(milliseconds: 320),
+    this.perItemDelay = const Duration(milliseconds: 35),
+    this.duration = const Duration(milliseconds: 300),
   });
 
   final Widget child;

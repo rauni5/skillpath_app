@@ -63,8 +63,6 @@ class AdminRolesProvider extends ChangeNotifier {
           id: created.id,
           name: created.name,
           description: created.description,
-          requirementsCount: 0,
-          popularity: 0,
         ),
       ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       return created;
@@ -79,7 +77,7 @@ class AdminRolesProvider extends ChangeNotifier {
     }
   }
 
-  // --- Detail (edit name/description + branches) ---
+  // --- Role detail (edit + branches) ---
   AdminRoleDetailLoadState detailState = AdminRoleDetailLoadState.initial;
   String? detailError;
   CareerRole? selectedRole;
@@ -91,10 +89,9 @@ class AdminRolesProvider extends ChangeNotifier {
 
   Future<void> loadDetail(int roleId) async {
     detailState = AdminRoleDetailLoadState.loading;
-    detailState = AdminRoleDetailLoadState.loading;
     detailError = null;
     selectedRole = null;
-    notifyListeners();
+    branches = [];
     notifyListeners();
     try {
       final results = await Future.wait([
@@ -134,6 +131,7 @@ class AdminRolesProvider extends ChangeNotifier {
                         id: updated.id,
                         name: updated.name,
                         description: updated.description,
+                        branchCount: r.branchCount,
                         requirementsCount: r.requirementsCount,
                         popularity: r.popularity,
                       )
@@ -172,8 +170,6 @@ class AdminRolesProvider extends ChangeNotifier {
     }
   }
 
-  // --- Branches (under a role) ---
-
   Future<RoleBranch?> createBranch(
     int roleId, {
     required String name,
@@ -188,8 +184,19 @@ class AdminRolesProvider extends ChangeNotifier {
         name: name,
         description: description,
       );
-      branches = [...branches, created]
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      branches = [...branches, created];
+      final roleIndex = roles.indexWhere((r) => r.id == roleId);
+      if (roleIndex != -1) {
+        final r = roles[roleIndex];
+        roles[roleIndex] = AdminRoleSummary(
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          branchCount: r.branchCount + 1,
+          requirementsCount: r.requirementsCount,
+          popularity: r.popularity,
+        );
+      }
       return created;
     } catch (e) {
       createBranchError = e is ApiException
@@ -213,10 +220,10 @@ class AdminRolesProvider extends ChangeNotifier {
   final Set<int> pendingBranchRequirementSkillIds = {};
 
   Future<void> loadBranchDetail(int branchId) async {
+    branchDetailState = AdminBranchDetailLoadState.loading;
     branchDetailError = null;
     selectedBranch = null;
     branchRequirements = [];
-    branchDetailState = AdminBranchDetailLoadState.loading;
     notifyListeners();
     try {
       final results = await Future.wait([
@@ -250,8 +257,7 @@ class AdminRolesProvider extends ChangeNotifier {
         description: description,
       );
       selectedBranch = updated;
-      branches = branches.map((b) => b.id == branchId ? updated : b).toList()
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      branches = branches.map((b) => b.id == branchId ? updated : b).toList();
       return true;
     } catch (e) {
       branchDetailError = e is ApiException
@@ -264,18 +270,31 @@ class AdminRolesProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deleteBranch(int branchId) async {
+  Future<bool> deleteBranch(int branchId, int roleId) async {
     isDeletingBranch = true;
     branchDetailError = null;
     notifyListeners();
     try {
       await _repo.deleteBranch(branchId);
       branches = branches.where((b) => b.id != branchId).toList();
+      final roleIndex = roles.indexWhere((r) => r.id == roleId);
+      if (roleIndex != -1) {
+        final r = roles[roleIndex];
+        roles[roleIndex] = AdminRoleSummary(
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          branchCount: r.branchCount > 0 ? r.branchCount - 1 : 0,
+          requirementsCount: r.requirementsCount,
+          popularity: r.popularity,
+        );
+      }
       return true;
     } catch (e) {
       branchDetailError = e is ApiException
           ? e.message
-          : 'Could not delete this branch.';
+          : 'Could not delete this branch — check whether any user still has '
+                'it selected as their career goal.';
       return false;
     } finally {
       isDeletingBranch = false;

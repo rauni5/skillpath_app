@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_palette.dart';
 
-/// Shared card surface for the admin panel — soft shadow instead of a flat
-/// border-only look, consistent radius, and (when [onTap] is set) a
-/// pressed-state scale so tapping rows/cards feels responsive rather than
-/// just flashing an ink ripple.
+/// The one card surface every admin screen uses — consistent radius,
+/// border, and a soft shadow for depth instead of a flat outline. When
+/// [onTap] is set, the whole card is tappable with a subtle press-scale
+/// and ink ripple rather than just a bare [InkWell] around plain text.
 class AdminCard extends StatefulWidget {
   const AdminCard({
     super.key,
@@ -13,12 +13,14 @@ class AdminCard extends StatefulWidget {
     this.onTap,
     this.padding = const EdgeInsets.all(16),
     this.margin,
+    this.color,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry? margin;
+  final Color? color;
 
   @override
   State<AdminCard> createState() => _AdminCardState();
@@ -36,20 +38,20 @@ class _AdminCardState extends State<AdminCard> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
 
-    final card = AnimatedScale(
-      scale: _pressed ? 0.98 : 1.0,
+    return AnimatedScale(
+      scale: _pressed ? 0.985 : 1.0,
       duration: const Duration(milliseconds: 110),
       curve: Curves.easeOut,
       child: Container(
         margin: widget.margin,
         decoration: BoxDecoration(
-          color: p.surface2,
+          color: widget.color ?? p.surface1,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: p.border),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
+              blurRadius: 12,
               offset: const Offset(0, 3),
             ),
           ],
@@ -69,7 +71,5 @@ class _AdminCardState extends State<AdminCard> {
               ),
       ),
     );
-
-    return card;
   }
 }
