@@ -134,4 +134,17 @@ class CareerProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    rolesState = CareerLoadState.initial;
+    gapState = CareerLoadState.initial;
+    errorMessage = null;
+    isSubmitting = false;
+    roles = [];
+    gap = GapAnalysis.empty();
+    branchesState = CareerLoadState.initial;
+    branches = [];
+    branchRecommendations = [];
+    notifyListeners();
+  }
 }

@@ -101,13 +101,59 @@ class _RouterHostState extends State<_RouterHost> {
     super.initState();
     final auth = context.read<AuthProvider>();
     _router = buildRouter(auth);
-    // Achievement "newly unlocked" tracking lives in GamificationProvider,
-    // which — like the other providers — is created once for the app's
-    // whole process lifetime, not per login. Without this, signing out and
-    // back in would diff fresh achievements against stale data from the
-    // previous session and re-show toasts for things already seen.
     auth.registerSignOutListener(
       () => context.read<GamificationProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<DashboardProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<PortfolioProvider>().reset(),
+    );
+    auth.registerSignOutListener(() => context.read<RoadmapProvider>().reset());
+    auth.registerSignOutListener(() => context.read<SkillsProvider>().reset());
+    auth.registerSignOutListener(() => context.read<CareerProvider>().reset());
+    auth.registerSignOutListener(
+      () => context.read<ProjectsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<ProjectManagementProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<DiscussionProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<UserSearchProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminUsersProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminDashboardProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminSkillsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminRolesProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminAchievementsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<TutorChatProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<SkillCheckProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<DashboardAiProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<NotificationsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AssistantChatProvider>().reset(),
     );
   }
 

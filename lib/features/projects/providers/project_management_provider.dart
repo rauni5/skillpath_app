@@ -320,4 +320,28 @@ class ProjectManagementProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    ownedState = OwnedProjectsLoadState.initial;
+    ownedError = null;
+    ownedProjects = [];
+    manageState = ManageLoadState.initial;
+    manageError = null;
+    managedProject = null;
+    members = [];
+    recommendedMembers = [];
+    pendingActionUserIds.clear();
+    invitedUserIds.clear();
+    isUpdating = false;
+    updateError = null;
+    isCompletingOrCancelling = false;
+    myInvitesState = MyInvitesLoadState.initial;
+    myInvitesError = null;
+    myInvites = [];
+    respondingProjectIds.clear();
+    myJoinRequestsState = MyInvitesLoadState.initial;
+    myJoinRequestsError = null;
+    myJoinRequests = [];
+    notifyListeners();
+  }
 }

@@ -138,4 +138,16 @@ class SkillsProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    catalogState = SkillsLoadState.initial;
+    userSkillsState = SkillsLoadState.initial;
+    errorMessage = null;
+    catalog = [];
+    userSkills = [];
+    pendingSkillIds.clear();
+    searchQuery = '';
+    categoryFilter = null;
+    notifyListeners();
+  }
 }

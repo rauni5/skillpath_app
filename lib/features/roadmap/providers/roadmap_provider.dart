@@ -7,7 +7,8 @@ import '../data/roadmap_repository.dart';
 enum RoadmapLoadState { initial, loading, loaded, error }
 
 class RoadmapProvider extends ChangeNotifier {
-  RoadmapProvider({RoadmapRepository? repository}) : _repo = repository ?? RoadmapRepository();
+  RoadmapProvider({RoadmapRepository? repository})
+    : _repo = repository ?? RoadmapRepository();
 
   final RoadmapRepository _repo;
 
@@ -22,9 +23,18 @@ class RoadmapProvider extends ChangeNotifier {
       steps = await _repo.getRoadmap(userId);
       state = RoadmapLoadState.loaded;
     } catch (e) {
-      errorMessage = e is ApiException ? e.message : 'Could not load your roadmap.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not load your roadmap.';
       state = RoadmapLoadState.error;
     }
+    notifyListeners();
+  }
+
+  void reset() {
+    state = RoadmapLoadState.initial;
+    steps = [];
+    errorMessage = null;
     notifyListeners();
   }
 }

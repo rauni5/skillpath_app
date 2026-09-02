@@ -7,7 +7,8 @@ import '../data/dashboard_repository.dart';
 enum DashboardLoadState { initial, loading, loaded, error }
 
 class DashboardProvider extends ChangeNotifier {
-  DashboardProvider({DashboardRepository? repository}) : _repo = repository ?? DashboardRepository();
+  DashboardProvider({DashboardRepository? repository})
+    : _repo = repository ?? DashboardRepository();
 
   final DashboardRepository _repo;
 
@@ -22,9 +23,18 @@ class DashboardProvider extends ChangeNotifier {
       data = await _repo.getDashboard(userId);
       state = DashboardLoadState.loaded;
     } catch (e) {
-      errorMessage = e is ApiException ? e.message : 'Could not load your dashboard.';
+      errorMessage = e is ApiException
+          ? e.message
+          : 'Could not load your dashboard.';
       state = DashboardLoadState.error;
     }
+    notifyListeners();
+  }
+
+  void reset() {
+    state = DashboardLoadState.initial;
+    data = null;
+    errorMessage = null;
     notifyListeners();
   }
 }

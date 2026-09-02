@@ -282,4 +282,24 @@ class DiscussionProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  void reset() {
+    boardState = BoardLoadState.initial;
+    boardError = null;
+    posts = [];
+    _page = 0;
+    hasMore = true;
+    isLoadingMore = false;
+    _loadedProjectId = null;
+    _loadedChannel = null;
+    isCreatingPost = false;
+    createPostError = null;
+    detailState = PostDetailLoadState.initial;
+    detailError = null;
+    selectedPost = null;
+    comments = [];
+    isCommenting = false;
+    commentError = null;
+    notifyListeners();
+  }
 }

@@ -136,4 +136,17 @@ class TutorChatProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    currentSkillId = null;
+    state = ChatLoadState.initial;
+    errorMessage = null;
+    messages = [];
+    isSending = false;
+    hasError = false;
+    _lastFailedMessage = null;
+    _kickoffSkillName = null;
+    _kickoffSent = false;
+    notifyListeners();
+  }
 }

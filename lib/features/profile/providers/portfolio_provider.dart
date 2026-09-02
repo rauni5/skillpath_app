@@ -147,4 +147,14 @@ class PortfolioProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    _userId = null;
+    state = PortfolioLoadState.initial;
+    data = null;
+    errorMessage = null;
+    mutating = false;
+    mutationError = null;
+    notifyListeners();
+  }
 }

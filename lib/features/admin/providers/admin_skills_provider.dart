@@ -182,4 +182,20 @@ class AdminSkillsProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    listState = AdminSkillsLoadState.initial;
+    listError = null;
+    catalog = [];
+    isCreating = false;
+    createError = null;
+    detailState = AdminSkillDetailLoadState.initial;
+    detailError = null;
+    selectedSkill = null;
+    dependencies = [];
+    isSaving = false;
+    isDeleting = false;
+    pendingDependencyIds.clear();
+    notifyListeners();
+  }
 }
