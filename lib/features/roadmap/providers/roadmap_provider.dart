@@ -16,11 +16,19 @@ class RoadmapProvider extends ChangeNotifier {
   List<RoadmapStep> steps = [];
   String? errorMessage;
 
+  /// True if [steps] came from the on-device cache rather than a live
+  /// request.
+  bool isShowingCachedData = false;
+  DateTime? cachedAt;
+
   Future<void> load(int userId) async {
     state = RoadmapLoadState.loading;
     notifyListeners();
     try {
-      steps = await _repo.getRoadmap(userId);
+      final result = await _repo.getRoadmap(userId);
+      steps = result.data;
+      isShowingCachedData = result.fromCache;
+      cachedAt = result.cachedAt;
       state = RoadmapLoadState.loaded;
     } catch (e) {
       errorMessage = e is ApiException
@@ -35,6 +43,8 @@ class RoadmapProvider extends ChangeNotifier {
     state = RoadmapLoadState.initial;
     steps = [];
     errorMessage = null;
+    isShowingCachedData = false;
+    cachedAt = null;
     notifyListeners();
   }
 }

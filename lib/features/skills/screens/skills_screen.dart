@@ -7,6 +7,7 @@ import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/skills_provider.dart';
@@ -87,6 +88,13 @@ class _SkillsScreenState extends State<SkillsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
                     children: [
+                      if (skills.isCatalogShowingCachedData ||
+                          skills.isUserSkillsShowingCachedData)
+                        OfflineBanner(
+                          cachedAt:
+                              skills.userSkillsCachedAt ??
+                              skills.catalogCachedAt,
+                        ),
                       _YourSkillsSection(
                         skills: skills,
                         onRemove: (id) {

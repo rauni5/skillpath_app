@@ -244,6 +244,8 @@ class ProjectManagementProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  VoidCallback? onProgressMade;
+
   Future<bool> acceptInvite(int userId, int projectId) =>
       _respondToInvite(userId, projectId, 'ACCEPTED');
   Future<bool> declineInvite(int userId, int projectId) =>
@@ -259,6 +261,7 @@ class ProjectManagementProvider extends ChangeNotifier {
     try {
       await _repo.respondToInvite(userId, projectId, status);
       myInvites = myInvites.where((i) => i.projectId != projectId).toList();
+      if (status == 'ACCEPTED') onProgressMade?.call();
       return true;
     } catch (e) {
       myInvitesError = e is ApiException

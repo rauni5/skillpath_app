@@ -88,6 +88,10 @@ class SkillCheckProvider extends ChangeNotifier {
     }
   }
 
+  /// Called after a passed skill check — wired up in main.dart to trigger
+  /// a GamificationProvider refresh.
+  VoidCallback? onProgressMade;
+
   Future<void> submit(int userId, int skillId) async {
     if (attemptId == null) return;
     phase = SkillCheckPhase.submitting;
@@ -107,6 +111,7 @@ class SkillCheckProvider extends ChangeNotifier {
       SoundEffectsService.instance.play(
         result!.passed ? SoundEffect.quizPass : SoundEffect.quizFail,
       );
+      if (result!.passed) onProgressMade?.call();
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message

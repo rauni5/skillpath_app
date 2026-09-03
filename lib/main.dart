@@ -155,6 +155,26 @@ class _RouterHostState extends State<_RouterHost> {
     auth.registerSignOutListener(
       () => context.read<AssistantChatProvider>().reset(),
     );
+
+    // Gamification/achievements are recomputed lazily by the backend
+    // whenever they're read, so there's no server event to react to — but
+    // the app itself already knows exactly when something that *might*
+    // affect them just happened, since it's the one that made the call.
+    // Wiring a direct refresh at each of those points is strictly better
+    // than polling on a timer: instant instead of up-to-30s-stale, and it
+    // doesn't burn a request when nothing actually changed. This covers
+    // the app's own actions; a project teammate's action still relies on
+    // the lighter resume/tab-visit check on the Dashboard itself.
+    final gamification = context.read<GamificationProvider>();
+    void refreshGamification() {
+      final userId = auth.currentUser?.id;
+      if (userId != null) gamification.load(userId);
+    }
+
+    context.read<SkillsProvider>().onProgressMade = refreshGamification;
+    context.read<SkillCheckProvider>().onProgressMade = refreshGamification;
+    context.read<ProjectManagementProvider>().onProgressMade =
+        refreshGamification;
   }
 
   @override
