@@ -12,6 +12,7 @@ import '../../../shared/widgets/animated_progress_bar.dart';
 import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -142,13 +143,24 @@ class _PortfolioScreenState extends State<PortfolioScreen>
               message: portfolio.errorMessage ?? 'Something went wrong.',
               onRetry: _load,
             ),
-            PortfolioLoadState.loaded => _PortfolioBody(
-              data: portfolio.data!,
-              isSelf: _isSelf,
-              onAddEducation: _addEducation,
-              onDeleteEducation: _deleteEducation,
-              onAddCertification: _addCertification,
-              onDeleteCertification: _deleteCertification,
+            PortfolioLoadState.loaded => Column(
+              children: [
+                if (portfolio.isShowingCachedData)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: OfflineBanner(cachedAt: portfolio.cachedAt),
+                  ),
+                Expanded(
+                  child: _PortfolioBody(
+                    data: portfolio.data!,
+                    isSelf: _isSelf,
+                    onAddEducation: _addEducation,
+                    onDeleteEducation: _deleteEducation,
+                    onAddCertification: _addCertification,
+                    onDeleteCertification: _deleteCertification,
+                  ),
+                ),
+              ],
             ),
           },
         ),

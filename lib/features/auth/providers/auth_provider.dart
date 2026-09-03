@@ -150,8 +150,8 @@ class AuthProvider extends ChangeNotifier {
     final userId = currentUser?.id;
     if (userId == null) return;
     try {
-      final gap = await _careerRepo.getGapAnalysis(userId);
-      needsOnboarding = !gap.hasGoalSet;
+      final result = await _careerRepo.getGapAnalysis(userId);
+      needsOnboarding = !result.data.hasGoalSet;
       isOffline = false;
       unawaited(_persistSessionCache());
     } catch (_) {

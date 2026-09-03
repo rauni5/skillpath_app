@@ -17,11 +17,31 @@ class CareerProvider extends ChangeNotifier {
 
   CareerLoadState rolesState = CareerLoadState.initial;
   CareerLoadState gapState = CareerLoadState.initial;
+
+  /// Error for the role-list load specifically. Kept separate from
+  /// [gapErrorMessage] because loadRoles() and loadGap() run concurrently
+  /// in [loadAll] — sharing one field meant whichever finished last silently
+  /// overwrote the other's message, and neither cleared it on success.
+  String? rolesErrorMessage;
+  String? gapErrorMessage;
+
+  /// Error for setGoal()/switchBranch()/loadBranchesForRole() — these run
+  /// one at a time (never concurrently with each other or with the loads
+  /// above), so a single shared field is safe here.
   String? errorMessage;
   bool isSubmitting = false;
 
   List<CareerRole> roles = [];
   GapAnalysis gap = GapAnalysis.empty();
+
+  bool isRolesShowingCachedData = false;
+  DateTime? rolesCachedAt;
+  bool isGapShowingCachedData = false;
+  DateTime? gapCachedAt;
+
+  bool get isShowingCachedData =>
+      isRolesShowingCachedData || isGapShowingCachedData;
+  DateTime? get cachedAt => rolesCachedAt ?? gapCachedAt;
 
   // --- Specializations (branches) for whichever role is being picked/viewed ---
   CareerLoadState branchesState = CareerLoadState.initial;
@@ -32,10 +52,14 @@ class CareerProvider extends ChangeNotifier {
     rolesState = CareerLoadState.loading;
     notifyListeners();
     try {
-      roles = await _repo.getCareerRoles();
+      final result = await _repo.getCareerRoles();
+      roles = result.data;
+      isRolesShowingCachedData = result.fromCache;
+      rolesCachedAt = result.cachedAt;
+      rolesErrorMessage = null;
       rolesState = CareerLoadState.loaded;
     } catch (e) {
-      errorMessage = e is ApiException
+      rolesErrorMessage = e is ApiException
           ? e.message
           : 'Could not load career roles.';
       rolesState = CareerLoadState.error;
@@ -47,10 +71,14 @@ class CareerProvider extends ChangeNotifier {
     gapState = CareerLoadState.loading;
     notifyListeners();
     try {
-      gap = await _repo.getGapAnalysis(userId);
+      final result = await _repo.getGapAnalysis(userId);
+      gap = result.data;
+      isGapShowingCachedData = result.fromCache;
+      gapCachedAt = result.cachedAt;
+      gapErrorMessage = null;
       gapState = CareerLoadState.loaded;
     } catch (e) {
-      errorMessage = e is ApiException
+      gapErrorMessage = e is ApiException
           ? e.message
           : 'Could not load your gap analysis.';
       gapState = CareerLoadState.error;
@@ -102,7 +130,10 @@ class CareerProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _repo.setCareerGoal(userId, roleId, branchId: branchId);
-      gap = await _repo.getGapAnalysis(userId);
+      final result = await _repo.getGapAnalysis(userId);
+      gap = result.data;
+      isGapShowingCachedData = result.fromCache;
+      gapCachedAt = result.cachedAt;
       return true;
     } catch (e) {
       errorMessage = e is ApiException
@@ -122,7 +153,10 @@ class CareerProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _repo.switchBranch(userId, branchId);
-      gap = await _repo.getGapAnalysis(userId);
+      final result = await _repo.getGapAnalysis(userId);
+      gap = result.data;
+      isGapShowingCachedData = result.fromCache;
+      gapCachedAt = result.cachedAt;
       return true;
     } catch (e) {
       errorMessage = e is ApiException
@@ -138,10 +172,16 @@ class CareerProvider extends ChangeNotifier {
   void reset() {
     rolesState = CareerLoadState.initial;
     gapState = CareerLoadState.initial;
+    rolesErrorMessage = null;
+    gapErrorMessage = null;
     errorMessage = null;
     isSubmitting = false;
     roles = [];
     gap = GapAnalysis.empty();
+    isRolesShowingCachedData = false;
+    rolesCachedAt = null;
+    isGapShowingCachedData = false;
+    gapCachedAt = null;
     branchesState = CareerLoadState.initial;
     branches = [];
     branchRecommendations = [];

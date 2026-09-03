@@ -9,6 +9,7 @@ import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/cache/cache_store.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -258,6 +259,7 @@ class AuthRepository {
 
   Future<void> signOut() async {
     await clearCachedSession();
+    await CacheStore.instance.clearAll();
     try {
       await _googleSignIn.signOut();
     } catch (_) {}

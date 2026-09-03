@@ -19,6 +19,11 @@ class PortfolioProvider extends ChangeNotifier {
   bool mutating = false;
   String? mutationError;
 
+  /// True if [data] came from the on-device cache rather than a live
+  /// request.
+  bool isShowingCachedData = false;
+  DateTime? cachedAt;
+
   Future<void> load(int userId) async {
     _userId = userId;
     final isFirstLoad = data == null;
@@ -27,7 +32,10 @@ class PortfolioProvider extends ChangeNotifier {
       notifyListeners();
     }
     try {
-      data = await _repo.getPortfolio(userId);
+      final result = await _repo.getPortfolio(userId);
+      data = result.data;
+      isShowingCachedData = result.fromCache;
+      cachedAt = result.cachedAt;
       state = PortfolioLoadState.loaded;
       notifyListeners();
     } catch (e) {
@@ -57,14 +65,14 @@ class PortfolioProvider extends ChangeNotifier {
       description: description,
       userRole: userRole,
     );
-    data = await _repo.getPortfolio(userId);
+    data = (await _repo.getPortfolio(userId)).data;
   });
 
   Future<bool> deleteItem(int itemId) => _mutate(() async {
     final userId = _userId;
     if (userId == null) throw ApiException('Not signed in.');
     await _repo.deletePortfolioItem(userId, itemId);
-    data = await _repo.getPortfolio(userId);
+    data = (await _repo.getPortfolio(userId)).data;
   });
 
   Future<bool> addCertification({
@@ -82,14 +90,14 @@ class PortfolioProvider extends ChangeNotifier {
       credentialUrl: credentialUrl,
       earnedOn: earnedOn,
     );
-    data = await _repo.getPortfolio(userId);
+    data = (await _repo.getPortfolio(userId)).data;
   });
 
   Future<bool> deleteCertification(int certId) => _mutate(() async {
     final userId = _userId;
     if (userId == null) throw ApiException('Not signed in.');
     await _repo.deleteCertification(userId, certId);
-    data = await _repo.getPortfolio(userId);
+    data = (await _repo.getPortfolio(userId)).data;
   });
 
   Future<bool> addEducation({
@@ -111,14 +119,14 @@ class PortfolioProvider extends ChangeNotifier {
       endDate: endDate,
       description: description,
     );
-    data = await _repo.getPortfolio(userId);
+    data = (await _repo.getPortfolio(userId)).data;
   });
 
   Future<bool> deleteEducation(int eduId) => _mutate(() async {
     final userId = _userId;
     if (userId == null) throw ApiException('Not signed in.');
     await _repo.deleteEducation(userId, eduId);
-    data = await _repo.getPortfolio(userId);
+    data = (await _repo.getPortfolio(userId)).data;
   });
 
   /// Called after Settings/Portfolio-edit screens update the bio,
@@ -155,6 +163,8 @@ class PortfolioProvider extends ChangeNotifier {
     errorMessage = null;
     mutating = false;
     mutationError = null;
+    isShowingCachedData = false;
+    cachedAt = null;
     notifyListeners();
   }
 }

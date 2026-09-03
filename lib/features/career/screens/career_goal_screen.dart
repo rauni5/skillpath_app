@@ -8,6 +8,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
@@ -169,7 +170,7 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
         career.gapState == CareerLoadState.loading &&
         career.rolesState == CareerLoadState.loading;
     final hasError =
-        career.gapState == CareerLoadState.error &&
+        career.gapState == CareerLoadState.error ||
         career.rolesState == CareerLoadState.error;
 
     return Scaffold(
@@ -182,7 +183,10 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
               : hasError
               ? ErrorView(
                   key: const ValueKey('error'),
-                  message: career.errorMessage ?? 'Something went wrong.',
+                  message:
+                      career.gapErrorMessage ??
+                      career.rolesErrorMessage ??
+                      'Something went wrong.',
                   onRetry: _load,
                 )
               : _buildContent(context, p, career),
@@ -217,6 +221,8 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
             children: [
+              if (career.isShowingCachedData)
+                OfflineBanner(cachedAt: career.cachedAt),
               GapSummaryCard(
                 gap: career.gap,
                 onTapSpecializationInfo: () =>
@@ -304,9 +310,9 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
             for (final role in career.roles)
               RoleCard(
                 role: role,
-                isSelected:
-                    career.gap.careerRoleName == role.name ||
-                    _pendingRoleId == role.id,
+                isSelected: _pendingRoleId != null
+                    ? _pendingRoleId == role.id
+                    : career.gap.careerRoleName == role.name,
                 onTap:
                     _isProcessingRoleTap ||
                         career.isSubmitting ||

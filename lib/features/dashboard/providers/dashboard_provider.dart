@@ -16,11 +16,20 @@ class DashboardProvider extends ChangeNotifier {
   DashboardData? data;
   String? errorMessage;
 
+  /// True if [data] came from the on-device cache rather than a live
+  /// request — the backend couldn't be reached. [cachedAt] is when that
+  /// snapshot was taken.
+  bool isShowingCachedData = false;
+  DateTime? cachedAt;
+
   Future<void> load(int userId) async {
     state = DashboardLoadState.loading;
     notifyListeners();
     try {
-      data = await _repo.getDashboard(userId);
+      final result = await _repo.getDashboard(userId);
+      data = result.data;
+      isShowingCachedData = result.fromCache;
+      cachedAt = result.cachedAt;
       state = DashboardLoadState.loaded;
     } catch (e) {
       errorMessage = e is ApiException
@@ -35,6 +44,8 @@ class DashboardProvider extends ChangeNotifier {
     state = DashboardLoadState.initial;
     data = null;
     errorMessage = null;
+    isShowingCachedData = false;
+    cachedAt = null;
     notifyListeners();
   }
 }

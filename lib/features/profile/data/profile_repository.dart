@@ -1,6 +1,11 @@
+import 'dart:async';
+
+import '../../../core/cache/cache_store.dart';
 import '../../../core/models/portfolio.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/cached_result.dart';
 
 /// GET /api/v1/users/{userId}/portfolio
 class ProfileRepository {
@@ -14,11 +19,26 @@ class ProfileRepository {
     );
   }
 
-  Future<PortfolioData> getPortfolio(int userId) {
-    return _api.unwrap(
-      (dio) => dio.get('/api/v1/users/$userId/portfolio'),
-      (data) => PortfolioData.fromJson(data as Map<String, dynamic>),
-    );
+  Future<CachedResult<PortfolioData>> getPortfolio(int userId) async {
+    final cacheKey = 'portfolio:$userId';
+    try {
+      final data = await _api.unwrap(
+        (dio) => dio.get('/api/v1/users/$userId/portfolio'),
+        (data) {
+          unawaited(CacheStore.instance.write(cacheKey, data));
+          return PortfolioData.fromJson(data as Map<String, dynamic>);
+        },
+      );
+      return CachedResult.live(data);
+    } on ApiException catch (e) {
+      if (!e.isTransient) rethrow;
+      final cached = await CacheStore.instance.read(cacheKey);
+      if (cached == null) rethrow;
+      return CachedResult.cached(
+        PortfolioData.fromJson(cached.value as Map<String, dynamic>),
+        cachedAt: cached.cachedAt,
+      );
+    }
   }
 
   /// POST /api/v1/users/{userId}/portfolio
