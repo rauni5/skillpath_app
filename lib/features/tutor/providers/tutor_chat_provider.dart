@@ -18,6 +18,12 @@ class TutorChatProvider extends ChangeNotifier {
   List<ChatMessage> messages = [];
   bool isSending = false;
 
+  /// True if [messages] came from the on-device cache rather than a live
+  /// request — a previous conversation, reviewable but not extendable
+  /// until back online.
+  bool isShowingCachedData = false;
+  DateTime? cachedAt;
+
   /// True when the most recent send/kickoff attempt failed and hasn't
   /// been retried or superseded by a newer message yet — drives the
   /// inline error notice with a "Try again" action.
@@ -38,11 +44,16 @@ class TutorChatProvider extends ChangeNotifier {
     currentSkillId = skillId;
     state = ChatLoadState.loading;
     messages = [];
+    isShowingCachedData = false;
+    cachedAt = null;
     _kickoffSent = false;
     hasError = false;
     notifyListeners();
     try {
-      messages = await _repo.getChatHistory(userId, skillId);
+      final result = await _repo.getChatHistory(userId, skillId);
+      messages = result.data;
+      isShowingCachedData = result.fromCache;
+      cachedAt = result.cachedAt;
       state = ChatLoadState.loaded;
     } catch (e) {
       errorMessage = e is ApiException
@@ -144,6 +155,8 @@ class TutorChatProvider extends ChangeNotifier {
     messages = [];
     isSending = false;
     hasError = false;
+    isShowingCachedData = false;
+    cachedAt = null;
     _lastFailedMessage = null;
     _kickoffSkillName = null;
     _kickoffSent = false;

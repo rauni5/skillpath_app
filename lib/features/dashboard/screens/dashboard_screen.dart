@@ -50,10 +50,21 @@ class _DashboardScreenState extends State<DashboardScreen>
   // initState only ever runs once. Without this, an achievement unlocked
   // while on another tab (e.g. finishing a skill check) would never show
   // its "unlocked" dialog until a manual pull-to-refresh — nothing else
-  // re-triggers _load() when the user taps back to this tab.
+  // re-triggers a check when the user taps back to this tab.
+  //
+  // Only gamification is re-checked on the timer, not the full dashboard —
+  // most of what changes gamification is already caught instantly via
+  // onProgressMade call-site triggers (see main.dart), so this tick is
+  // just a cheap (2 GET requests) safety net for the remaining case: a
+  // teammate's action, not this device's own. The rest of the dashboard
+  // (summary, notifications, AI blurb) doesn't need re-fetching every 30s
+  // just because this screen happens to be open.
   void _startRefreshTimer() {
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(_refreshInterval, (_) => _load());
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      if (userId != null) _loadGamification(userId);
+    });
   }
 
   @override

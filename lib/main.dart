@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 
 import 'features/audio/sound_effects_service.dart';
 import 'core/router/app_router.dart';
+import 'core/router/navigation_keys.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'shared/widgets/app_dialogs.dart';
 import 'features/admin/providers/admin_dashboard_provider.dart';
 import 'features/admin/providers/admin_achievements_provider.dart';
 import 'features/admin/providers/admin_roles_provider.dart';
@@ -95,12 +97,22 @@ class _RouterHost extends StatefulWidget {
 
 class _RouterHostState extends State<_RouterHost> {
   late final GoRouter _router;
+  late final AuthProvider _auth;
+  bool _hasShownOfflineDialog = false;
 
   @override
   void initState() {
     super.initState();
     final auth = context.read<AuthProvider>();
+    _auth = auth;
     _router = buildRouter(auth);
+    // Every provider below holds user-scoped data but — like
+    // GamificationProvider — is created once for the app's whole process
+    // lifetime, not per login. Without resetting them, signing out and
+    // back in (as the same or a different account) would show stale data
+    // from the previous session until each screen's own reload kicked in,
+    // or worse briefly leak one account's data into another's on a shared
+    // device.
     auth.registerSignOutListener(
       () => context.read<GamificationProvider>().reset(),
     );
@@ -175,6 +187,38 @@ class _RouterHostState extends State<_RouterHost> {
     context.read<SkillCheckProvider>().onProgressMade = refreshGamification;
     context.read<ProjectManagementProvider>().onProgressMade =
         refreshGamification;
+
+    // Tell the user once, the moment we fall back to a cached session or
+    // cached screen data — not on every rebuild, and again if they go
+    // offline a second time later in the same app session.
+    auth.addListener(_onAuthChanged);
+  }
+
+  void _onAuthChanged() {
+    if (_auth.isOffline && !_hasShownOfflineDialog) {
+      _hasShownOfflineDialog = true;
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null) {
+        showInfoDialog(
+          ctx,
+          title: "You're offline",
+          message:
+              "Showing your last saved data. Some screens may be out of "
+              "date, and anything that needs a connection — like sending "
+              "a message or saving changes — won't work until you're "
+              "back online.",
+          icon: Icons.cloud_off_rounded,
+        );
+      }
+    } else if (!_auth.isOffline) {
+      _hasShownOfflineDialog = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _auth.removeListener(_onAuthChanged);
+    super.dispose();
   }
 
   @override

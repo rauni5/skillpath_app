@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart' show XFile;
 
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_exception.dart';
 import '../../career/data/career_repository.dart';
@@ -21,11 +22,21 @@ class AuthProvider extends ChangeNotifier {
     : _repo = repository ?? AuthRepository(),
       _careerRepo = careerRepository ?? CareerRepository() {
     _sub = _repo.firebaseUserChanges.listen(_onFirebaseUserChanged);
+    // The device regaining a network interface doesn't guarantee the
+    // backend is reachable (see ConnectivityService's doc comment), so
+    // this doesn't declare isOffline = false itself — it just re-attempts
+    // the sync, which will correctly re-confirm (or fail again) on its own.
+    _connectivitySub = ConnectivityService.instance.onStatusChanged.listen((
+      connected,
+    ) {
+      if (connected && isOffline) retrySync();
+    });
   }
 
   final AuthRepository _repo;
   final CareerRepository _careerRepo;
   late final StreamSubscription _sub;
+  late final StreamSubscription<bool> _connectivitySub;
 
   AuthStatus status = AuthStatus.unknown;
   AppUser? currentUser;
@@ -345,6 +356,7 @@ class AuthProvider extends ChangeNotifier {
   @override
   void dispose() {
     _sub.cancel();
+    _connectivitySub.cancel();
     super.dispose();
   }
 }
