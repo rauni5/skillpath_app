@@ -9,6 +9,7 @@ import '../../features/admin/screens/admin_achievements_screen.dart';
 import '../../features/admin/screens/admin_blocked_screen.dart';
 import '../../features/admin/screens/admin_branch_detail_screen.dart';
 import '../../features/admin/screens/admin_home_screen.dart';
+import '../../features/admin/screens/admin_login_screen.dart';
 import '../../features/admin/screens/admin_role_detail_screen.dart';
 import '../../features/admin/screens/admin_roles_screen.dart';
 import '../../features/admin/screens/admin_skill_detail_screen.dart';
@@ -29,6 +30,7 @@ import '../../features/profile/providers/portfolio_provider.dart';
 import '../../features/profile/screens/cv_preview_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/portfolio_screen.dart';
+import '../../features/profile/screens/public_profile_screen.dart';
 import '../../features/profile/screens/settings_screen.dart';
 import '../../features/projects/screens/create_post_screen.dart';
 import '../../features/projects/screens/create_project_screen.dart';
@@ -45,6 +47,7 @@ import '../../features/skills/screens/add_skills_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/skills/screens/skills_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
+import '../../features/tour/screens/app_tour_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -56,17 +59,50 @@ import 'skill_check_route_args.dart';
 GoRouter buildRouter(AuthProvider authProvider) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
+    // Deliberately just '/splash' on every platform, not
+    // kIsWeb ? '/admin/login' : '/splash'. That override actively fought
+    // with real deep links (go_router has a long history of
+    // initialLocation taking precedence over the platform-provided URL on
+    // web) — and it was redundant anyway, since the redirect function
+    // below already sends an unauthenticated visit to '/' to
+    // '/admin/login' on its own. Forcing initialLocation bought nothing
+    // and broke '/p/:token' links.
     initialLocation: '/splash',
     refreshListenable: authProvider,
     redirect: (context, state) {
       final loc = state.matchedLocation;
+
+      // Public profile links must work for a visitor with no SkillPath
+      // account at all, on both web and mobile — this bypasses every
+      // other redirect below, including the web build's admin-only rule.
+      // Deliberately the very first check, so nothing else in this
+      // function can accidentally override it.
+      if (loc.startsWith('/p/')) return null;
+
       final onSplash = loc == '/splash';
+      final onAdminLogin = loc == '/admin/login';
       final onAuthScreens =
           loc == '/login' || loc == '/register' || loc == '/forgot-password';
-      final onOnboarding = loc == '/onboarding';
-      final onVerifyEmail = loc == '/verify-email';
       final onAdminBlocked = loc == '/admin-blocked';
       final onAdmin = loc.startsWith('/admin');
+
+      if (kIsWeb) {
+        if (authProvider.status == AuthStatus.unauthenticated ||
+            authProvider.status == AuthStatus.unknown) {
+          return onAdminLogin ? null : '/admin/login';
+        }
+
+        final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+        if (!isAdmin) {
+          // Force logout or redirect non-admin accounts trying to access web app
+          return '/admin-blocked';
+        }
+
+        if (onAdminLogin || onAuthScreens || !onAdmin) {
+          return '/admin';
+        }
+        return null;
+      }
 
       if (authProvider.status == AuthStatus.unknown) {
         return onSplash ? null : '/splash';
@@ -76,45 +112,36 @@ GoRouter buildRouter(AuthProvider authProvider) {
         return onAuthScreens ? null : '/login';
       }
 
-      // Signed in from here on — email verification gates everything else.
       if (authProvider.needsEmailVerification) {
-        return onVerifyEmail ? null : '/verify-email';
+        return loc == '/verify-email' ? null : '/verify-email';
       }
 
       final isAdmin = authProvider.currentUser?.isAdmin ?? false;
-
       if (isAdmin) {
-        // Admins never go through onboarding or the normal student app —
-        // web takes them straight to the admin panel, mobile is blocked.
-        if (!kIsWeb) {
-          return onAdminBlocked ? null : '/admin-blocked';
-        }
-        if (onAuthScreens ||
-            onVerifyEmail ||
-            onOnboarding ||
-            onAdminBlocked ||
-            !onAdmin) {
-          return '/admin';
-        }
-        return null;
+        return onAdminBlocked ? null : '/admin-blocked';
       }
 
-      // Non-admin users should never reach admin-only routes.
       if (onAdmin || onAdminBlocked) return '/dashboard';
 
       final needsOnboarding = authProvider.needsOnboarding;
-      if (needsOnboarding == null) return onVerifyEmail ? '/login' : null;
-
-      if (needsOnboarding) {
-        return onOnboarding ? null : '/onboarding';
+      if (needsOnboarding == true) {
+        return loc == '/onboarding' ? null : '/onboarding';
       }
 
-      if (onOnboarding || onAuthScreens || onVerifyEmail || onSplash) {
+      if (loc == '/onboarding') {
+        return authProvider.justCompletedOnboarding ? '/tour' : '/dashboard';
+      }
+
+      if (onAuthScreens || loc == '/verify-email' || onSplash) {
         return '/dashboard';
       }
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/admin/login',
+        builder: (context, state) => const AdminLoginScreen(),
+      ),
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
@@ -135,6 +162,15 @@ GoRouter buildRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/tour',
+        builder: (context, state) => const AppTourScreen(),
+      ),
+      GoRoute(
+        path: '/p/:token',
+        builder: (context, state) =>
+            PublicProfileScreen(token: state.pathParameters['token']!),
       ),
       GoRoute(
         path: '/admin-blocked',

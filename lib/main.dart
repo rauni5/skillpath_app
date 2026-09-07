@@ -9,6 +9,7 @@ import 'core/router/app_router.dart';
 import 'core/router/navigation_keys.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'core/web/url_strategy.dart';
 import 'shared/widgets/app_dialogs.dart';
 import 'features/admin/providers/admin_dashboard_provider.dart';
 import 'features/admin/providers/admin_achievements_provider.dart';
@@ -24,6 +25,7 @@ import 'features/dashboard/providers/gamification_provider.dart';
 import 'features/notifications/providers/notifications_provider.dart';
 import 'features/notifications/data/notification_service.dart';
 import 'features/profile/providers/portfolio_provider.dart';
+import 'features/profile/providers/public_profile_provider.dart';
 import 'features/projects/providers/discussion_provider.dart';
 import 'features/projects/providers/project_management_provider.dart';
 import 'features/projects/providers/projects_provider.dart';
@@ -36,6 +38,13 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // A no-op on every platform except web (see core/web/url_strategy.dart
+  // for why this has to be a compile-time conditional import, not a
+  // simple kIsWeb check). On web, this enables path-based URLs
+  // (yoursite.com/p/abc123) instead of the hash-based default
+  // (yoursite.com/#/p/abc123) — required for public profile links (and
+  // the Firebase Hosting rewrite rule that supports them) to work.
+  configureUrlStrategy();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.instance.initialize();
   await AudioPlayer.global.setAudioContext(
@@ -63,6 +72,7 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => PortfolioProvider()),
+        ChangeNotifierProvider(create: (_) => PublicProfileProvider()),
         ChangeNotifierProvider(create: (_) => RoadmapProvider()),
         ChangeNotifierProvider(create: (_) => SkillsProvider()),
         ChangeNotifierProvider(create: (_) => CareerProvider()),
@@ -166,6 +176,9 @@ class _RouterHostState extends State<_RouterHost> {
     );
     auth.registerSignOutListener(
       () => context.read<AssistantChatProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<PublicProfileProvider>().reset(),
     );
 
     // Gamification/achievements are recomputed lazily by the backend

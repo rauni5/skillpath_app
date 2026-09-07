@@ -69,6 +69,7 @@ class AuthProvider extends ChangeNotifier {
       needsOnboarding = null;
       needsEmailVerification = false;
       isOffline = false;
+      justCompletedOnboarding = false;
       notifyListeners();
       return;
     }
@@ -187,13 +188,27 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// True for the single app session right after markOnboardingComplete()
+  /// — lets the router send a brand-new user through the app tour once,
+  /// right after onboarding, without needing any persisted "have they
+  /// seen the tour" flag. Returning users who onboarded in a previous
+  /// session always have this false, so they never see it again.
+  bool justCompletedOnboarding = false;
+
   /// Called by the onboarding flow once it has just set the career goal
   /// itself — avoids one extra round trip before the router unlocks the
   /// main app.
   void markOnboardingComplete() {
     needsOnboarding = false;
+    justCompletedOnboarding = true;
     notifyListeners();
     unawaited(_persistSessionCache());
+  }
+
+  /// Called once the app tour is skipped or finished.
+  void finishTour() {
+    justCompletedOnboarding = false;
+    notifyListeners();
   }
 
   // Drives the Firebase sign-in *and* the backend sync itself
