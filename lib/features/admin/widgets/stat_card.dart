@@ -50,20 +50,20 @@ class _StatCardState extends State<StatCard> {
           children: [
             if (widget.icon != null) ...[
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(9),
                 ),
-                child: Icon(widget.icon, size: 14, color: accent),
+                child: Icon(widget.icon, size: 16, color: accent),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 9),
             ],
             Expanded(
               child: Text(
                 widget.label,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: p.textMuted,
                 ),
@@ -71,30 +71,30 @@ class _StatCardState extends State<StatCard> {
               ),
             ),
             if (widget.onTap != null)
-              Icon(Icons.chevron_right, size: 15, color: p.textMuted),
+              Icon(Icons.chevron_right, size: 17, color: p.textMuted),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Text(
           widget.value,
           style: TextStyle(
-            fontSize: 22,
+            fontSize: 25,
             fontWeight: FontWeight.w700,
             color: p.textPrimary,
             height: 1,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 7),
         // Always reserve the same two-line slot for the caption — present
         // or not — so every card in a row ends up the same height instead
         // of the ones with captions growing taller.
         SizedBox(
-          height: 30,
+          height: 34,
           child: Text(
             widget.caption ?? '',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11.5, color: p.textMuted, height: 1.3),
+            style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.3),
           ),
         ),
       ],
@@ -120,7 +120,7 @@ class _StatCardState extends State<StatCard> {
         ),
         clipBehavior: Clip.antiAlias,
         child: widget.onTap == null
-            ? Padding(padding: const EdgeInsets.all(16), child: content)
+            ? Padding(padding: const EdgeInsets.all(18), child: content)
             : Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -129,7 +129,7 @@ class _StatCardState extends State<StatCard> {
                   onTapCancel: () => _setPressed(false),
                   onTapUp: (_) => _setPressed(false),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(18),
                     child: content,
                   ),
                 ),

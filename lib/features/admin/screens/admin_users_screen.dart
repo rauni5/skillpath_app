@@ -77,8 +77,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
                 children: [
-                  _StatStrip(admin: admin, p: p),
-                  const SizedBox(height: 18),
                   _StatusFilterRow(admin: admin, p: p),
                   const SizedBox(height: 16),
                   _ListBody(admin: admin, p: p),
@@ -88,102 +86,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// A slim inline strip of key numbers instead of a full stat-card grid —
-/// useful context without the page opening on a wall of analytics.
-class _StatStrip extends StatelessWidget {
-  const _StatStrip({required this.admin, required this.p});
-
-  final AdminUsersProvider admin;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = admin.analytics;
-    if (admin.analyticsState == AdminAnalyticsLoadState.loading && a == null) {
-      return const ShimmerBox(width: double.infinity, height: 62, radius: 14);
-    }
-    if (a == null) return const SizedBox.shrink();
-
-    final items = [
-      ('Total', '${a.totalUsers}', Icons.people_outline, p.indigo),
-      ('Admins', '${a.adminCount}', Icons.shield_outlined, p.amber),
-      ('Active', '${a.availableCount}', Icons.check_circle_outline, p.green),
-      ('New this week', '${a.newUsersLast7Days}', Icons.trending_up, p.red),
-      (
-        'Avg skills/user',
-        a.avgSkillsPerUser.toStringAsFixed(1),
-        Icons.psychology_outlined,
-        p.indigo,
-      ),
-    ];
-
-    return AdminCard(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 560;
-          final row = Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                if (i != 0) _divider(),
-                Expanded(child: _statItem(items[i])),
-              ],
-            ],
-          );
-          if (!isNarrow) return row;
-          return Wrap(
-            spacing: 24,
-            runSpacing: 12,
-            children: [for (final item in items) _statItem(item)],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _divider() => Container(
-    width: 1,
-    height: 32,
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    color: p.border,
-  );
-
-  Widget _statItem((String, String, IconData, Color) item) {
-    final (label, value, icon, color) = item;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: p.textMuted,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: p.textPrimary,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -486,7 +388,14 @@ class _UsersTable extends StatelessWidget {
             ),
             Expanded(
               flex: _flexLevel,
-              child: Pill(label: _titleCase(user.experienceLevel.name)),
+              // Without this, Expanded gives Pill a *tight* width equal to
+              // the column's flex share, and Pill's bare Container
+              // stretches to fill it — turning a small chip into an
+              // oddly elongated bar. Align keeps it sized to its content.
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Pill(label: _titleCase(user.experienceLevel.name)),
+              ),
             ),
             Expanded(
               flex: _flexStats,
@@ -542,7 +451,7 @@ class _UsersTable extends StatelessWidget {
                                   !user.isAdmin,
                                 ),
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 8),
                         ToggleBadge(
                           active: user.isActive,
                           activeLabel: 'Active',
@@ -611,26 +520,15 @@ class _UsersTable extends StatelessWidget {
     AppUser user,
     bool makeAdmin,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(makeAdmin ? 'Grant admin access?' : 'Revoke admin access?'),
-        content: Text(
-          makeAdmin
-              ? '${user.name} will be able to sign in to the admin panel and manage skills, roles, and users.'
-              : '${user.name} will lose access to the admin panel.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(makeAdmin ? 'Grant access' : 'Revoke access'),
-          ),
-        ],
-      ),
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: makeAdmin ? 'Grant admin access?' : 'Revoke admin access?',
+      message: makeAdmin
+          ? '${user.name} will be able to sign in to the admin panel and manage skills, roles, and users.'
+          : '${user.name} will lose access to the admin panel.',
+      confirmLabel: makeAdmin ? 'Grant access' : 'Revoke access',
+      icon: Icons.shield_outlined,
+      destructive: !makeAdmin,
     );
     if (confirmed == true && context.mounted) {
       final ok = await context.read<AdminUsersProvider>().setAdmin(
@@ -646,30 +544,16 @@ class _UsersTable extends StatelessWidget {
     AppUser user,
     bool makeActive,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(makeActive ? 'Reactivate user?' : 'Deactivate user?'),
-        content: Text(
-          makeActive
-              ? '${user.name} will be able to sign in again.'
-              : '${user.name} will be signed out and blocked from signing '
-                    'in until reactivated. Their data is kept as-is.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: makeActive ? null : AppPalette.of(ctx).red,
-            ),
-            child: Text(makeActive ? 'Reactivate' : 'Deactivate'),
-          ),
-        ],
-      ),
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: makeActive ? 'Reactivate user?' : 'Deactivate user?',
+      message: makeActive
+          ? '${user.name} will be able to sign in again.'
+          : '${user.name} will be signed out and blocked from signing '
+                'in until reactivated. Their data is kept as-is.',
+      confirmLabel: makeActive ? 'Reactivate' : 'Deactivate',
+      icon: Icons.check_circle_outline,
+      destructive: !makeActive,
     );
     if (confirmed == true && context.mounted) {
       final ok = await context.read<AdminUsersProvider>().setActive(

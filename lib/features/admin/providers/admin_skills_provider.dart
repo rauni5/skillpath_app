@@ -19,14 +19,23 @@ class AdminSkillsProvider extends ChangeNotifier {
   String? listError;
   List<Skill> catalog = [];
 
+  // Categories currently in use, fetched from the backend so the UI never
+  // hardcodes the set — admins can always type a brand new one too.
+  List<String> knownCategories = [];
+
   Future<void> loadCatalog() async {
     listState = AdminSkillsLoadState.loading;
     notifyListeners();
     try {
-      catalog = await _repo.getSkills();
+      final results = await Future.wait([
+        _repo.getSkills(),
+        _repo.getSkillCategories(),
+      ]);
+      catalog = results[0] as List<Skill>;
       catalog.sort(
         (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       );
+      knownCategories = results[1] as List<String>;
       listState = AdminSkillsLoadState.loaded;
     } catch (e) {
       listError = e is ApiException ? e.message : 'Could not load skills.';
@@ -40,7 +49,7 @@ class AdminSkillsProvider extends ChangeNotifier {
 
   Future<Skill?> createSkill({
     required String name,
-    required SkillCategory category,
+    required String category,
     String? description,
   }) async {
     isCreating = true;
@@ -54,6 +63,9 @@ class AdminSkillsProvider extends ChangeNotifier {
       );
       catalog = [...catalog, created]
         ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      if (!knownCategories.contains(created.rawCategory)) {
+        knownCategories = [...knownCategories, created.rawCategory]..sort();
+      }
       return created;
     } catch (e) {
       createError = e is ApiException
@@ -102,7 +114,7 @@ class AdminSkillsProvider extends ChangeNotifier {
   Future<bool> updateSkill(
     int skillId, {
     required String name,
-    required SkillCategory category,
+    required String category,
     String? description,
   }) async {
     isSaving = true;
@@ -118,6 +130,9 @@ class AdminSkillsProvider extends ChangeNotifier {
       selectedSkill = updated;
       catalog = catalog.map((s) => s.id == skillId ? updated : s).toList()
         ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      if (!knownCategories.contains(updated.rawCategory)) {
+        knownCategories = [...knownCategories, updated.rawCategory]..sort();
+      }
       return true;
     } catch (e) {
       detailError = e is ApiException ? e.message : 'Could not save changes.';

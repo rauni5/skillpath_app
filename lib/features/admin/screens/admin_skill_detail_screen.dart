@@ -21,7 +21,7 @@ class AdminSkillDetailScreen extends StatefulWidget {
 class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  SkillCategory _category = SkillCategory.backend;
+  String _category = '';
   final _formKey = GlobalKey<FormState>();
   int? _loadedSkillId;
 
@@ -47,7 +47,7 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
     _loadedSkillId = skill.id;
     _nameCtrl.text = skill.name;
     _descCtrl.text = skill.description ?? '';
-    setState(() => _category = skill.category);
+    setState(() => _category = skill.rawCategory);
   }
 
   @override
@@ -123,36 +123,37 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        AdminSectionHeader(
+                          icon: Icons.psychology_outlined,
+                          title: 'Skill details',
+                          subtitle: 'Name, category, and description.',
+                        ),
+                        const SizedBox(height: 20),
                         TextFormField(
                           controller: _nameCtrl,
-                          decoration: const InputDecoration(labelText: 'Name'),
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            prefixIcon: Icon(
+                              Icons.psychology_outlined,
+                              size: 20,
+                            ),
+                          ),
                           validator: (v) => (v == null || v.trim().isEmpty)
                               ? 'Required'
                               : null,
                         ),
                         const SizedBox(height: 14),
-                        DropdownButtonFormField<SkillCategory>(
+                        CategoryInputField(
+                          knownCategories: skills.knownCategories,
                           initialValue: _category,
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                          ),
-                          items: SkillCategory.values
-                              .where((c) => c != SkillCategory.unknown)
-                              .map(
-                                (c) => DropdownMenuItem(
-                                  value: c,
-                                  child: Text(c.label),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) =>
-                              setState(() => _category = v ?? _category),
+                          onChanged: (v) => _category = v,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _descCtrl,
                           decoration: const InputDecoration(
                             labelText: 'Description (optional)',
+                            prefixIcon: Icon(Icons.notes_outlined, size: 20),
                           ),
                           maxLines: 3,
                         ),
@@ -167,6 +168,8 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
                           ),
                         ],
                         const SizedBox(height: 24),
+                        Divider(height: 1, color: p.border),
+                        const SizedBox(height: 20),
                         Row(
                           children: [
                             Expanded(
@@ -295,26 +298,13 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
   }
 
   Future<void> _confirmDelete(BuildContext context, Skill skill) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete this skill?'),
-        content: Text(
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: 'Delete this skill?',
+      message:
           'This removes "${skill.name}" from every user\'s skill inventory and every career '
           "role that requires it. If any project currently requires it, deletion will be blocked "
           'until it\'s removed from that project.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
     if (confirmed == true && context.mounted) {
       final ok = await context.read<AdminSkillsProvider>().deleteSkill(
@@ -351,7 +341,28 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
                     .where((s) => s.name.toLowerCase().contains(query))
                     .toList();
           return AlertDialog(
-            title: const Text('Add prerequisite'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppPalette.of(ctx).indigoLight,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    Icons.link,
+                    size: 16,
+                    color: AppPalette.of(ctx).indigo,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text('Add prerequisite'),
+              ],
+            ),
             content: SizedBox(
               width: 380,
               height: 400,

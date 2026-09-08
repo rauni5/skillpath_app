@@ -191,12 +191,25 @@ class _SkillPickerSheetState extends State<_SkillPickerSheet> {
               .where((s) => s.name.toLowerCase().contains(query))
               .toList();
 
-    final byCategory = <SkillCategory, List<Skill>>{};
+    final byCategory = <String, List<Skill>>{};
     for (final s in filtered) {
-      byCategory.putIfAbsent(s.category, () => []).add(s);
+      byCategory.putIfAbsent(s.rawCategory, () => []).add(s);
     }
     final categories = byCategory.keys.toList()
-      ..sort((a, b) => a.index.compareTo(b.index));
+      ..sort((a, b) {
+        // Known categories keep their original display order; any new,
+        // admin-added category is appended alphabetically after them.
+        final aKnown = skillCategoryFromString(a) != SkillCategory.unknown;
+        final bKnown = skillCategoryFromString(b) != SkillCategory.unknown;
+        if (aKnown && bKnown) {
+          return skillCategoryFromString(
+            a,
+          ).index.compareTo(skillCategoryFromString(b).index);
+        }
+        if (aKnown) return -1;
+        if (bKnown) return 1;
+        return a.compareTo(b);
+      });
 
     return SafeArea(
       top: false,
@@ -295,10 +308,14 @@ class _SkillPickerSheetState extends State<_SkillPickerSheet> {
                             ),
                             child: Row(
                               children: [
-                                Icon(cat.icon, size: 14, color: p.textMuted),
+                                Icon(
+                                  byCategory[cat]!.first.categoryIcon,
+                                  size: 14,
+                                  color: p.textMuted,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  cat.label,
+                                  byCategory[cat]!.first.categoryLabel,
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,

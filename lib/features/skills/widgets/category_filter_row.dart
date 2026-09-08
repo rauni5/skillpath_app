@@ -4,31 +4,23 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
 
+/// A category chip filter driven entirely by [categories] — the distinct
+/// raw category values present in the current catalog. Nothing here is
+/// hardcoded, so a brand new admin-added category shows up automatically.
 class CategoryFilterRow extends StatelessWidget {
   const CategoryFilterRow({
     super.key,
+    required this.categories,
     required this.selected,
     required this.onSelect,
   });
 
-  final SkillCategory? selected;
-  final void Function(SkillCategory?) onSelect;
-
-  static const _categories = [
-    null,
-    SkillCategory.frontend,
-    SkillCategory.backend,
-    SkillCategory.mobile,
-    SkillCategory.devops,
-    SkillCategory.cloud,
-    SkillCategory.database,
-    SkillCategory.dataEngineering,
-    SkillCategory.uiUx,
-    SkillCategory.gameDev,
-    SkillCategory.cybersecurity,
-    SkillCategory.qaTesting,
-    SkillCategory.aiMl,
-  ];
+  /// Distinct raw categories to offer, in display order (see
+  /// [SkillsProvider.availableCategories]). `null` ("All") is added
+  /// automatically and doesn't need to be included here.
+  final List<Skill> categories;
+  final String? selected;
+  final void Function(String?) onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -37,18 +29,20 @@ class CategoryFilterRow extends StatelessWidget {
       height: 34,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: _categories.length,
+        itemCount: categories.length + 1,
         separatorBuilder: (_, _) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
-          final category = _categories[index];
-          final isSelected = category == selected;
-          final label = category?.label ?? 'All';
+          final rawCategory = index == 0 ? null : categories[index - 1].rawCategory;
+          final label = index == 0
+              ? 'All'
+              : categories[index - 1].categoryLabel;
+          final isSelected = rawCategory == selected;
           return ChoiceChip(
             label: Text(label),
             selected: isSelected,
             onSelected: (_) {
               HapticFeedback.selectionClick();
-              onSelect(category);
+              onSelect(rawCategory);
             },
             selectedColor: p.indigoLight,
             backgroundColor: p.surface1,

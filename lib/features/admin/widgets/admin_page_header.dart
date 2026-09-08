@@ -34,7 +34,7 @@ class AdminPageHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      padding: const EdgeInsets.fromLTRB(26, 22, 26, 22),
       decoration: BoxDecoration(
         color: p.surface1,
         border: Border(bottom: BorderSide(color: p.border)),
@@ -46,15 +46,15 @@ class AdminPageHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(icon, size: 22, color: accent),
+                child: Icon(icon, size: 25, color: accent),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,18 +62,18 @@ class AdminPageHeader extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 23,
                         fontWeight: FontWeight.w700,
                         color: p.textPrimary,
                         height: 1.2,
                       ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text(
                         subtitle!,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 14,
                           color: p.textMuted,
                           height: 1.35,
                         ),
@@ -85,7 +85,7 @@ class AdminPageHeader extends StatelessWidget {
               if (trailing != null) ...[const SizedBox(width: 12), trailing!],
             ],
           ),
-          if (bottom != null) ...[const SizedBox(height: 16), bottom!],
+          if (bottom != null) ...[const SizedBox(height: 18), bottom!],
         ],
       ),
     );

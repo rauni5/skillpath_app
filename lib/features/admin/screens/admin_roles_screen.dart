@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/models/admin_role_summary.dart';
 import '../../../core/theme/app_palette.dart';
 import '../providers/admin_roles_provider.dart';
 import '../widgets/admin_bits.dart';
-import '../widgets/admin_card.dart';
 import '../widgets/admin_page_header.dart';
-import '../widgets/responsive_card_grid.dart';
 import '../widgets/shimmer_skeleton.dart';
+
+enum _RoleSortBy { name, branches, skills, popularity }
 
 class AdminRolesScreen extends StatefulWidget {
   const AdminRolesScreen({super.key});
@@ -20,6 +19,8 @@ class AdminRolesScreen extends StatefulWidget {
 
 class _AdminRolesScreenState extends State<AdminRolesScreen> {
   final _searchCtrl = TextEditingController();
+  _RoleSortBy _sortBy = _RoleSortBy.name;
+  bool _sortAsc = true;
 
   @override
   void initState() {
@@ -103,7 +104,7 @@ class _AdminRolesScreenState extends State<AdminRolesScreen> {
       case AdminRolesLoadState.loaded:
         final query = _searchCtrl.text.trim().toLowerCase();
         final filtered = query.isEmpty
-            ? roles.roles
+            ? [...roles.roles]
             : roles.roles
                   .where((r) => r.name.toLowerCase().contains(query))
                   .toList();
@@ -118,15 +119,114 @@ class _AdminRolesScreenState extends State<AdminRolesScreen> {
           );
         }
 
+        filtered.sort((a, b) {
+          final cmp = switch (_sortBy) {
+            _RoleSortBy.name => a.name.toLowerCase().compareTo(
+              b.name.toLowerCase(),
+            ),
+            _RoleSortBy.branches => a.branchCount.compareTo(b.branchCount),
+            _RoleSortBy.skills => a.requirementsCount.compareTo(
+              b.requirementsCount,
+            ),
+            _RoleSortBy.popularity => a.popularity.compareTo(b.popularity),
+          };
+          return _sortAsc ? cmp : -cmp;
+        });
+
         return RefreshIndicator(
           key: const ValueKey('loaded'),
           onRefresh: () async => _load(),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
             children: [
-              ResponsiveCardGrid(
-                children: [
-                  for (final role in filtered) _RoleCard(role: role, p: p),
+              AdminDataTable(
+                sortColumnIndex: _RoleSortBy.values.indexOf(_sortBy),
+                sortAscending: _sortAsc,
+                columns: [
+                  DataColumn(
+                    label: const Text('Name'),
+                    onSort: (_, asc) => setState(() {
+                      _sortBy = _RoleSortBy.name;
+                      _sortAsc = asc;
+                    }),
+                  ),
+                  const DataColumn(label: Text('Description')),
+                  DataColumn(
+                    label: const Text('Branches'),
+                    numeric: true,
+                    onSort: (_, asc) => setState(() {
+                      _sortBy = _RoleSortBy.branches;
+                      _sortAsc = asc;
+                    }),
+                  ),
+                  DataColumn(
+                    label: const Text('Skills'),
+                    numeric: true,
+                    onSort: (_, asc) => setState(() {
+                      _sortBy = _RoleSortBy.skills;
+                      _sortAsc = asc;
+                    }),
+                  ),
+                  DataColumn(
+                    label: const Text('Popularity'),
+                    numeric: true,
+                    onSort: (_, asc) => setState(() {
+                      _sortBy = _RoleSortBy.popularity;
+                      _sortAsc = asc;
+                    }),
+                  ),
+                  const DataColumn(label: Text('')),
+                ],
+                rows: [
+                  for (final role in filtered)
+                    DataRow(
+                      onSelectChanged: (_) =>
+                          context.push('/admin/roles/${role.id}'),
+                      cells: [
+                        DataCell(
+                          Text(
+                            role.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        DataCell(
+                          SizedBox(
+                            width: 260,
+                            child: Text(
+                              (role.description ?? '').trim().isNotEmpty
+                                  ? role.description!
+                                  : '—',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: p.textMuted),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Pill(
+                            icon: Icons.alt_route,
+                            label: '${role.branchCount}',
+                            color: role.branchCount == 0 ? p.red : p.textMuted,
+                            filled: role.branchCount == 0,
+                          ),
+                        ),
+                        DataCell(
+                          Pill(
+                            icon: Icons.psychology_outlined,
+                            label: '${role.requirementsCount}',
+                          ),
+                        ),
+                        DataCell(
+                          Pill(
+                            icon: Icons.flag_outlined,
+                            label: '${role.popularity}',
+                          ),
+                        ),
+                        DataCell(
+                          Icon(Icons.chevron_right, size: 18, color: p.textMuted),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ],
@@ -145,67 +245,51 @@ class _AdminRolesScreenState extends State<AdminRolesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final roles = context.watch<AdminRolesProvider>();
-          return AlertDialog(
-            title: const Text('New career role'),
-            content: Form(
+          return AdminFormDialog(
+            icon: Icons.badge_outlined,
+            title: 'New career role',
+            subtitle: 'Add a role students can pick as a career goal.',
+            accentColor: AppPalette.of(ctx).amber,
+            isSubmitting: roles.isCreating,
+            errorText: roles.createError,
+            onCancel: () => Navigator.of(ctx).pop(),
+            onSubmit: () async {
+              if (!formKey.currentState!.validate()) return;
+              final created = await roles.createRole(
+                name: nameCtrl.text.trim(),
+                description: descCtrl.text.trim(),
+              );
+              if (created != null && ctx.mounted) {
+                Navigator.of(ctx).pop();
+              }
+            },
+            child: Form(
               key: formKey,
-              child: SizedBox(
-                width: 380,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Name'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      prefixIcon: Icon(Icons.badge_outlined, size: 20),
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: descCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Description (optional)',
-                      ),
-                      maxLines: 2,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (optional)',
+                      prefixIcon: Icon(Icons.notes_outlined, size: 20),
                     ),
-                    if (roles.createError != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        roles.createError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ],
-                  ],
-                ),
+                    maxLines: 2,
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: roles.isCreating
-                    ? null
-                    : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        final created = await roles.createRole(
-                          name: nameCtrl.text.trim(),
-                          description: descCtrl.text.trim(),
-                        );
-                        if (created != null && ctx.mounted) {
-                          Navigator.of(ctx).pop();
-                        }
-                      },
-                child: roles.isCreating
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Create'),
-              ),
-            ],
           );
         },
       ),
@@ -213,77 +297,3 @@ class _AdminRolesScreenState extends State<AdminRolesScreen> {
   }
 }
 
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({required this.role, required this.p});
-
-  final AdminRoleSummary role;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    return AdminCard(
-      padding: const EdgeInsets.all(16),
-      onTap: () => context.push('/admin/roles/${role.id}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: p.indigoLight,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(Icons.badge_outlined, size: 17, color: p.indigo),
-              ),
-              const Spacer(),
-              Icon(Icons.chevron_right, color: p.textMuted, size: 20),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            role.name,
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: p.textPrimary,
-            ),
-          ),
-          if (role.description != null && role.description!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              role.description!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: p.textMuted, height: 1.35),
-            ),
-          ],
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              Pill(
-                icon: Icons.alt_route,
-                label:
-                    '${role.branchCount} branch${role.branchCount == 1 ? '' : 'es'}',
-                color: role.branchCount == 0 ? p.red : p.textMuted,
-                filled: role.branchCount == 0,
-              ),
-              Pill(
-                icon: Icons.psychology_outlined,
-                label: '${role.requirementsCount} skills',
-              ),
-              Pill(
-                icon: Icons.flag_outlined,
-                label: '${role.popularity} chose this',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
