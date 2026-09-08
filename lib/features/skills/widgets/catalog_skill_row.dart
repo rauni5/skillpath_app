@@ -61,7 +61,7 @@ class CatalogSkillRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(skill.category.icon, size: 17, color: p.indigo),
+            Icon(skill.categoryIcon, size: 17, color: p.indigo),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -77,7 +77,7 @@ class CatalogSkillRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    skill.category.label,
+                    skill.categoryLabel,
                     style: TextStyle(
                       fontSize: 11,
                       color: isSelected

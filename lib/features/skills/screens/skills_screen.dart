@@ -12,18 +12,6 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/skills_provider.dart';
 import '../widgets/owned_skill_tile.dart';
 
-const _categoryOrder = [
-  SkillCategory.frontend,
-  SkillCategory.backend,
-  SkillCategory.mobile,
-  SkillCategory.devops,
-  SkillCategory.cloud,
-  SkillCategory.database,
-  SkillCategory.dataEngineering,
-  SkillCategory.uiUx,
-  SkillCategory.unknown,
-];
-
 class SkillsScreen extends StatefulWidget {
   const SkillsScreen({super.key});
 
@@ -121,11 +109,26 @@ class _YourSkillsSection extends StatelessWidget {
     final p = AppPalette.of(context);
     final owned = skills.userSkills;
 
-    final grouped = <SkillCategory, List<Skill>>{};
+    final grouped = <String, List<Skill>>{};
     for (final s in owned) {
-      grouped.putIfAbsent(s.category, () => []).add(s);
+      grouped.putIfAbsent(s.rawCategory, () => []).add(s);
     }
-    final orderedCategories = _categoryOrder.where(grouped.containsKey);
+    // Known categories keep their original display order; any new,
+    // admin-added category is appended alphabetically after them — nothing
+    // is ever silently dropped for not matching a fixed list.
+    final orderedCategories = grouped.keys.toList()
+      ..sort((a, b) {
+        final aKnown = skillCategoryFromString(a) != SkillCategory.unknown;
+        final bKnown = skillCategoryFromString(b) != SkillCategory.unknown;
+        if (aKnown && bKnown) {
+          return skillCategoryFromString(
+            a,
+          ).index.compareTo(skillCategoryFromString(b).index);
+        }
+        if (aKnown) return -1;
+        if (bKnown) return 1;
+        return a.compareTo(b);
+      });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,10 +195,14 @@ class _YourSkillsSection extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  Icon(category.icon, size: 13, color: p.textMuted),
+                  Icon(
+                    grouped[category]!.first.categoryIcon,
+                    size: 13,
+                    color: p.textMuted,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    category.label,
+                    grouped[category]!.first.categoryLabel,
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,

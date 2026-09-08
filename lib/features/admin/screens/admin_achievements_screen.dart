@@ -3,14 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/achievement.dart';
-import '../../../core/models/admin_achievement.dart';
 import '../../../core/theme/app_palette.dart';
 import '../providers/admin_achievements_provider.dart';
 import '../widgets/admin_bits.dart';
-import '../widgets/admin_card.dart';
 import '../widgets/admin_page_header.dart';
-import '../widgets/responsive_card_grid.dart';
 import '../widgets/shimmer_skeleton.dart';
+
+enum _AchSortBy { title, category, unlocked }
 
 class AdminAchievementsScreen extends StatefulWidget {
   const AdminAchievementsScreen({super.key});
@@ -22,6 +21,8 @@ class AdminAchievementsScreen extends StatefulWidget {
 
 class _AdminAchievementsScreenState extends State<AdminAchievementsScreen> {
   final _searchCtrl = TextEditingController();
+  _AchSortBy _sortBy = _AchSortBy.title;
+  bool _sortAsc = true;
 
   @override
   void initState() {
@@ -105,7 +106,7 @@ class _AdminAchievementsScreenState extends State<AdminAchievementsScreen> {
       case AdminAchievementsLoadState.loaded:
         final query = _searchCtrl.text.trim().toLowerCase();
         final filtered = query.isEmpty
-            ? achievements.catalog
+            ? [...achievements.catalog]
             : achievements.catalog
                   .where((a) => a.title.toLowerCase().contains(query))
                   .toList();
@@ -120,16 +121,116 @@ class _AdminAchievementsScreenState extends State<AdminAchievementsScreen> {
           );
         }
 
+        filtered.sort((a, b) {
+          final cmp = switch (_sortBy) {
+            _AchSortBy.title => a.title.toLowerCase().compareTo(
+              b.title.toLowerCase(),
+            ),
+            _AchSortBy.category => a.category.toLowerCase().compareTo(
+              b.category.toLowerCase(),
+            ),
+            _AchSortBy.unlocked => a.unlockedByCount.compareTo(
+              b.unlockedByCount,
+            ),
+          };
+          return _sortAsc ? cmp : -cmp;
+        });
+
         return RefreshIndicator(
           key: const ValueKey('loaded'),
           onRefresh: () async => _load(),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
             children: [
-              ResponsiveCardGrid(
-                children: [
+              AdminDataTable(
+                sortColumnIndex: _AchSortBy.values.indexOf(_sortBy),
+                sortAscending: _sortAsc,
+                columns: [
+                  const DataColumn(label: Text('')),
+                  DataColumn(
+                    label: const Text('Title'),
+                    onSort: (_, asc) => setState(() {
+                      _sortBy = _AchSortBy.title;
+                      _sortAsc = asc;
+                    }),
+                  ),
+                  const DataColumn(label: Text('Unlock condition')),
+                  DataColumn(
+                    label: const Text('Category'),
+                    onSort: (_, asc) => setState(() {
+                      _sortBy = _AchSortBy.category;
+                      _sortAsc = asc;
+                    }),
+                  ),
+                  DataColumn(
+                    label: const Text('Unlocked by'),
+                    numeric: true,
+                    onSort: (_, asc) => setState(() {
+                      _sortBy = _AchSortBy.unlocked;
+                      _sortAsc = asc;
+                    }),
+                  ),
+                  const DataColumn(label: Text('Status')),
+                  const DataColumn(label: Text('')),
+                ],
+                rows: [
                   for (final a in filtered)
-                    _AchievementCard(achievement: a, p: p),
+                    DataRow(
+                      onSelectChanged: (_) =>
+                          context.push('/admin/achievements/${a.id}'),
+                      cells: [
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: a.enabled ? p.indigoLight : p.surface2,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Achievement.iconForName(a.icon),
+                              size: 15,
+                              color: a.enabled ? p.indigo : p.textMuted,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            a.title,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        DataCell(
+                          SizedBox(
+                            width: 220,
+                            child: Text(
+                              a.criteriaType.unlockHint(a.criteriaValue),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: p.textMuted),
+                            ),
+                          ),
+                        ),
+                        DataCell(Text(a.category)),
+                        DataCell(
+                          Pill(
+                            icon: Icons.emoji_events_outlined,
+                            label: '${a.unlockedByCount}',
+                            color: a.unlockedByCount == 0
+                                ? p.red
+                                : p.textMuted,
+                            filled: a.unlockedByCount == 0,
+                          ),
+                        ),
+                        DataCell(
+                          a.enabled
+                              ? Pill(label: 'Enabled', color: p.green, filled: true)
+                              : const Pill(label: 'Disabled'),
+                        ),
+                        DataCell(
+                          Icon(Icons.chevron_right, size: 18, color: p.textMuted),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ],
@@ -139,71 +240,3 @@ class _AdminAchievementsScreenState extends State<AdminAchievementsScreen> {
   }
 }
 
-class _AchievementCard extends StatelessWidget {
-  const _AchievementCard({required this.achievement, required this.p});
-
-  final AdminAchievement achievement;
-  final AppPalette p;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = achievement;
-    return AdminCard(
-      padding: const EdgeInsets.all(16),
-      onTap: () => context.push('/admin/achievements/${a.id}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: a.enabled ? p.indigoLight : p.surface2,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Achievement.iconForName(a.icon),
-                  size: 18,
-                  color: a.enabled ? p.indigo : p.textMuted,
-                ),
-              ),
-              const Spacer(),
-              Icon(Icons.chevron_right, color: p.textMuted, size: 20),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            a.title,
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: p.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            a.criteriaType.unlockHint(a.criteriaValue),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: p.textMuted, height: 1.35),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              if (!a.enabled) const Pill(label: 'Disabled'),
-              Pill(
-                icon: Icons.emoji_events_outlined,
-                label: '${a.unlockedByCount} unlocked',
-                color: a.unlockedByCount == 0 ? p.red : p.textMuted,
-                filled: a.unlockedByCount == 0,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}

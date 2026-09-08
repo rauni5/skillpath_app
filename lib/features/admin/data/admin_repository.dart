@@ -126,9 +126,11 @@ class AdminRepository {
   }
 
   /// POST /api/v1/admin/skills
+  /// [category] is free-form now — any non-blank label is accepted, not
+  /// just a fixed set.
   Future<Skill> createSkill({
     required String name,
-    required SkillCategory category,
+    required String category,
     String? description,
   }) {
     return _api.unwrap(
@@ -136,7 +138,7 @@ class AdminRepository {
         '/api/v1/admin/skills',
         data: {
           'name': name,
-          'category': skillCategoryToApiString(category),
+          'category': category,
           if (description != null && description.isNotEmpty)
             'description': description,
         },
@@ -149,7 +151,7 @@ class AdminRepository {
   Future<Skill> updateSkill(
     int id, {
     required String name,
-    required SkillCategory category,
+    required String category,
     String? description,
   }) {
     return _api.unwrap(
@@ -157,12 +159,21 @@ class AdminRepository {
         '/api/v1/admin/skills/$id',
         data: {
           'name': name,
-          'category': skillCategoryToApiString(category),
+          'category': category,
           if (description != null && description.isNotEmpty)
             'description': description,
         },
       ),
       (data) => Skill.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// GET /api/v1/admin/skills/categories — every category currently in use,
+  /// so the admin UI can suggest existing ones instead of hardcoding a list.
+  Future<List<String>> getSkillCategories() {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/admin/skills/categories'),
+      (data) => (data as List<dynamic>).map((e) => e as String).toList(),
     );
   }
 

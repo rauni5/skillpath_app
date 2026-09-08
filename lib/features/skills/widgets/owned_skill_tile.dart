@@ -56,7 +56,7 @@ class OwnedSkillTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Icon(skill.category.icon, size: 16, color: p.indigo),
+          Icon(skill.categoryIcon, size: 16, color: p.indigo),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -84,7 +84,7 @@ class OwnedSkillTile extends StatelessWidget {
                   )
                 else
                   Text(
-                    skill.category.label,
+                    skill.categoryLabel,
                     style: TextStyle(fontSize: 11, color: p.textMuted),
                   ),
               ],

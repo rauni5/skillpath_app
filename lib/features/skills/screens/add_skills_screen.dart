@@ -109,6 +109,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                   ),
                   const SizedBox(height: 10),
                   CategoryFilterRow(
+                    categories: skills.availableCategories,
                     selected: skills.categoryFilter,
                     onSelect: skills.setCategoryFilter,
                   ),

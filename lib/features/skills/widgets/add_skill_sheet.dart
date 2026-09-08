@@ -58,7 +58,7 @@ class _AddSkillSheet extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(skill.category.icon, size: 18, color: p.indigo),
+                Icon(skill.categoryIcon, size: 18, color: p.indigo),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

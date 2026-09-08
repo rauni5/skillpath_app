@@ -11,7 +11,7 @@ class AdminCard extends StatefulWidget {
     super.key,
     required this.child,
     this.onTap,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(18),
     this.margin,
     this.color,
   });

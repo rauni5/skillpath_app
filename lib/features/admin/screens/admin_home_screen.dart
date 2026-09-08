@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/models/admin_users_query.dart';
 import '../../../core/theme/app_palette.dart';
 import '../providers/admin_dashboard_provider.dart';
+import '../providers/admin_users_provider.dart';
 import '../widgets/admin_bits.dart';
 import '../widgets/admin_card.dart';
 import '../widgets/admin_page_header.dart';
@@ -12,6 +14,22 @@ import '../widgets/mini_bar_chart.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/stat_card_grid.dart';
+
+/// Pre-selects the given filter on the Users screen (via the shared,
+/// app-wide [AdminUsersProvider]) and navigates there — so e.g. tapping
+/// "Admins" here lands directly on the Admins-filtered Users table instead
+/// of an unfiltered list the person then has to filter manually themselves.
+void _goToUsers(
+  BuildContext context, {
+  UserStatusFilter status = UserStatusFilter.all,
+}) {
+  context.read<AdminUsersProvider>().applyQuickFilter(
+    status: status,
+    sortBy: UserSortBy.createdAt,
+    sortDir: SortDir.desc,
+  );
+  context.go('/admin/users');
+}
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -26,6 +44,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AdminDashboardProvider>().loadStats();
+      // The per-user breakdown (admin/active counts) that used to live on
+      // the Users screen now surfaces here too, so it needs its own load.
+      context.read<AdminUsersProvider>().loadAnalytics();
     });
   }
 
@@ -66,7 +87,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         icon: Icons.people_outline,
                         title: 'Users',
                         color: p.indigo,
-                        onTap: () => context.go('/admin/users'),
+                        onTap: () => _goToUsers(context),
                       ),
                       _QuickLink(
                         icon: Icons.psychology_outlined,
@@ -180,6 +201,10 @@ class _Body extends StatelessWidget {
         );
       case AdminDashboardLoadState.loaded:
         final stats = dashboard.stats!;
+        final userAnalytics = context.watch<AdminUsersProvider>().analytics;
+        final analyticsLoading =
+            context.watch<AdminUsersProvider>().analyticsState ==
+            AdminAnalyticsLoadState.loading;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -192,7 +217,29 @@ class _Body extends StatelessWidget {
                   value: '${stats.totalUsers}',
                   icon: Icons.people_outline,
                   caption: '+${stats.newUsersLast7Days} this week',
-                  onTap: () => context.go('/admin/users'),
+                  onTap: () => _goToUsers(context),
+                ),
+                StatCard(
+                  label: 'Admins',
+                  value: analyticsLoading && userAnalytics == null
+                      ? '—'
+                      : '${userAnalytics?.adminCount ?? 0}',
+                  icon: Icons.shield_outlined,
+                  accentColor: p.amber,
+                  caption: 'Have admin panel access',
+                  onTap: () =>
+                      _goToUsers(context, status: UserStatusFilter.admin),
+                ),
+                StatCard(
+                  label: 'Active users',
+                  value: analyticsLoading && userAnalytics == null
+                      ? '—'
+                      : '${userAnalytics?.availableCount ?? 0}',
+                  icon: Icons.check_circle_outline,
+                  accentColor: p.green,
+                  caption: 'Can currently sign in',
+                  onTap: () =>
+                      _goToUsers(context, status: UserStatusFilter.active),
                 ),
                 StatCard(
                   label: 'Projects',
@@ -228,6 +275,7 @@ class _Body extends StatelessWidget {
                   value: stats.avgSkillsPerUser.toStringAsFixed(1),
                   icon: Icons.trending_up,
                   accentColor: p.indigo,
+                  onTap: () => _goToUsers(context),
                 ),
               ],
             ),

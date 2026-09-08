@@ -9,6 +9,7 @@ import '../../features/admin/screens/admin_achievements_screen.dart';
 import '../../features/admin/screens/admin_blocked_screen.dart';
 import '../../features/admin/screens/admin_branch_detail_screen.dart';
 import '../../features/admin/screens/admin_home_screen.dart';
+import '../../features/admin/screens/admin_login_screen.dart';
 import '../../features/admin/screens/admin_role_detail_screen.dart';
 import '../../features/admin/screens/admin_roles_screen.dart';
 import '../../features/admin/screens/admin_skill_detail_screen.dart';
@@ -56,17 +57,34 @@ import 'skill_check_route_args.dart';
 GoRouter buildRouter(AuthProvider authProvider) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/splash',
+    initialLocation: kIsWeb ? '/admin/login' : '/splash',
     refreshListenable: authProvider,
     redirect: (context, state) {
       final loc = state.matchedLocation;
       final onSplash = loc == '/splash';
+      final onAdminLogin = loc == '/admin/login';
       final onAuthScreens =
           loc == '/login' || loc == '/register' || loc == '/forgot-password';
-      final onOnboarding = loc == '/onboarding';
-      final onVerifyEmail = loc == '/verify-email';
       final onAdminBlocked = loc == '/admin-blocked';
       final onAdmin = loc.startsWith('/admin');
+
+      if (kIsWeb) {
+        if (authProvider.status == AuthStatus.unauthenticated ||
+            authProvider.status == AuthStatus.unknown) {
+          return onAdminLogin ? null : '/admin/login';
+        }
+
+        final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+        if (!isAdmin) {
+          // Force logout or redirect non-admin accounts trying to access web app
+          return '/admin-blocked';
+        }
+
+        if (onAdminLogin || onAuthScreens || !onAdmin) {
+          return '/admin';
+        }
+        return null;
+      }
 
       if (authProvider.status == AuthStatus.unknown) {
         return onSplash ? null : '/splash';
@@ -76,45 +94,35 @@ GoRouter buildRouter(AuthProvider authProvider) {
         return onAuthScreens ? null : '/login';
       }
 
-      // Signed in from here on — email verification gates everything else.
       if (authProvider.needsEmailVerification) {
-        return onVerifyEmail ? null : '/verify-email';
+        return loc == '/verify-email' ? null : '/verify-email';
       }
 
       final isAdmin = authProvider.currentUser?.isAdmin ?? false;
-
       if (isAdmin) {
-        // Admins never go through onboarding or the normal student app —
-        // web takes them straight to the admin panel, mobile is blocked.
-        if (!kIsWeb) {
-          return onAdminBlocked ? null : '/admin-blocked';
-        }
-        if (onAuthScreens ||
-            onVerifyEmail ||
-            onOnboarding ||
-            onAdminBlocked ||
-            !onAdmin) {
-          return '/admin';
-        }
-        return null;
+        return onAdminBlocked ? null : '/admin-blocked';
       }
 
-      // Non-admin users should never reach admin-only routes.
       if (onAdmin || onAdminBlocked) return '/dashboard';
 
       final needsOnboarding = authProvider.needsOnboarding;
-      if (needsOnboarding == null) return onVerifyEmail ? '/login' : null;
-
-      if (needsOnboarding) {
-        return onOnboarding ? null : '/onboarding';
+      if (needsOnboarding == true) {
+        return loc == '/onboarding' ? null : '/onboarding';
       }
 
-      if (onOnboarding || onAuthScreens || onVerifyEmail || onSplash) {
+      if (loc == '/onboarding' ||
+          onAuthScreens ||
+          loc == '/verify-email' ||
+          onSplash) {
         return '/dashboard';
       }
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/admin/login',
+        builder: (context, state) => const AdminLoginScreen(),
+      ),
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
@@ -174,59 +182,60 @@ GoRouter buildRouter(AuthProvider authProvider) {
             builder: (context, state) => const AdminSkillsScreen(),
           ),
           GoRoute(
-            path: '/admin/skills/:id',
-            builder: (context, state) {
-              final id = int.tryParse(state.pathParameters['id'] ?? '');
-              return id == null
-                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
-                  : AdminSkillDetailScreen(skillId: id);
-            },
-          ),
-          GoRoute(
             path: '/admin/roles',
             builder: (context, state) => const AdminRolesScreen(),
-          ),
-          GoRoute(
-            path: '/admin/roles/:id',
-            builder: (context, state) {
-              final id = int.tryParse(state.pathParameters['id'] ?? '');
-              return id == null
-                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
-                  : AdminRoleDetailScreen(roleId: id);
-            },
-          ),
-          GoRoute(
-            path: '/admin/roles/:roleid/branches/:id',
-            builder: (context, state) {
-              final roleId = int.tryParse(state.pathParameters['roleid'] ?? '');
-              final branchId = int.tryParse(state.pathParameters['id'] ?? '');
-              if (roleId == null || branchId == null) {
-                return const Scaffold(body: Center(child: Text('Invalid ID')));
-              }
-              return AdminBranchDetailScreen(
-                roleId: roleId,
-                branchId: branchId,
-              );
-            },
           ),
           GoRoute(
             path: '/admin/achievements',
             builder: (context, state) => const AdminAchievementsScreen(),
           ),
-          GoRoute(
-            path: '/admin/achievements/new',
-            builder: (context, state) => const AdminAchievementFormScreen(),
-          ),
-          GoRoute(
-            path: '/admin/achievements/:id',
-            builder: (context, state) {
-              final id = int.tryParse(state.pathParameters['id'] ?? '');
-              return id == null
-                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
-                  : AdminAchievementFormScreen(achievementId: id);
-            },
-          ),
         ],
+      ),
+      // Admin detail/create/edit screens deliberately sit *outside* the
+      // AdminShell — they already have their own "Back to ..." control, so
+      // the side nav (or its drawer on narrow web) would be redundant chrome
+      // on a screen whose whole job is to focus on one record.
+      GoRoute(
+        path: '/admin/skills/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid ID')))
+              : AdminSkillDetailScreen(skillId: id);
+        },
+      ),
+      GoRoute(
+        path: '/admin/roles/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid ID')))
+              : AdminRoleDetailScreen(roleId: id);
+        },
+      ),
+      GoRoute(
+        path: '/admin/roles/:roleid/branches/:id',
+        builder: (context, state) {
+          final roleId = int.tryParse(state.pathParameters['roleid'] ?? '');
+          final branchId = int.tryParse(state.pathParameters['id'] ?? '');
+          if (roleId == null || branchId == null) {
+            return const Scaffold(body: Center(child: Text('Invalid ID')));
+          }
+          return AdminBranchDetailScreen(roleId: roleId, branchId: branchId);
+        },
+      ),
+      GoRoute(
+        path: '/admin/achievements/new',
+        builder: (context, state) => const AdminAchievementFormScreen(),
+      ),
+      GoRoute(
+        path: '/admin/achievements/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid ID')))
+              : AdminAchievementFormScreen(achievementId: id);
+        },
       ),
       //! full screen routes (No bottom navbar)
       GoRoute(
