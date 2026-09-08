@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// Picks the right implementation of configureUrlStrategy() at *compile*
 /// time, not runtime — this is the important part. A runtime `if (kIsWeb)`
 /// check inside a single shared file still requires the Android/iOS

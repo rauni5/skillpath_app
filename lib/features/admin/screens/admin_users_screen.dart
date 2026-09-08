@@ -535,6 +535,7 @@ class _UsersTable extends StatelessWidget {
         user.id,
         makeAdmin,
       );
+      if (!context.mounted) return;
       _showErrorIfAny(context, ok);
     }
   }
@@ -560,6 +561,7 @@ class _UsersTable extends StatelessWidget {
         user.id,
         makeActive,
       );
+      if (!context.mounted) return;
       _showErrorIfAny(context, ok);
     }
   }

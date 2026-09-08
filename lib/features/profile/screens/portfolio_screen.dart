@@ -303,6 +303,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
 
 class PortfolioBody extends StatefulWidget {
   const PortfolioBody({
+    super.key,
     required this.data,
     required this.isSelf,
     required this.onAddEducation,

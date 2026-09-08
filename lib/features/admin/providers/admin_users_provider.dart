@@ -64,7 +64,7 @@ class AdminUsersProvider extends ChangeNotifier {
     SortDir? sortDir,
   }) {
     final changed =
-        (status != null && status != this.statusFilter) ||
+        (status != null && status != statusFilter) ||
         (sortBy != null && sortBy != this.sortBy) ||
         (sortDir != null && sortDir != this.sortDir);
     if (status != null) statusFilter = status;
