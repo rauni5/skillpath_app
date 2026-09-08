@@ -210,59 +210,60 @@ GoRouter buildRouter(AuthProvider authProvider) {
             builder: (context, state) => const AdminSkillsScreen(),
           ),
           GoRoute(
-            path: '/admin/skills/:id',
-            builder: (context, state) {
-              final id = int.tryParse(state.pathParameters['id'] ?? '');
-              return id == null
-                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
-                  : AdminSkillDetailScreen(skillId: id);
-            },
-          ),
-          GoRoute(
             path: '/admin/roles',
             builder: (context, state) => const AdminRolesScreen(),
-          ),
-          GoRoute(
-            path: '/admin/roles/:id',
-            builder: (context, state) {
-              final id = int.tryParse(state.pathParameters['id'] ?? '');
-              return id == null
-                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
-                  : AdminRoleDetailScreen(roleId: id);
-            },
-          ),
-          GoRoute(
-            path: '/admin/roles/:roleid/branches/:id',
-            builder: (context, state) {
-              final roleId = int.tryParse(state.pathParameters['roleid'] ?? '');
-              final branchId = int.tryParse(state.pathParameters['id'] ?? '');
-              if (roleId == null || branchId == null) {
-                return const Scaffold(body: Center(child: Text('Invalid ID')));
-              }
-              return AdminBranchDetailScreen(
-                roleId: roleId,
-                branchId: branchId,
-              );
-            },
           ),
           GoRoute(
             path: '/admin/achievements',
             builder: (context, state) => const AdminAchievementsScreen(),
           ),
-          GoRoute(
-            path: '/admin/achievements/new',
-            builder: (context, state) => const AdminAchievementFormScreen(),
-          ),
-          GoRoute(
-            path: '/admin/achievements/:id',
-            builder: (context, state) {
-              final id = int.tryParse(state.pathParameters['id'] ?? '');
-              return id == null
-                  ? const Scaffold(body: Center(child: Text('Invalid ID')))
-                  : AdminAchievementFormScreen(achievementId: id);
-            },
-          ),
         ],
+      ),
+      // Admin detail/create/edit screens deliberately sit *outside* the
+      // AdminShell — they already have their own "Back to ..." control, so
+      // the side nav (or its drawer on narrow web) would be redundant chrome
+      // on a screen whose whole job is to focus on one record.
+      GoRoute(
+        path: '/admin/skills/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid ID')))
+              : AdminSkillDetailScreen(skillId: id);
+        },
+      ),
+      GoRoute(
+        path: '/admin/roles/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid ID')))
+              : AdminRoleDetailScreen(roleId: id);
+        },
+      ),
+      GoRoute(
+        path: '/admin/roles/:roleid/branches/:id',
+        builder: (context, state) {
+          final roleId = int.tryParse(state.pathParameters['roleid'] ?? '');
+          final branchId = int.tryParse(state.pathParameters['id'] ?? '');
+          if (roleId == null || branchId == null) {
+            return const Scaffold(body: Center(child: Text('Invalid ID')));
+          }
+          return AdminBranchDetailScreen(roleId: roleId, branchId: branchId);
+        },
+      ),
+      GoRoute(
+        path: '/admin/achievements/new',
+        builder: (context, state) => const AdminAchievementFormScreen(),
+      ),
+      GoRoute(
+        path: '/admin/achievements/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+          return id == null
+              ? const Scaffold(body: Center(child: Text('Invalid ID')))
+              : AdminAchievementFormScreen(achievementId: id);
+        },
       ),
       //! full screen routes (No bottom navbar)
       GoRoute(

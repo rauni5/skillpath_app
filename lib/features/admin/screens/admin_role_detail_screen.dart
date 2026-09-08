@@ -121,9 +121,19 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        AdminSectionHeader(
+                          icon: Icons.badge_outlined,
+                          title: 'Role details',
+                          subtitle: 'Name and description shown to students.',
+                          color: p.amber,
+                        ),
+                        const SizedBox(height: 20),
                         TextFormField(
                           controller: _nameCtrl,
-                          decoration: const InputDecoration(labelText: 'Name'),
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                          ),
                           validator: (v) => (v == null || v.trim().isEmpty)
                               ? 'Required'
                               : null,
@@ -133,6 +143,7 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
                           controller: _descCtrl,
                           decoration: const InputDecoration(
                             labelText: 'Description (optional)',
+                            prefixIcon: Icon(Icons.notes_outlined, size: 20),
                           ),
                           maxLines: 3,
                         ),
@@ -147,6 +158,8 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
                           ),
                         ],
                         const SizedBox(height: 24),
+                        Divider(height: 1, color: p.border),
+                        const SizedBox(height: 20),
                         Row(
                           children: [
                             Expanded(
@@ -292,26 +305,13 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
   }
 
   Future<void> _confirmDelete(BuildContext context, CareerRole role) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete this career role?'),
-        content: Text(
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: 'Delete this career role?',
+      message:
           'This removes "${role.name}" and all of its branches. If any user currently has '
           'it as their career goal, or any project requires it, deletion will be blocked '
           'until that changes.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
     if (confirmed == true && context.mounted) {
       final ok = await context.read<AdminRolesProvider>().deleteRole(role.id);
@@ -334,71 +334,52 @@ class _AdminRoleDetailScreenState extends State<AdminRoleDetailScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final roles = context.watch<AdminRolesProvider>();
-          return AlertDialog(
-            title: const Text('Add branch'),
-            content: Form(
+          return AdminFormDialog(
+            icon: Icons.alt_route,
+            title: 'Add branch',
+            subtitle: 'A specialization students can follow under this role.',
+            isSubmitting: roles.isCreatingBranch,
+            errorText: roles.createBranchError,
+            onCancel: () => Navigator.of(ctx).pop(),
+            onSubmit: () async {
+              if (!formKey.currentState!.validate()) return;
+              final created = await roles.createBranch(
+                roleId,
+                name: nameCtrl.text.trim(),
+                description: descCtrl.text.trim(),
+              );
+              if (created != null && ctx.mounted) {
+                Navigator.of(ctx).pop();
+              }
+            },
+            child: Form(
               key: formKey,
-              child: SizedBox(
-                width: 380,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Name',
-                        helperText: 'e.g. "MERN", "Django", "Spring"',
-                      ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      helperText: 'e.g. "MERN", "Django", "Spring"',
+                      prefixIcon: Icon(Icons.alt_route, size: 20),
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: descCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Description (optional)',
-                      ),
-                      maxLines: 2,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (optional)',
+                      prefixIcon: Icon(Icons.notes_outlined, size: 20),
                     ),
-                    if (roles.createBranchError != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        roles.createBranchError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ],
-                  ],
-                ),
+                    maxLines: 2,
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: roles.isCreatingBranch
-                    ? null
-                    : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        final created = await roles.createBranch(
-                          roleId,
-                          name: nameCtrl.text.trim(),
-                          description: descCtrl.text.trim(),
-                        );
-                        if (created != null && ctx.mounted) {
-                          Navigator.of(ctx).pop();
-                        }
-                      },
-                child: roles.isCreatingBranch
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Create'),
-              ),
-            ],
           );
         },
       ),

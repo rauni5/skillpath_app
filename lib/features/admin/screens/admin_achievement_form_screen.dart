@@ -154,18 +154,39 @@ class _AdminAchievementFormScreenState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
           children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back, size: 16),
+                label: const Text('Back to achievements'),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.centerLeft,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             AdminCard(
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    AdminSectionHeader(
+                      icon: Icons.emoji_events_outlined,
+                      title: 'Achievement details',
+                      subtitle: 'Code, title, and what it\'s for.',
+                      color: p.red,
+                    ),
+                    const SizedBox(height: 20),
                     TextFormField(
                       controller: _codeCtrl,
                       enabled: !widget.isEditing,
                       textCapitalization: TextCapitalization.characters,
                       decoration: InputDecoration(
                         labelText: 'Code',
+                        prefixIcon: const Icon(Icons.tag, size: 20),
                         helperText: widget.isEditing
                             ? "Can't be changed after creation."
                             : 'Uppercase letters, numbers, underscores only — e.g. NIGHT_OWL',
@@ -181,7 +202,10 @@ class _AdminAchievementFormScreenState
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _titleCtrl,
-                      decoration: const InputDecoration(labelText: 'Title'),
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        prefixIcon: Icon(Icons.title, size: 20),
+                      ),
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
@@ -190,6 +214,7 @@ class _AdminAchievementFormScreenState
                       controller: _descCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Description',
+                        prefixIcon: Icon(Icons.notes_outlined, size: 20),
                         helperText: 'Shown to students — describe what to do.',
                       ),
                       maxLines: 2,
@@ -201,15 +226,23 @@ class _AdminAchievementFormScreenState
                       controller: _categoryCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Category',
+                        prefixIcon: Icon(Icons.folder_outlined, size: 20),
                         helperText:
                             'Free text grouping — e.g. roadmap, streak, project',
                       ),
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
+                    const SizedBox(height: 24),
+                    Divider(height: 1, color: p.border),
                     const SizedBox(height: 20),
-                    const SectionLabel('Icon'),
-                    const SizedBox(height: 10),
+                    AdminSectionHeader(
+                      icon: Icons.emoji_events,
+                      title: 'Icon',
+                      subtitle: 'Shown on the achievement badge.',
+                      color: p.red,
+                    ),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -236,11 +269,21 @@ class _AdminAchievementFormScreenState
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 24),
+                    Divider(height: 1, color: p.border),
                     const SizedBox(height: 20),
+                    AdminSectionHeader(
+                      icon: Icons.flag_outlined,
+                      title: 'Unlock rule',
+                      subtitle: 'What a student must do to earn this.',
+                      color: p.green,
+                    ),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<AchievementCriteriaType>(
                       initialValue: _criteriaType,
                       decoration: const InputDecoration(
                         labelText: 'Unlock rule',
+                        prefixIcon: Icon(Icons.rule_outlined, size: 20),
                       ),
                       items: AchievementCriteriaType.values
                           .map(
@@ -263,6 +306,10 @@ class _AdminAchievementFormScreenState
                                 AchievementCriteriaType.roadmapPercentComplete
                             ? 'Threshold (%)'
                             : 'Threshold',
+                        prefixIcon: const Icon(
+                          Icons.numbers_outlined,
+                          size: 20,
+                        ),
                       ),
                       onChanged: (_) => setState(() {}),
                       validator: (v) {
@@ -279,17 +326,37 @@ class _AdminAchievementFormScreenState
                         return null;
                       },
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _criteriaType.unlockHint(value),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                        color: p.textMuted,
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: p.surface2,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: p.border),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline, size: 15, color: p.indigo),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _criteriaType.unlockHint(value),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: p.textSecondary,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (widget.isEditing) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
+                      Divider(height: 1, color: p.border),
+                      const SizedBox(height: 12),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Enabled'),
@@ -323,6 +390,8 @@ class _AdminAchievementFormScreenState
                       ),
                     ],
                     const SizedBox(height: 24),
+                    Divider(height: 1, color: p.border),
+                    const SizedBox(height: 20),
                     Row(
                       children: [
                         Expanded(
@@ -441,31 +510,21 @@ class _AdminAchievementFormScreenState
     AdminAchievement achievement,
   ) async {
     final hasEarners = achievement.unlockedByCount > 0;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          hasEarners ? 'Disable this achievement?' : 'Delete this achievement?',
-        ),
-        content: Text(
-          hasEarners
-              ? '${achievement.unlockedByCount} student(s) have already earned '
-                    '"${achievement.title}", so it can\'t be deleted outright — '
-                    'it\'ll be disabled instead, keeping their badge intact but '
-                    'hiding it from anyone who hasn\'t earned it yet.'
-              : 'Nobody has earned "${achievement.title}" yet, so this removes it completely.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(hasEarners ? 'Disable' : 'Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: hasEarners
+          ? 'Disable this achievement?'
+          : 'Delete this achievement?',
+      message: hasEarners
+          ? '${achievement.unlockedByCount} student(s) have already earned '
+                '"${achievement.title}", so it can\'t be deleted outright — '
+                'it\'ll be disabled instead, keeping their badge intact but '
+                'hiding it from anyone who hasn\'t earned it yet.'
+          : 'Nobody has earned "${achievement.title}" yet, so this removes it completely.',
+      confirmLabel: hasEarners ? 'Disable' : 'Delete',
+      icon: hasEarners
+          ? Icons.visibility_off_outlined
+          : Icons.warning_amber_rounded,
     );
     if (confirmed != true || !context.mounted) return;
 

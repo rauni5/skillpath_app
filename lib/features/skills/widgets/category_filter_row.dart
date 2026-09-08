@@ -4,11 +4,9 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
 
-/// A category chip filter driven by [categories] — one representative
-/// [Skill] per distinct category actually present in the catalog (see
-/// `SkillsProvider.availableCategories`). Nothing here is hardcoded, so a
-/// brand new admin-added category shows up automatically, with its real
-/// label (via `Skill.categoryLabel`) instead of collapsing into "Other".
+/// A category chip filter driven entirely by [categories] — the distinct
+/// raw category values present in the current catalog. Nothing here is
+/// hardcoded, so a brand new admin-added category shows up automatically.
 class CategoryFilterRow extends StatelessWidget {
   const CategoryFilterRow({
     super.key,
@@ -17,11 +15,10 @@ class CategoryFilterRow extends StatelessWidget {
     required this.onSelect,
   });
 
-  /// One representative skill per category, in display order.
+  /// Distinct raw categories to offer, in display order (see
+  /// [SkillsProvider.availableCategories]). `null` ("All") is added
+  /// automatically and doesn't need to be included here.
   final List<Skill> categories;
-
-  /// The selected category's raw value (`Skill.rawCategory`), or `null`
-  /// for "All".
   final String? selected;
   final void Function(String?) onSelect;
 

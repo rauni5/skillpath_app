@@ -132,9 +132,18 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        AdminSectionHeader(
+                          icon: Icons.alt_route,
+                          title: 'Branch details',
+                          subtitle: 'Name and description for this specialization.',
+                        ),
+                        const SizedBox(height: 20),
                         TextFormField(
                           controller: _nameCtrl,
-                          decoration: const InputDecoration(labelText: 'Name'),
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            prefixIcon: Icon(Icons.alt_route, size: 20),
+                          ),
                           validator: (v) => (v == null || v.trim().isEmpty)
                               ? 'Required'
                               : null,
@@ -144,6 +153,7 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
                           controller: _descCtrl,
                           decoration: const InputDecoration(
                             labelText: 'Description (optional)',
+                            prefixIcon: Icon(Icons.notes_outlined, size: 20),
                           ),
                           maxLines: 3,
                         ),
@@ -158,6 +168,8 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
                           ),
                         ],
                         const SizedBox(height: 24),
+                        Divider(height: 1, color: p.border),
+                        const SizedBox(height: 20),
                         Row(
                           children: [
                             Expanded(
@@ -272,26 +284,13 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
   }
 
   Future<void> _confirmDelete(BuildContext context, RoleBranch branch) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete this branch?'),
-        content: Text(
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: 'Delete this branch?',
+      message:
           'This removes "${branch.name}" and its required-skill list. If any user '
           'currently has it selected as their career goal branch, deletion will be '
           'blocked until that changes.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
     if (confirmed == true && context.mounted) {
       final ok = await context.read<AdminRolesProvider>().deleteBranch(
@@ -335,7 +334,28 @@ class _AdminBranchDetailScreenState extends State<AdminBranchDetailScreen> {
           final adminRoles = context.watch<AdminRolesProvider>();
 
           return AlertDialog(
-            title: const Text('Add required skill'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppPalette.of(ctx).indigoLight,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    Icons.psychology_outlined,
+                    size: 16,
+                    color: AppPalette.of(ctx).indigo,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text('Add required skill'),
+              ],
+            ),
             content: SizedBox(
               width: 380,
               child: selectedSkillId == null
