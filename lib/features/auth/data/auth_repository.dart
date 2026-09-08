@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart' show FormData, MultipartFile;
@@ -6,10 +7,28 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/cache/cache_store.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+
+/// A minimal, last-known-good snapshot of the signed-in session, cached to
+/// disk so the app can open read-only when the backend can't be reached
+/// (offline, or a cold-starting Azure container) but Firebase still has a
+/// valid local session.
+class CachedSession {
+  CachedSession({
+    required this.user,
+    required this.needsOnboarding,
+    required this.cachedAt,
+  });
+
+  final AppUser user;
+  final bool needsOnboarding;
+  final DateTime cachedAt;
+}
 
 class AuthRepository {
   AuthRepository({FirebaseAuth? firebaseAuth, GoogleSignIn? googleSignIn})
@@ -31,6 +50,58 @@ class AuthRepository {
     );
     if (!signedInWithPassword) return true;
     return user.emailVerified;
+  }
+
+  static const _cachedSessionKey = 'skillpath_cached_session_v1';
+
+  /// Persists a session snapshot for offline cold starts. Keyed to the
+  /// current Firebase uid so a snapshot never gets read back for the
+  /// wrong account on a shared device.
+  Future<void> cacheSession(
+    AppUser user, {
+    required bool needsOnboarding,
+  }) async {
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _cachedSessionKey,
+      jsonEncode({
+        'uid': uid,
+        'user': user.toJson(),
+        'needsOnboarding': needsOnboarding,
+        'cachedAt': DateTime.now().toIso8601String(),
+      }),
+    );
+  }
+
+  /// Returns the cached session if one exists and belongs to the currently
+  /// signed-in Firebase uid, otherwise null.
+  Future<CachedSession?> getCachedSession() async {
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid == null) return null;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_cachedSessionKey);
+    if (raw == null) return null;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      if (json['uid'] != uid) return null;
+      return CachedSession(
+        user: AppUser.fromJson(json['user'] as Map<String, dynamic>),
+        needsOnboarding: json['needsOnboarding'] as bool? ?? true,
+        cachedAt:
+            DateTime.tryParse(json['cachedAt'] as String? ?? '') ??
+            DateTime.now(),
+      );
+    } catch (_) {
+      // Corrupt/old-format cache — treat as if there were none.
+      return null;
+    }
+  }
+
+  Future<void> clearCachedSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_cachedSessionKey);
   }
 
   Future<void> signInWithEmail(String email, String password) async {
@@ -187,6 +258,8 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
+    await clearCachedSession();
+    await CacheStore.instance.clearAll();
     try {
       await _googleSignIn.signOut();
     } catch (_) {}

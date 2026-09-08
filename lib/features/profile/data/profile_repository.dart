@@ -1,6 +1,12 @@
+import 'dart:async';
+
+import '../../../core/cache/cache_store.dart';
 import '../../../core/models/portfolio.dart';
+import '../../../core/models/public_profile.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/cached_result.dart';
 
 /// GET /api/v1/users/{userId}/portfolio
 class ProfileRepository {
@@ -14,11 +20,26 @@ class ProfileRepository {
     );
   }
 
-  Future<PortfolioData> getPortfolio(int userId) {
-    return _api.unwrap(
-      (dio) => dio.get('/api/v1/users/$userId/portfolio'),
-      (data) => PortfolioData.fromJson(data as Map<String, dynamic>),
-    );
+  Future<CachedResult<PortfolioData>> getPortfolio(int userId) async {
+    final cacheKey = 'portfolio:$userId';
+    try {
+      final data = await _api.unwrap(
+        (dio) => dio.get('/api/v1/users/$userId/portfolio'),
+        (data) {
+          unawaited(CacheStore.instance.write(cacheKey, data));
+          return PortfolioData.fromJson(data as Map<String, dynamic>);
+        },
+      );
+      return CachedResult.live(data);
+    } on ApiException catch (e) {
+      if (!e.isTransient) rethrow;
+      final cached = await CacheStore.instance.read(cacheKey);
+      if (cached == null) rethrow;
+      return CachedResult.cached(
+        PortfolioData.fromJson(cached.value as Map<String, dynamic>),
+        cachedAt: cached.cachedAt,
+      );
+    }
   }
 
   /// POST /api/v1/users/{userId}/portfolio
@@ -114,6 +135,56 @@ class ProfileRepository {
     return _api.unwrap(
       (dio) => dio.delete('/api/v1/users/$userId/education/$eduId'),
       (_) {},
+    );
+  }
+
+  // --- Public profile sharing ---
+
+  /// GET /api/v1/users/{userId}/public-profile
+  Future<PublicProfileSettings> getPublicProfileSettings(int userId) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/users/$userId/public-profile'),
+      (data) => PublicProfileSettings.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// POST /api/v1/users/{userId}/public-profile/enable
+  Future<PublicProfileSettings> enablePublicProfile(int userId) {
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/users/$userId/public-profile/enable'),
+      (data) => PublicProfileSettings.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// POST /api/v1/users/{userId}/public-profile/disable
+  Future<PublicProfileSettings> disablePublicProfile(int userId) {
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/users/$userId/public-profile/disable'),
+      (data) => PublicProfileSettings.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// POST /api/v1/users/{userId}/public-profile/regenerate — invalidates
+  /// whatever link was shared before.
+  Future<PublicProfileSettings> regeneratePublicProfileLink(int userId) {
+    return _api.unwrap(
+      (dio) => dio.post('/api/v1/users/$userId/public-profile/regenerate'),
+      (data) => PublicProfileSettings.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
+  /// GET /api/v1/public/profiles/{token} — deliberately does not require
+  /// (or send anything special for) auth. The backend permits this path
+  /// unauthenticated; ApiClient still attaches a Firebase token if the
+  /// viewer happens to be signed in on this device, but the backend
+  /// ignores it here either way, so this works identically for a visitor
+  /// with no SkillPath account at all. Not cached — a public profile
+  /// isn't something the viewer's own account owns, so there's no
+  /// "my last known copy" to fall back to if it's offline.
+  Future<PublicProfileData> getPublicProfile(String token) {
+    return _api.unwrap(
+      (dio) => dio.get('/api/v1/public/profiles/$token'),
+      (data) => PublicProfileData.fromJson(data as Map<String, dynamic>),
     );
   }
 }

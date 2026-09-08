@@ -7,6 +7,7 @@ import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/skills_provider.dart';
@@ -75,6 +76,13 @@ class _SkillsScreenState extends State<SkillsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
                     children: [
+                      if (skills.isCatalogShowingCachedData ||
+                          skills.isUserSkillsShowingCachedData)
+                        OfflineBanner(
+                          cachedAt:
+                              skills.userSkillsCachedAt ??
+                              skills.catalogCachedAt,
+                        ),
                       _YourSkillsSection(
                         skills: skills,
                         onRemove: (id) {
@@ -114,8 +122,11 @@ class _YourSkillsSection extends StatelessWidget {
       grouped.putIfAbsent(s.rawCategory, () => []).add(s);
     }
     // Known categories keep their original display order; any new,
-    // admin-added category is appended alphabetically after them — nothing
-    // is ever silently dropped for not matching a fixed list.
+    // admin-added category is appended alphabetically after them —
+    // nothing is ever silently dropped for not matching a fixed list
+    // (the old hardcoded order was missing Game Dev, Cybersecurity, QA &
+    // Testing, and AI & ML entirely, so skills in those categories never
+    // showed up here).
     final orderedCategories = grouped.keys.toList()
       ..sort((a, b) {
         final aKnown = skillCategoryFromString(a) != SkillCategory.unknown;
@@ -226,6 +237,10 @@ class _YourSkillsSection extends StatelessWidget {
                         skill: s,
                         isPending: skills.pendingSkillIds.contains(s.id),
                         onRemove: () => onRemove(s.id),
+                        onChat: () => context.push(
+                          '/roadmap/skill/${s.id}/chat',
+                          extra: s.name,
+                        ),
                       ),
                     ),
                   )

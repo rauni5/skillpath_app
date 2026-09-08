@@ -229,4 +229,25 @@ class ProjectsProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    _searchDebounce?.cancel();
+    listState = ProjectsLoadState.initial;
+    listError = null;
+    projects = [];
+    _page = 0;
+    hasMore = true;
+    isLoadingMore = false;
+    searchQuery = '';
+    filterDifficulty = null;
+    filterSkillIds.clear();
+    filterRoleIds.clear();
+    detailState = ProjectDetailLoadState.initial;
+    detailError = null;
+    selectedProject = null;
+    pendingJoinIds.clear();
+    team = [];
+    teamLoading = false;
+    notifyListeners();
+  }
 }

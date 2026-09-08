@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/chat_error_notice.dart';
 import '../../../shared/widgets/chat_message_bubble.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/suggested_prompts.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/tutor_chat_provider.dart';
@@ -29,10 +33,26 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
   final _inputFocusNode = FocusNode();
   final _scrollCtrl = ScrollController();
 
+  // Proactive, not reactive: rather than letting the user type a message
+  // and only finding out it can't send once the request fails (there's no
+  // conceivable reply without a connection — this isn't cached-fallback
+  // territory like a read screen), the send affordance itself is disabled
+  // while offline.
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    ConnectivityService.instance.hasConnection().then((connected) {
+      if (mounted) setState(() => _isOffline = !connected);
+    });
+    _connectivitySub = ConnectivityService.instance.onStatusChanged.listen((
+      connected,
+    ) {
+      if (mounted) setState(() => _isOffline = !connected);
+    });
   }
 
   @override
@@ -40,6 +60,7 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
     _inputCtrl.dispose();
     _inputFocusNode.dispose();
     _scrollCtrl.dispose();
+    _connectivitySub?.cancel();
     super.dispose();
   }
 
@@ -51,7 +72,9 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
     chat.loadHistory(userId, widget.skillId).then((_) {
       if (!mounted) return;
       _scrollToBottom();
-      if (chat.messages.isEmpty && chat.state == ChatLoadState.loaded) {
+      if (chat.messages.isEmpty &&
+          chat.state == ChatLoadState.loaded &&
+          !_isOffline) {
         chat
             .startConversationIfEmpty(userId, widget.skillId, widget.skillName)
             .then((_) {
@@ -73,6 +96,7 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
   }
 
   Future<void> _send({String? text}) async {
+    if (_isOffline) return;
     final message = (text ?? _inputCtrl.text).trim();
     if (message.isEmpty) return;
     final userId = context.read<AuthProvider>().currentUser?.id;
@@ -111,6 +135,7 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
             focusNode: _inputFocusNode,
             onSend: _send,
             sending: chat.isSending,
+            offline: _isOffline,
           ),
         ],
       ),
@@ -179,8 +204,8 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
             ],
           );
         }
-        return ListView.builder(
-          key: const ValueKey('messages'),
+        final messageList = ListView.builder(
+          key: const ValueKey('messages-list'),
           controller: _scrollCtrl,
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
           itemCount:
@@ -217,6 +242,17 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
             );
           },
         );
+        if (!chat.isShowingCachedData) return messageList;
+        return Column(
+          key: const ValueKey('messages'),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: OfflineBanner(cachedAt: chat.cachedAt),
+            ),
+            Expanded(child: messageList),
+          ],
+        );
     }
   }
 }
@@ -227,15 +263,18 @@ class _InputBar extends StatelessWidget {
     required this.focusNode,
     required this.onSend,
     required this.sending,
+    required this.offline,
   });
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
   final bool sending;
+  final bool offline;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final disabled = sending || offline;
     return SafeArea(
       top: false,
       child: Container(
@@ -250,20 +289,23 @@ class _InputBar extends StatelessWidget {
               child: TextField(
                 controller: controller,
                 focusNode: focusNode,
+                enabled: !offline,
                 minLines: 1,
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
-                onSubmitted: (_) => sending ? null : onSend(),
-                decoration: const InputDecoration(
-                  hintText: 'Ask the tutor…',
+                onSubmitted: (_) => disabled ? null : onSend(),
+                decoration: InputDecoration(
+                  hintText: offline
+                      ? "Connect to the internet to message the tutor"
+                      : 'Ask the tutor…',
                   isDense: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             IconButton.filled(
-              onPressed: sending ? null : onSend,
+              onPressed: disabled ? null : onSend,
               style: IconButton.styleFrom(
                 backgroundColor: p.indigo,
                 disabledBackgroundColor: p.border,

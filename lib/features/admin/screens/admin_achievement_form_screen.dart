@@ -314,8 +314,9 @@ class _AdminAchievementFormScreenState
                       onChanged: (_) => setState(() {}),
                       validator: (v) {
                         final n = int.tryParse(v ?? '');
-                        if (n == null || n < 1)
+                        if (n == null || n < 1) {
                           return 'Enter a whole number ≥ 1';
+                        }
                         if (_criteriaType ==
                                 AchievementCriteriaType
                                     .roadmapPercentComplete &&

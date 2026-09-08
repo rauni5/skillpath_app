@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../core/config/public_links.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../shared/widgets/user_avatar.dart';
@@ -9,6 +12,7 @@ import '../../../shared/widgets/app_dialogs.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../notifications/data/notification_preferences.dart';
 import '../../notifications/data/notification_service.dart';
+import '../providers/public_profile_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -110,6 +114,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const _SectionLabel('NOTIFICATIONS'),
             const SizedBox(height: 8),
             const _PushNotificationsToggle(),
+            const SizedBox(height: 24),
+
+            const _SectionLabel('SHARING'),
+            const SizedBox(height: 8),
+            const _ShareProfileSection(),
             const SizedBox(height: 24),
 
             const _SectionLabel('SKILLPATH'),
@@ -392,6 +401,168 @@ class _PushNotificationsToggleState extends State<_PushNotificationsToggle> {
           value: _enabled ?? true,
           onChanged: (_enabled == null || _updating) ? null : _toggle,
         ),
+      ],
+    );
+  }
+}
+
+// --- Share profile ---
+
+class _ShareProfileSection extends StatefulWidget {
+  const _ShareProfileSection();
+
+  @override
+  State<_ShareProfileSection> createState() => _ShareProfileSectionState();
+}
+
+class _ShareProfileSectionState extends State<_ShareProfileSection> {
+  @override
+  void initState() {
+    super.initState();
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => context.read<PublicProfileProvider>().loadSettings(userId),
+      );
+    }
+  }
+
+  Future<void> _toggle(bool value) async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+    final provider = context.read<PublicProfileProvider>();
+    final ok = value
+        ? await provider.enable(userId)
+        : await provider.disable(userId);
+    if (!ok && mounted && provider.settingsError != null) {
+      showErrorDialog(context, provider.settingsError!);
+    }
+  }
+
+  Future<void> _regenerate() async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Regenerate link?'),
+        content: const Text(
+          'Anyone with your old link will no longer be able to view your '
+          "profile. This can't be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Regenerate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final provider = context.read<PublicProfileProvider>();
+    final ok = await provider.regenerateLink(userId);
+    if (!ok && mounted && provider.settingsError != null) {
+      showErrorDialog(context, provider.settingsError!);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final provider = context.watch<PublicProfileProvider>();
+    final settings = provider.settings;
+    final loading = provider.settingsState == PublicProfileLoadState.loading;
+    final enabled = settings?.enabled ?? false;
+    final link = settings?.token == null
+        ? null
+        : buildPublicProfileLink(settings!.token!);
+
+    return _SettingsCard(
+      children: [
+        SwitchListTile(
+          title: const Text('Public profile'),
+          subtitle: Text(
+            'Anyone with the link can view a read-only version of your '
+            'profile — no account needed.',
+            style: TextStyle(fontSize: 11.5, color: p.textMuted),
+          ),
+          activeTrackColor: p.indigo,
+          value: enabled,
+          onChanged: (loading || provider.isUpdatingSettings) ? null : _toggle,
+        ),
+        if (enabled && link != null) ...[
+          Divider(height: 1, color: p.border),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: p.surface1,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: p.border),
+                  ),
+                  child: Text(
+                    link,
+                    style: TextStyle(fontSize: 12.5, color: p.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: link));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Link copied')),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded, size: 16),
+                        label: const Text('Copy'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          SharePlus.instance.share(
+                            ShareParams(
+                              text: 'Check out my SkillPath profile: $link',
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.ios_share_rounded, size: 16),
+                        label: const Text('Share'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: provider.isUpdatingSettings ? null : _regenerate,
+                    child: Text(
+                      'Regenerate link',
+                      style: TextStyle(color: p.textMuted, fontSize: 12.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

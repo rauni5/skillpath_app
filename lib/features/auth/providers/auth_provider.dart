@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart' show XFile;
 
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_exception.dart';
 import '../../career/data/career_repository.dart';
@@ -21,11 +22,21 @@ class AuthProvider extends ChangeNotifier {
     : _repo = repository ?? AuthRepository(),
       _careerRepo = careerRepository ?? CareerRepository() {
     _sub = _repo.firebaseUserChanges.listen(_onFirebaseUserChanged);
+    // The device regaining a network interface doesn't guarantee the
+    // backend is reachable (see ConnectivityService's doc comment), so
+    // this doesn't declare isOffline = false itself — it just re-attempts
+    // the sync, which will correctly re-confirm (or fail again) on its own.
+    _connectivitySub = ConnectivityService.instance.onStatusChanged.listen((
+      connected,
+    ) {
+      if (connected && isOffline) retrySync();
+    });
   }
 
   final AuthRepository _repo;
   final CareerRepository _careerRepo;
   late final StreamSubscription _sub;
+  late final StreamSubscription<bool> _connectivitySub;
 
   AuthStatus status = AuthStatus.unknown;
   AppUser? currentUser;
@@ -41,6 +52,13 @@ class AuthProvider extends ChangeNotifier {
   /// clicked the verification link yet. Always false for Google sign-in.
   bool needsEmailVerification = false;
 
+  /// True if the current [currentUser]/[needsOnboarding] came from the
+  /// on-device cache rather than a confirmed backend sync — the backend
+  /// couldn't be reached (offline, or a cold-starting server) but Firebase
+  /// still had a valid local session. Screens can use this to show a
+  /// "you're offline, showing cached data" indicator.
+  bool isOffline = false;
+
   /// True while signIn()/signInWithGoogle()/register() is actively driving its own sync.
   bool _explicitAuthInFlight = false;
 
@@ -50,6 +68,8 @@ class AuthProvider extends ChangeNotifier {
       currentUser = null;
       needsOnboarding = null;
       needsEmailVerification = false;
+      isOffline = false;
+      justCompletedOnboarding = false;
       notifyListeners();
       return;
     }
@@ -62,15 +82,43 @@ class AuthProvider extends ChangeNotifier {
       final user = await _repo.sync();
       await _onSyncSuccess(user);
     } catch (e) {
-      // Firebase says signed in but backend sync faile
-      await _onSyncFailure(e);
+      // Firebase still has a valid local session, but the backend sync
+      // failed. Only treat this as a real logout if the backend actually
+      // rejected the session (account deleted/banned/invalid token) — a
+      // network hiccup, an offline device, or the Azure container just
+      // cold-starting are not reasons to sign anyone out. In those cases,
+      // fall back to the last known-good session on disk, if there is one.
+      if (_isGenuineAuthRejection(e)) {
+        await _onSyncFailure(e);
+        return;
+      }
+      final cached = await _repo.getCachedSession();
+      if (cached != null) {
+        currentUser = cached.user;
+        needsOnboarding = cached.needsOnboarding;
+        status = AuthStatus.authenticated;
+        isOffline = true;
+        errorMessage = null;
+        notifyListeners();
+      } else {
+        // Nothing safe to show offline (e.g. very first sync of this
+        // device never completed) — fall back to the old behavior.
+        await _onSyncFailure(e);
+      }
     }
+  }
+
+  /// True only for failures where the backend explicitly rejected the
+  /// session, as opposed to simply being unreachable.
+  bool _isGenuineAuthRejection(Object e) {
+    return e is ApiException && (e.statusCode == 401 || e.statusCode == 403);
   }
 
   //backend sync succeeded
   Future<void> _onSyncSuccess(AppUser user) async {
     currentUser = user;
     status = AuthStatus.authenticated;
+    isOffline = false;
     notifyListeners();
     unawaited(_registerForPushIfEnabled(user.id));
     await refreshOnboardingStatus();
@@ -114,19 +162,52 @@ class AuthProvider extends ChangeNotifier {
     final userId = currentUser?.id;
     if (userId == null) return;
     try {
-      final gap = await _careerRepo.getGapAnalysis(userId);
-      needsOnboarding = !gap.hasGoalSet;
+      final result = await _careerRepo.getGapAnalysis(userId);
+      needsOnboarding = !result.data.hasGoalSet;
+      isOffline = false;
+      unawaited(_persistSessionCache());
     } catch (_) {
-      needsOnboarding = true;
+      // Keep whatever we already knew (e.g. from a previous successful
+      // check, or a cached session) rather than forcing this to true —
+      // that would incorrectly bounce an already-onboarded user back into
+      // onboarding just because this one call failed to reach the server.
+      needsOnboarding ??= true;
     }
     notifyListeners();
   }
+
+  /// Best-effort write of the current session to disk, so a future cold
+  /// start without connectivity has something to fall back to. Never
+  /// throws — caching is a nice-to-have, not something that should ever
+  /// break the auth flow it's piggybacking on.
+  Future<void> _persistSessionCache() async {
+    final user = currentUser;
+    if (user == null) return;
+    try {
+      await _repo.cacheSession(user, needsOnboarding: needsOnboarding ?? true);
+    } catch (_) {}
+  }
+
+  /// True for the single app session right after markOnboardingComplete()
+  /// — lets the router send a brand-new user through the app tour once,
+  /// right after onboarding, without needing any persisted "have they
+  /// seen the tour" flag. Returning users who onboarded in a previous
+  /// session always have this false, so they never see it again.
+  bool justCompletedOnboarding = false;
 
   /// Called by the onboarding flow once it has just set the career goal
   /// itself — avoids one extra round trip before the router unlocks the
   /// main app.
   void markOnboardingComplete() {
     needsOnboarding = false;
+    justCompletedOnboarding = true;
+    notifyListeners();
+    unawaited(_persistSessionCache());
+  }
+
+  /// Called once the app tour is skipped or finished.
+  void finishTour() {
+    justCompletedOnboarding = false;
     notifyListeners();
   }
 
@@ -215,6 +296,14 @@ class AuthProvider extends ChangeNotifier {
       ) ??
       false;
 
+  /// Re-attempts the backend sync after a period of [isOffline]. Not wired
+  /// to any UI yet — exposed as a hook for a future "retry" action (e.g.
+  /// an offline banner) once connectivity-aware caching lands.
+  Future<void> retrySync() async {
+    if (!isOffline) return;
+    await _onFirebaseUserChanged(_repo.currentFirebaseUser);
+  }
+
   /// Used by the onboarding "About you" step and by the Settings/Portfolio
   /// screens to edit profile fields. Every param is optional so each
   /// caller only sends what it actually edits.
@@ -240,10 +329,12 @@ class AuthProvider extends ChangeNotifier {
       experienceLevel: experienceLevel,
       availability: availability,
     );
+    unawaited(_persistSessionCache());
   });
 
   Future<bool> uploadAvatar(XFile file) => _run(() async {
     currentUser = await _repo.uploadAvatar(file);
+    unawaited(_persistSessionCache());
   });
 
   final List<VoidCallback> _signOutListeners = [];
@@ -280,6 +371,7 @@ class AuthProvider extends ChangeNotifier {
   @override
   void dispose() {
     _sub.cancel();
+    _connectivitySub.cancel();
     super.dispose();
   }
 }

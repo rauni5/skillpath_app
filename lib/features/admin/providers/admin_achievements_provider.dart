@@ -159,4 +159,18 @@ class AdminAchievementsProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    listState = AdminAchievementsLoadState.initial;
+    listError = null;
+    catalog = [];
+    isCreating = false;
+    createError = null;
+    detailState = AdminAchievementDetailLoadState.initial;
+    detailError = null;
+    selected = null;
+    isSaving = false;
+    isDeleting = false;
+    notifyListeners();
+  }
 }

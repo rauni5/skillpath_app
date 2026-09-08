@@ -215,4 +215,24 @@ class AdminUsersProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  void reset() {
+    _searchDebounce?.cancel();
+    state = AdminUsersLoadState.initial;
+    error = null;
+    users = [];
+    page = 0;
+    totalPages = 0;
+    totalElements = 0;
+    hasMore = true;
+    pendingUserIds.clear();
+    searchQuery = '';
+    statusFilter = UserStatusFilter.all;
+    sortBy = UserSortBy.createdAt;
+    sortDir = SortDir.desc;
+    analyticsState = AdminAnalyticsLoadState.initial;
+    analytics = null;
+    analyticsError = null;
+    notifyListeners();
+  }
 }

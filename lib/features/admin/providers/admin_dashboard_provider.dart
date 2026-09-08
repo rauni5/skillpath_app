@@ -58,4 +58,14 @@ class AdminDashboardProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  void reset() {
+    state = AdminDashboardLoadState.initial;
+    stats = null;
+    error = null;
+    lastUpdated = null;
+    trendDays = 30;
+    trendLoading = false;
+    notifyListeners();
+  }
 }

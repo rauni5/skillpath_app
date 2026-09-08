@@ -22,11 +22,18 @@ class OwnedSkillTile extends StatelessWidget {
     required this.skill,
     required this.isPending,
     required this.onRemove,
+    this.onChat,
   });
 
   final Skill skill;
   final bool isPending;
   final VoidCallback onRemove;
+
+  /// Opens a tutor chat about this skill. Available for owned skills so a
+  /// user can keep talking to the tutor about something they already
+  /// know, switched away from, or picked up outside their roadmap
+  /// entirely — not just while it's an active roadmap step.
+  final VoidCallback? onChat;
 
   @override
   Widget build(BuildContext context) {
@@ -97,13 +104,31 @@ class OwnedSkillTile extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2, color: p.indigo),
             )
           else
-            InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: onRemove,
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(Icons.close, size: 18, color: p.textMuted),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onChat != null)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: onChat,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.chat_bubble_outline,
+                        size: 17,
+                        color: p.textMuted,
+                      ),
+                    ),
+                  ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: onRemove,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 18, color: p.textMuted),
+                  ),
+                ),
+              ],
             ),
         ],
       ),

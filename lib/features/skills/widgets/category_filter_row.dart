@@ -32,7 +32,9 @@ class CategoryFilterRow extends StatelessWidget {
         itemCount: categories.length + 1,
         separatorBuilder: (_, _) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
-          final rawCategory = index == 0 ? null : categories[index - 1].rawCategory;
+          final rawCategory = index == 0
+              ? null
+              : categories[index - 1].rawCategory;
           final label = index == 0
               ? 'All'
               : categories[index - 1].categoryLabel;

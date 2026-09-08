@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../core/config/public_links.dart';
 import '../../../core/models/portfolio.dart';
 import '../../../core/models/skill.dart';
 import '../../../core/models/user.dart';
@@ -12,6 +14,7 @@ import '../../../shared/widgets/animated_progress_bar.dart';
 import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -19,6 +22,7 @@ import '../data/cv_generator.dart';
 import '../data/save_pdf.dart';
 import '../../../core/models/cv_checklist.dart';
 import '../providers/portfolio_provider.dart';
+import '../providers/public_profile_provider.dart';
 import '../widgets/add_certification_sheet.dart';
 import '../widgets/add_education_sheet.dart';
 import '../widgets/cv_menu_button.dart';
@@ -51,6 +55,12 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
     if (_isSelf) _startRefreshTimer();
+    if (_isSelf && currentUserId != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) =>
+            context.read<PublicProfileProvider>().loadSettings(currentUserId),
+      );
+    }
   }
 
   void _startRefreshTimer() {
@@ -116,6 +126,27 @@ class _PortfolioScreenState extends State<PortfolioScreen>
       appBar: AppBar(
         title: Text(_isSelf ? 'Profile' : (portfolio.data?.name ?? 'Profile')),
         actions: [
+          if (_isSelf)
+            Consumer<PublicProfileProvider>(
+              builder: (context, shareProvider, _) {
+                final settings = shareProvider.settings;
+                if (settings?.enabled != true || settings?.token == null) {
+                  return const SizedBox.shrink();
+                }
+                return IconButton(
+                  icon: const Icon(Icons.ios_share_rounded),
+                  tooltip: 'Share profile',
+                  onPressed: () {
+                    final link = buildPublicProfileLink(settings!.token!);
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text: 'Check out my SkillPath profile: $link',
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           if (_isSelf && portfolio.data != null)
             CvMenuButton(
               data: portfolio.data!,
@@ -142,13 +173,24 @@ class _PortfolioScreenState extends State<PortfolioScreen>
               message: portfolio.errorMessage ?? 'Something went wrong.',
               onRetry: _load,
             ),
-            PortfolioLoadState.loaded => _PortfolioBody(
-              data: portfolio.data!,
-              isSelf: _isSelf,
-              onAddEducation: _addEducation,
-              onDeleteEducation: _deleteEducation,
-              onAddCertification: _addCertification,
-              onDeleteCertification: _deleteCertification,
+            PortfolioLoadState.loaded => Column(
+              children: [
+                if (portfolio.isShowingCachedData)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: OfflineBanner(cachedAt: portfolio.cachedAt),
+                  ),
+                Expanded(
+                  child: PortfolioBody(
+                    data: portfolio.data!,
+                    isSelf: _isSelf,
+                    onAddEducation: _addEducation,
+                    onDeleteEducation: _deleteEducation,
+                    onAddCertification: _addCertification,
+                    onDeleteCertification: _deleteCertification,
+                  ),
+                ),
+              ],
             ),
           },
         ),
@@ -259,8 +301,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   }
 }
 
-class _PortfolioBody extends StatefulWidget {
-  const _PortfolioBody({
+class PortfolioBody extends StatefulWidget {
+  const PortfolioBody({
     required this.data,
     required this.isSelf,
     required this.onAddEducation,
@@ -277,10 +319,10 @@ class _PortfolioBody extends StatefulWidget {
   final void Function(int certId) onDeleteCertification;
 
   @override
-  State<_PortfolioBody> createState() => _PortfolioBodyState();
+  State<PortfolioBody> createState() => _PortfolioBodyState();
 }
 
-class _PortfolioBodyState extends State<_PortfolioBody> {
+class _PortfolioBodyState extends State<PortfolioBody> {
   int _selectedTab = 0;
 
   @override
@@ -357,10 +399,11 @@ class _PortfolioBodyState extends State<_PortfolioBody> {
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  Text(
-                    data.email,
-                    style: TextStyle(fontSize: 12, color: p.textMuted),
-                  ),
+                  if (data.email.trim().isNotEmpty)
+                    Text(
+                      data.email,
+                      style: TextStyle(fontSize: 12, color: p.textMuted),
+                    ),
                   if (data.phoneNumber != null &&
                       data.phoneNumber!.trim().isNotEmpty)
                     Text(
@@ -581,7 +624,20 @@ class _PortfolioBodyState extends State<_PortfolioBody> {
               padding: const EdgeInsets.only(bottom: 10),
               child: PortfolioProjectTile(
                 project: project,
-                onTap: () => context.push('/projects/${project.id}'),
+                onTap: () {
+                  final authed =
+                      context.read<AuthProvider>().status ==
+                      AuthStatus.authenticated;
+                  if (authed) {
+                    context.push('/projects/${project.id}');
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sign in to view this project.'),
+                      ),
+                    );
+                  }
+                },
               ),
             ),
           )

@@ -68,14 +68,12 @@ class SkillCheckProvider extends ChangeNotifier {
 
   void selectAnswer(int optionIndex) {
     answers[currentIndex] = optionIndex;
-    SoundEffectsService.instance.play(SoundEffect.buttonTap);
     notifyListeners();
   }
 
   void goNext() {
     if (currentIndex < questions.length - 1) {
       currentIndex++;
-      SoundEffectsService.instance.play(SoundEffect.buttonTap2);
       notifyListeners();
     }
   }
@@ -83,10 +81,13 @@ class SkillCheckProvider extends ChangeNotifier {
   void goBack() {
     if (currentIndex > 0) {
       currentIndex--;
-      SoundEffectsService.instance.play(SoundEffect.buttonTap);
       notifyListeners();
     }
   }
+
+  /// Called after a passed skill check — wired up in main.dart to trigger
+  /// a GamificationProvider refresh.
+  VoidCallback? onProgressMade;
 
   Future<void> submit(int userId, int skillId) async {
     if (attemptId == null) return;
@@ -107,6 +108,7 @@ class SkillCheckProvider extends ChangeNotifier {
       SoundEffectsService.instance.play(
         result!.passed ? SoundEffect.quizPass : SoundEffect.quizFail,
       );
+      if (result!.passed) onProgressMade?.call();
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message

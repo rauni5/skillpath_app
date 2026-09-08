@@ -54,4 +54,12 @@ class DashboardAiProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    state = SummaryLoadState.initial;
+    summary = null;
+    errorMessage = null;
+    isGenerating = false;
+    notifyListeners();
+  }
 }

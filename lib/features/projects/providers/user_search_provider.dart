@@ -64,4 +64,14 @@ class UserSearchProvider extends ChangeNotifier {
     _debounce?.cancel();
     super.dispose();
   }
+
+  /// Full reset for sign-out. Unlike [clear] (which just resets results for
+  /// a fresh search), this also clears any lingering error state.
+  void reset() {
+    _debounce?.cancel();
+    state = UserSearchLoadState.idle;
+    error = null;
+    results = [];
+    notifyListeners();
+  }
 }

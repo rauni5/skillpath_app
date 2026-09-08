@@ -19,6 +19,14 @@ class SkillsProvider extends ChangeNotifier {
   List<Skill> catalog = [];
   List<Skill> userSkills = [];
 
+  /// True if [catalog]/[userSkills] respectively came from the on-device
+  /// cache rather than a live request. Tracked separately since they're
+  /// two independent requests that can each fail/succeed on their own.
+  bool isCatalogShowingCachedData = false;
+  DateTime? catalogCachedAt;
+  bool isUserSkillsShowingCachedData = false;
+  DateTime? userSkillsCachedAt;
+
   /// Skill ids currently being added/removed, so rows can show a small
   /// inline spinner instead of blocking the whole screen.
   final Set<int> pendingSkillIds = {};
@@ -28,9 +36,11 @@ class SkillsProvider extends ChangeNotifier {
 
   Set<int> get userSkillIds => userSkills.map((s) => s.id).toSet();
 
-  /// One representative [Skill] per distinct category present in the
-  /// catalog, in display order — used to drive the category filter chips
-  /// without ever hardcoding which categories exist.
+  /// One representative [Skill] per distinct category present in
+  /// [catalog], known categories first (in their natural enum order),
+  /// then any custom/admin-added category alphabetically — drives the
+  /// category filter chips without hardcoding which categories exist, and
+  /// without collapsing every custom category into a single "Other".
   List<Skill> get availableCategories {
     final seen = <String>{};
     final reps = <Skill>[];
@@ -40,7 +50,9 @@ class SkillsProvider extends ChangeNotifier {
     reps.sort((a, b) {
       final aKnown = a.category != SkillCategory.unknown;
       final bKnown = b.category != SkillCategory.unknown;
-      if (aKnown && bKnown) return a.category.index.compareTo(b.category.index);
+      if (aKnown && bKnown) {
+        return a.category.index.compareTo(b.category.index);
+      }
       if (aKnown) return -1;
       if (bKnown) return 1;
       return a.categoryLabel.compareTo(b.categoryLabel);
@@ -86,7 +98,10 @@ class SkillsProvider extends ChangeNotifier {
     catalogState = SkillsLoadState.loading;
     notifyListeners();
     try {
-      catalog = await _repo.getAllSkills();
+      final result = await _repo.getAllSkills();
+      catalog = result.data;
+      isCatalogShowingCachedData = result.fromCache;
+      catalogCachedAt = result.cachedAt;
       catalogState = SkillsLoadState.loaded;
     } catch (e) {
       errorMessage = e is ApiException
@@ -101,7 +116,10 @@ class SkillsProvider extends ChangeNotifier {
     userSkillsState = SkillsLoadState.loading;
     notifyListeners();
     try {
-      userSkills = await _repo.getUserSkills(userId);
+      final result = await _repo.getUserSkills(userId);
+      userSkills = result.data;
+      isUserSkillsShowingCachedData = result.fromCache;
+      userSkillsCachedAt = result.cachedAt;
       userSkillsState = SkillsLoadState.loaded;
     } catch (e) {
       errorMessage = e is ApiException
@@ -115,6 +133,12 @@ class SkillsProvider extends ChangeNotifier {
   Future<void> loadAll(int userId) async {
     await Future.wait([loadCatalog(), loadUserSkills(userId)]);
   }
+
+  /// Called after an action that might affect gamification/achievements
+  /// succeeds — wired up in main.dart to trigger a GamificationProvider
+  /// refresh, without this provider needing to know GamificationProvider
+  /// exists.
+  VoidCallback? onProgressMade;
 
   /// Optimistically adds [skill] to the user's inventory, rolling back if
   /// the request fails. On success, re-syncs from the server since adding a
@@ -130,6 +154,7 @@ class SkillsProvider extends ChangeNotifier {
     try {
       await _repo.addSkill(userId, skill.id, proficiency);
       await loadUserSkills(userId);
+      onProgressMade?.call();
       return true;
     } catch (e) {
       userSkills = userSkills.where((s) => s.id != skill.id).toList();
@@ -161,5 +186,21 @@ class SkillsProvider extends ChangeNotifier {
       pendingSkillIds.remove(skillId);
       notifyListeners();
     }
+  }
+
+  void reset() {
+    catalogState = SkillsLoadState.initial;
+    userSkillsState = SkillsLoadState.initial;
+    errorMessage = null;
+    catalog = [];
+    userSkills = [];
+    isCatalogShowingCachedData = false;
+    catalogCachedAt = null;
+    isUserSkillsShowingCachedData = false;
+    userSkillsCachedAt = null;
+    pendingSkillIds.clear();
+    searchQuery = '';
+    categoryFilter = null;
+    notifyListeners();
   }
 }

@@ -376,4 +376,28 @@ class AdminRolesProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    listState = AdminRolesLoadState.initial;
+    listError = null;
+    roles = [];
+    isCreating = false;
+    createError = null;
+    detailState = AdminRoleDetailLoadState.initial;
+    detailError = null;
+    selectedRole = null;
+    branches = [];
+    isSaving = false;
+    isDeleting = false;
+    isCreatingBranch = false;
+    createBranchError = null;
+    branchDetailState = AdminBranchDetailLoadState.initial;
+    branchDetailError = null;
+    selectedBranch = null;
+    branchRequirements = [];
+    isSavingBranch = false;
+    isDeletingBranch = false;
+    pendingBranchRequirementSkillIds.clear();
+    notifyListeners();
+  }
 }
