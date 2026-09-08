@@ -111,6 +111,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                   CategoryFilterRow(
                     selected: skills.categoryFilter,
                     onSelect: skills.setCategoryFilter,
+                    categories: skills.availableCategories,
                   ),
                 ],
               ),

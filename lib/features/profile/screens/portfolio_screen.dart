@@ -57,7 +57,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     if (_isSelf) _startRefreshTimer();
     if (_isSelf && currentUserId != null) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => context.read<PublicProfileProvider>().loadSettings(currentUserId),
+        (_) =>
+            context.read<PublicProfileProvider>().loadSettings(currentUserId),
       );
     }
   }
@@ -138,7 +139,9 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                   onPressed: () {
                     final link = buildPublicProfileLink(settings!.token!);
                     SharePlus.instance.share(
-                      ShareParams(text: 'Check out my SkillPath profile: $link'),
+                      ShareParams(
+                        text: 'Check out my SkillPath profile: $link',
+                      ),
                     );
                   },
                 );

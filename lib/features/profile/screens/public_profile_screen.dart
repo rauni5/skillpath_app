@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -34,7 +35,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => context.read<PublicProfileProvider>().loadPublicProfile(widget.token),
+      (_) =>
+          context.read<PublicProfileProvider>().loadPublicProfile(widget.token),
     );
   }
 
@@ -70,7 +72,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PublicProfileProvider>();
-    final showOpenInApp = kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final showOpenInApp =
+        kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
     return Scaffold(
       appBar: AppBar(

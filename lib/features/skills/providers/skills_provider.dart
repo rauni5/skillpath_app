@@ -32,9 +32,33 @@ class SkillsProvider extends ChangeNotifier {
   final Set<int> pendingSkillIds = {};
 
   String searchQuery = '';
-  SkillCategory? categoryFilter;
+  String? categoryFilter;
 
   Set<int> get userSkillIds => userSkills.map((s) => s.id).toSet();
+
+  /// One representative [Skill] per distinct category present in
+  /// [catalog], known categories first (in their natural enum order),
+  /// then any custom/admin-added category alphabetically — drives the
+  /// category filter chips without hardcoding which categories exist, and
+  /// without collapsing every custom category into a single "Other".
+  List<Skill> get availableCategories {
+    final seen = <String>{};
+    final reps = <Skill>[];
+    for (final s in catalog) {
+      if (seen.add(s.rawCategory)) reps.add(s);
+    }
+    reps.sort((a, b) {
+      final aKnown = a.category != SkillCategory.unknown;
+      final bKnown = b.category != SkillCategory.unknown;
+      if (aKnown && bKnown) {
+        return a.category.index.compareTo(b.category.index);
+      }
+      if (aKnown) return -1;
+      if (bKnown) return 1;
+      return a.categoryLabel.compareTo(b.categoryLabel);
+    });
+    return reps;
+  }
 
   /// Catalog skills not yet in the user's inventory, filtered by the
   /// current search query and category chip.
@@ -42,7 +66,9 @@ class SkillsProvider extends ChangeNotifier {
     final ownedIds = userSkillIds;
     return catalog.where((s) {
       if (ownedIds.contains(s.id)) return false;
-      if (categoryFilter != null && s.category != categoryFilter) return false;
+      if (categoryFilter != null && s.rawCategory != categoryFilter) {
+        return false;
+      }
       if (searchQuery.trim().isEmpty) return true;
       return s.name.toLowerCase().contains(searchQuery.trim().toLowerCase());
     }).toList();
@@ -50,7 +76,9 @@ class SkillsProvider extends ChangeNotifier {
 
   List<Skill> get filteredCatalogAll {
     return catalog.where((s) {
-      if (categoryFilter != null && s.category != categoryFilter) return false;
+      if (categoryFilter != null && s.rawCategory != categoryFilter) {
+        return false;
+      }
       if (searchQuery.trim().isEmpty) return true;
       return s.name.toLowerCase().contains(searchQuery.trim().toLowerCase());
     }).toList();
@@ -61,7 +89,7 @@ class SkillsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setCategoryFilter(SkillCategory? category) {
+  void setCategoryFilter(String? category) {
     categoryFilter = category;
     notifyListeners();
   }
