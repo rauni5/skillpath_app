@@ -31,8 +31,11 @@ class GamificationProvider extends ChangeNotifier {
   int get unlockedCount => achievements.where((a) => a.unlocked).length;
 
   Future<void> load(int userId) async {
-    state = GamificationLoadState.loading;
-    notifyListeners();
+    if (!_hasLoadedOnce) {
+      state = GamificationLoadState.loading;
+      notifyListeners();
+    }
+
     try {
       final results = await Future.wait([
         _repo.getAchievements(userId),
@@ -64,7 +67,9 @@ class GamificationProvider extends ChangeNotifier {
       errorMessage = e is ApiException
           ? e.message
           : 'Could not load your achievements.';
-      state = GamificationLoadState.error;
+      if (!_hasLoadedOnce) {
+        state = GamificationLoadState.error;
+      }
     }
     notifyListeners();
   }

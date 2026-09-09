@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:provider/provider.dart';
 
-import '../../../core/models/user.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/app_dialogs.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -20,7 +18,6 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _bioCtrl;
-  late ExperienceLevel _level;
 
   @override
   void initState() {
@@ -28,7 +25,6 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
     final user = context.read<AuthProvider>().currentUser;
     _nameCtrl = TextEditingController(text: user?.name ?? '');
     _bioCtrl = TextEditingController(text: user?.bio ?? '');
-    _level = user?.experienceLevel ?? ExperienceLevel.beginner;
   }
 
   @override
@@ -44,7 +40,6 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
     final ok = await auth.updateProfile(
       name: _nameCtrl.text.trim(),
       bio: _bioCtrl.text.trim(),
-      experienceLevel: _level,
     );
     if (ok) {
       widget.onContinue();
@@ -95,52 +90,6 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
                 alignLabelWithHint: true,
               ),
             ),
-            const SizedBox(height: 18),
-            Text(
-              'EXPERIENCE LEVEL',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: p.textMuted,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: ExperienceLevel.values.map((level) {
-                final selected = _level == level;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: ChoiceChip(
-                      label: Center(
-                        child: Text(
-                          _levelLabel(level),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      selected: selected,
-                      onSelected: (_) {
-                        HapticFeedback.selectionClick();
-                        setState(() => _level = level);
-                      },
-                      selectedColor: p.indigoLight,
-                      labelPadding: EdgeInsets.zero,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      labelStyle: TextStyle(
-                        color: selected ? p.indigo : p.textSecondary,
-                        // Keeping font weight constant prevents text sizing shifts
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.5,
-                      ),
-                      side: BorderSide(color: selected ? p.indigo : p.border),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: auth.isLoading ? null : _submit,
@@ -159,16 +108,5 @@ class _OnboardingAboutStepState extends State<OnboardingAboutStep> {
         ),
       ),
     );
-  }
-
-  String _levelLabel(ExperienceLevel level) {
-    switch (level) {
-      case ExperienceLevel.beginner:
-        return 'Beginner';
-      case ExperienceLevel.intermediate:
-        return 'Intermediate';
-      case ExperienceLevel.advanced:
-        return 'Advanced';
-    }
   }
 }

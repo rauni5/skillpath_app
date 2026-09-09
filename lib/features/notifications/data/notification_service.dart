@@ -225,9 +225,13 @@ class NotificationService {
     _navigate(message.data);
   }
 
-  void _navigate(Map<String, dynamic> data, {int attempt = 0}) {
+  Future<void> _navigate(Map<String, dynamic> data, {int attempt = 0}) async {
     final type = pushNotificationTypeFromString(data['type'] as String?);
-    final route = routeForPushNotification(type, data);
+    final route = await resolveProjectAwareNotificationRoute(
+      type,
+      data,
+      _currentUserId,
+    );
     if (route == null) {
       debugPrint(
         'NotificationService: no route for payload $data (type=$type) - '
@@ -236,12 +240,7 @@ class NotificationService {
       return;
     }
 
-    final context = rootNavigatorKey.currentContext;
-    if (context != null) {
-      debugPrint('NotificationService: navigating to $route');
-      GoRouter.of(context).go(route);
-      return;
-    }
+    if (_navigateWithRouter(route)) return;
 
     if (attempt >= 20) {
       debugPrint(
@@ -258,6 +257,15 @@ class NotificationService {
       const Duration(milliseconds: 300),
       () => _navigate(data, attempt: attempt + 1),
     );
+  }
+
+  bool _navigateWithRouter(String route) {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return false;
+
+    debugPrint('NotificationService: navigating to $route');
+    GoRouter.of(context).go(route);
+    return true;
   }
 
   String _platformName() {

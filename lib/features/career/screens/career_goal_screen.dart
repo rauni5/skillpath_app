@@ -166,9 +166,10 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final career = context.watch<CareerProvider>();
+    bool notResolved(CareerLoadState s) =>
+        s == CareerLoadState.initial || s == CareerLoadState.loading;
     final loading =
-        career.gapState == CareerLoadState.loading &&
-        career.rolesState == CareerLoadState.loading;
+        notResolved(career.gapState) || notResolved(career.rolesState);
     final hasError =
         career.gapState == CareerLoadState.error ||
         career.rolesState == CareerLoadState.error;
@@ -178,7 +179,7 @@ class _CareerGoalScreenState extends State<CareerGoalScreen> {
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
-          child: loading && career.roles.isEmpty
+          child: loading && !career.hasLoadedOnce
               ? const LoadingView(key: ValueKey('loading'))
               : hasError
               ? ErrorView(

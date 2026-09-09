@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/offline_banner.dart';
@@ -85,8 +86,20 @@ class _SkillsScreenState extends State<SkillsScreen> {
                         ),
                       _YourSkillsSection(
                         skills: skills,
-                        onRemove: (id) {
+                        onRemove: (id, name) async {
                           HapticFeedback.lightImpact();
+                          final confirmed = await showConfirmationDialog(
+                            context,
+                            title: 'Remove skill?',
+                            message:
+                                'Are you sure you want to remove "$name" '
+                                'from your skills? This won\'t delete your '
+                                'progress history, but it will no longer '
+                                'count toward your roadmap.',
+                            confirmText: 'Remove',
+                            icon: Icons.delete_outline_rounded,
+                          );
+                          if (!confirmed) return;
                           final userId = _userId;
                           if (userId != null) skills.removeSkill(userId, id);
                         },
@@ -109,7 +122,7 @@ class _YourSkillsSection extends StatelessWidget {
   });
 
   final SkillsProvider skills;
-  final void Function(int skillId) onRemove;
+  final void Function(int skillId, String skillName) onRemove;
   final VoidCallback onBrowse;
 
   @override
@@ -236,7 +249,7 @@ class _YourSkillsSection extends StatelessWidget {
                       child: OwnedSkillTile(
                         skill: s,
                         isPending: skills.pendingSkillIds.contains(s.id),
-                        onRemove: () => onRemove(s.id),
+                        onRemove: () => onRemove(s.id, s.name),
                         onChat: () => context.push(
                           '/roadmap/skill/${s.id}/chat',
                           extra: s.name,

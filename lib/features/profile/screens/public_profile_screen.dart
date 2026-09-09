@@ -77,10 +77,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => _exitOrGoToApp(context),
-        ),
+        automaticallyImplyLeading: !kIsWeb,
+        leading: kIsWeb
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => _exitOrGoToApp(context),
+              ),
         title: const Text('Profile'),
       ),
       body: SafeArea(

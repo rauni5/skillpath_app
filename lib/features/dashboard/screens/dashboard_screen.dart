@@ -87,22 +87,33 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _load() async {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
+    unawaited(_loadAiSummary(userId));
+    unawaited(_loadGamification(userId));
     await Future.wait([
       context.read<DashboardProvider>().load(userId),
       context.read<NotificationsProvider>().refreshUnreadCount(userId),
     ]);
-    unawaited(_loadAiSummary(userId));
-    unawaited(_loadGamification(userId));
     final changes = await _alertService.checkForChanges(userId);
     for (final c in changes) {
       if (!mounted) return;
       final accepted = c.status == MemberStatus.accepted;
+      final String title;
+      final String message;
+      if (c.invitedByOwner) {
+        title = accepted ? 'You joined the project' : 'Invite declined';
+        message = accepted
+            ? 'You successfully joined "${c.projectName}".'
+            : 'You declined the invite to join "${c.projectName}".';
+      } else {
+        title = accepted ? 'Request accepted' : 'Request declined';
+        message =
+            'Your request to join "${c.projectName}" was '
+            '${accepted ? 'accepted' : 'declined'}.';
+      }
       await showOutcomeDialog(
         context,
-        title: accepted ? 'Request accepted' : 'Request declined',
-        message:
-            'Your request to join "${c.projectName}" was '
-            '${accepted ? 'accepted' : 'declined'}.',
+        title: title,
+        message: message,
         isPositive: accepted,
       );
     }
