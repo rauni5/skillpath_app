@@ -82,7 +82,9 @@ class OwnedSkillTile extends StatelessWidget {
                 const SizedBox(height: 3),
                 if (level != null)
                   Text(
-                    level.label,
+                    level.shortLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
@@ -92,6 +94,8 @@ class OwnedSkillTile extends StatelessWidget {
                 else
                   Text(
                     skill.categoryLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 11, color: p.textMuted),
                   ),
               ],

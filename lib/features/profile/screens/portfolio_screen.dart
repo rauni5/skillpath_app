@@ -332,7 +332,7 @@ class _PortfolioBodyState extends State<PortfolioBody> {
     final p = AppPalette.of(context);
     final data = widget.data;
 
-    return ListView(
+    final content = ListView(
       padding: EdgeInsets.zero,
       children: [
         const SizedBox(height: 12),
@@ -567,6 +567,20 @@ class _PortfolioBodyState extends State<PortfolioBody> {
         ),
       ],
     );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const maxContentWidth = 640.0;
+        if (constraints.maxWidth <= maxContentWidth) return content;
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: maxContentWidth),
+            child: content,
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildStatColumn(String count, String label, AppPalette p) {
@@ -626,11 +640,16 @@ class _PortfolioBodyState extends State<PortfolioBody> {
               child: PortfolioProjectTile(
                 project: project,
                 onTap: () {
-                  final authed =
-                      context.read<AuthProvider>().status ==
-                      AuthStatus.authenticated;
+                  final auth = context.read<AuthProvider>();
+                  final authed = auth.status == AuthStatus.authenticated;
                   if (authed) {
-                    context.push('/projects/${project.id}');
+                    final userId = auth.currentUser?.id;
+                    final isMine = userId != null && userId == project.ownerId;
+                    context.push(
+                      isMine
+                          ? '/projects/mine/${project.id}'
+                          : '/projects/${project.id}',
+                    );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

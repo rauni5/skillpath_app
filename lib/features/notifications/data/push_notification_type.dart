@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart' show IconData, Icons;
 
+import '../../projects/data/projects_repository.dart';
+
 /// Values that arrive in the FCM data payload's "type" field. Mirrors
 /// com.skillpath.service.notification.NotificationType on the backend —
 /// keep the two in sync.
@@ -83,6 +85,55 @@ String? routeForPushNotification(
 
     case PushNotificationType.unknown:
       return null;
+  }
+}
+
+/// Whether [routeForPushNotification] sends this type to the bare
+/// "/projects/:id" route — the one route that needs to branch between the
+/// owner's manage screen and the member-facing detail screen.
+bool _landsOnBareProjectRoute(PushNotificationType type) {
+  switch (type) {
+    case PushNotificationType.inviteAccepted:
+    case PushNotificationType.inviteRejected:
+    case PushNotificationType.joinRequestAccepted:
+    case PushNotificationType.joinRequestRejected:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// Same destination as [routeForPushNotification], except the bare project
+/// route is upgraded to the owner's "manage" screen when [currentUserId]
+/// owns that project — the same ownership check project cards use
+/// throughout the app (e.g. the dashboard's project card tap handler),
+/// applied here so a notification tap lands on the same screen a manual
+/// tap on that project would.
+///
+/// Falls back to the plain [routeForPushNotification] result if there's no
+/// project to check, no signed-in user, or the ownership lookup fails.
+Future<String?> resolveProjectAwareNotificationRoute(
+  PushNotificationType type,
+  Map<String, dynamic> data,
+  int? currentUserId,
+) async {
+  final route = routeForPushNotification(type, data);
+  if (route == null || !_landsOnBareProjectRoute(type)) return route;
+
+  final rawProjectId = data['projectId'];
+  if (rawProjectId == null || currentUserId == null) return route;
+  final projectId = rawProjectId is int
+      ? rawProjectId
+      : int.tryParse(rawProjectId.toString());
+  if (projectId == null) return route;
+
+  try {
+    final project = await ProjectsRepository().getProject(projectId);
+    return currentUserId == project.ownerId
+        ? '/projects/mine/$projectId'
+        : '/projects/$projectId';
+  } catch (_) {
+    return route;
   }
 }
 

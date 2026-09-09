@@ -51,6 +51,7 @@ import '../../features/tour/screens/app_tour_screen.dart';
 import '../../features/tutor/screen/skill_check_screen.dart';
 import '../../features/tutor/screen/tutor_chat_screen.dart';
 import '../../shared/widgets/app_shell.dart';
+import '../../shared/widgets/not_found_screen.dart';
 import '../models/discussion_post.dart';
 import '../models/portfolio.dart';
 import 'navigation_keys.dart';
@@ -85,11 +86,14 @@ GoRouter buildRouter(AuthProvider authProvider) {
           loc == '/login' || loc == '/register' || loc == '/forgot-password';
       final onAdminBlocked = loc == '/admin-blocked';
       final onAdmin = loc.startsWith('/admin');
+      final onNotFound = loc == '/not-found';
 
       if (kIsWeb) {
         if (authProvider.status == AuthStatus.unauthenticated ||
             authProvider.status == AuthStatus.unknown) {
-          return onAdminLogin ? null : '/admin/login';
+          if (onAdminLogin) return null;
+          if (onAdmin) return '/admin/login';
+          return onNotFound ? null : '/not-found';
         }
 
         final isAdmin = authProvider.currentUser?.isAdmin ?? false;
@@ -141,6 +145,10 @@ GoRouter buildRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/admin/login',
         builder: (context, state) => const AdminLoginScreen(),
+      ),
+      GoRoute(
+        path: '/not-found',
+        builder: (context, state) => const NotFoundScreen(),
       ),
       GoRoute(
         path: '/splash',

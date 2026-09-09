@@ -8,9 +8,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/admin_users_provider.dart';
 import '../widgets/admin_bits.dart';
-import '../widgets/admin_card.dart';
 import '../widgets/admin_page_header.dart';
-import '../widgets/fade_slide_in.dart';
 import '../widgets/shimmer_skeleton.dart';
 
 class AdminUsersScreen extends StatefulWidget {
@@ -217,260 +215,199 @@ class _Pager extends StatelessWidget {
   }
 }
 
-/// Full-width table built from plain Rows/Expanded — not Material's
-/// [DataTable], which sizes columns to content and leaves a gap or forces
-/// horizontal scrolling that hides trailing columns.
+/// Renders through the same [AdminDataTable] used by the Skills, Roles,
+/// and Achievements screens — same fill-then-scroll responsive behavior,
+/// same header/row chrome — instead of the bespoke Row/Expanded table
+/// this replaced, which had none of that and crushed illegibly on
+/// narrow/mobile-web widths.
 class _UsersTable extends StatelessWidget {
   const _UsersTable({required this.admin, required this.p});
 
   final AdminUsersProvider admin;
   final AppPalette p;
 
-  static const _flexUser = 3;
-  static const _flexLevel = 2;
-  static const _flexStats = 3;
-  static const _flexGoal = 1;
-  static const _flexJoined = 2;
-  static const _flexAccess = 2;
-
   @override
   Widget build(BuildContext context) {
-    return AdminCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _header(),
-          for (var i = 0; i < admin.users.length; i++)
-            _row(context, admin.users[i], i),
-        ],
-      ),
+    final currentUserId = context.watch<AuthProvider>().currentUser?.id;
+
+    return AdminDataTable(
+      sortColumnIndex: switch (admin.sortBy) {
+        UserSortBy.name => 0,
+        UserSortBy.createdAt => 4,
+        UserSortBy.email => null,
+      },
+      sortAscending: admin.sortDir == SortDir.asc,
+      columns: [
+        DataColumn(
+          label: const Text('User'),
+          onSort: (_, _) => admin.setSort(UserSortBy.name),
+        ),
+        const DataColumn(label: Text('Level')),
+        const DataColumn(label: Text('Stats')),
+        const DataColumn(label: Text('Goal')),
+        DataColumn(
+          label: const Text('Joined'),
+          onSort: (_, _) => admin.setSort(UserSortBy.createdAt),
+        ),
+        const DataColumn(label: Text('Access')),
+      ],
+      rows: [
+        for (final summary in admin.users)
+          _buildRow(context, summary, currentUserId),
+      ],
     );
   }
 
-  Widget _header() {
-    return Container(
-      color: p.surface2,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(flex: _flexUser, child: _sortable('User', UserSortBy.name)),
-          Expanded(flex: _flexLevel, child: _label('Level')),
-          Expanded(flex: _flexStats, child: _label('Stats')),
-          Expanded(flex: _flexGoal, child: _label('Goal')),
-          Expanded(
-            flex: _flexJoined,
-            child: _sortable('Joined', UserSortBy.createdAt),
-          ),
-          Expanded(flex: _flexAccess, child: _label('Access')),
-        ],
-      ),
-    );
-  }
-
-  Widget _label(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: p.textMuted,
-        letterSpacing: 0.3,
-      ),
-    );
-  }
-
-  Widget _sortable(String label, UserSortBy column) {
-    final active = admin.sortBy == column;
-    final ascending = admin.sortDir == SortDir.asc;
-    return InkWell(
-      onTap: () => admin.setSort(column),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: active ? p.indigo : p.textMuted,
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(width: 2),
-          Icon(
-            active
-                ? (ascending ? Icons.arrow_upward : Icons.arrow_downward)
-                : Icons.unfold_more,
-            size: 12,
-            color: active ? p.indigo : p.textMuted,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(BuildContext context, AdminUserSummary summary, int index) {
+  DataRow _buildRow(
+    BuildContext context,
+    AdminUserSummary summary,
+    int? currentUserId,
+  ) {
     final user = summary.user;
-    final isSelf = context.watch<AuthProvider>().currentUser?.id == user.id;
+    final isSelf = currentUserId == user.id;
     final isPending = admin.pendingUserIds.contains(user.id);
 
-    return FadeSlideIn(
-      index: index,
-      perItemDelay: const Duration(milliseconds: 18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: index.isOdd ? p.surface2.withValues(alpha: 0.4) : null,
-          border: Border(top: BorderSide(color: p.border)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              flex: _flexUser,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: p.indigoLight,
-                    child: Text(
-                      user.initials,
-                      style: TextStyle(
-                        color: p.indigo,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+    return DataRow(
+      cells: [
+        DataCell(
+          SizedBox(
+            width: 190,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: p.indigoLight,
+                  child: Text(
+                    user.initials,
+                    style: TextStyle(
+                      color: p.indigo,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                user.name,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: p.textPrimary,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              user.name,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: p.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isSelf) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '(you)',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: p.textMuted,
                               ),
                             ),
-                            if (isSelf) ...[
-                              const SizedBox(width: 4),
-                              Text(
-                                '(you)',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: p.textMuted,
-                                ),
-                              ),
-                            ],
                           ],
-                        ),
-                        Text(
-                          user.email,
-                          style: TextStyle(fontSize: 11, color: p.textMuted),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                      Text(
+                        user.email,
+                        style: TextStyle(fontSize: 11, color: p.textMuted),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Expanded(
-              flex: _flexLevel,
-              // Without this, Expanded gives Pill a *tight* width equal to
-              // the column's flex share, and Pill's bare Container
-              // stretches to fill it — turning a small chip into an
-              // oddly elongated bar. Align keeps it sized to its content.
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Pill(label: _titleCase(user.experienceLevel.name)),
-              ),
-            ),
-            Expanded(
-              flex: _flexStats,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 3,
-                children: [
-                  _statChip(Icons.psychology_outlined, summary.skillsCount),
-                  _statChip(
-                    Icons.folder_open_outlined,
-                    summary.ownedProjectsCount,
-                  ),
-                  _statChip(
-                    Icons.emoji_events_outlined,
-                    summary.achievementsCount,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: _flexGoal,
-              child: Icon(
-                summary.careerGoalSet ? Icons.flag : Icons.flag_outlined,
-                size: 15,
-                color: summary.careerGoalSet ? p.indigo : p.textMuted,
-              ),
-            ),
-            Expanded(
-              flex: _flexJoined,
-              child: Text(
-                user.createdAt == null ? '—' : _formatDate(user.createdAt!),
-                style: TextStyle(fontSize: 11.5, color: p.textSecondary),
-              ),
-            ),
-            Expanded(
-              flex: _flexAccess,
-              child: isPending
-                  ? const MiniSpinner()
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ToggleBadge(
-                          active: user.isAdmin,
-                          activeLabel: 'Admin',
-                          inactiveLabel: 'User',
-                          activeColor: p.amber,
-                          onTap: isSelf
-                              ? null
-                              : () => _confirmAdminToggle(
-                                  context,
-                                  user,
-                                  !user.isAdmin,
-                                ),
-                        ),
-                        const SizedBox(height: 8),
-                        ToggleBadge(
-                          active: user.isActive,
-                          activeLabel: 'Active',
-                          inactiveLabel: 'Inactive',
-                          activeColor: p.green,
-                          onTap: isSelf
-                              ? null
-                              : () => _confirmActiveToggle(
-                                  context,
-                                  user,
-                                  !user.isActive,
-                                ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+          ),
         ),
-      ),
+        DataCell(Pill(label: _titleCase(user.experienceLevel.name))),
+        DataCell(
+          SizedBox(
+            width: 150,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 3,
+              children: [
+                _statChip(Icons.psychology_outlined, summary.skillsCount),
+                _statChip(
+                  Icons.folder_open_outlined,
+                  summary.ownedProjectsCount,
+                ),
+                _statChip(
+                  Icons.emoji_events_outlined,
+                  summary.achievementsCount,
+                ),
+              ],
+            ),
+          ),
+        ),
+        DataCell(
+          Icon(
+            summary.careerGoalSet ? Icons.flag : Icons.flag_outlined,
+            size: 15,
+            color: summary.careerGoalSet ? p.indigo : p.textMuted,
+          ),
+        ),
+        DataCell(
+          Text(
+            user.createdAt == null ? '—' : _formatDate(user.createdAt!),
+            style: TextStyle(fontSize: 11.5, color: p.textSecondary),
+          ),
+        ),
+        DataCell(
+          // Two badges stacked vertically (the original layout) could run
+          // taller than the DataTable's fixed row height, spilling down
+          // into the row below and overlapping its cells — a fixed-height
+          // table row can't grow to fit taller content the way the old
+          // Row/Expanded table's rows could. Side by side instead, this
+          // comfortably fits within a single row's height no matter how
+          // tall the table's rows are configured.
+          isPending
+              ? const MiniSpinner()
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ToggleBadge(
+                      active: user.isAdmin,
+                      activeLabel: 'Admin',
+                      inactiveLabel: 'User',
+                      activeColor: p.amber,
+                      onTap: isSelf
+                          ? null
+                          : () => _confirmAdminToggle(
+                              context,
+                              user,
+                              !user.isAdmin,
+                            ),
+                    ),
+                    const SizedBox(width: 8),
+                    ToggleBadge(
+                      active: user.isActive,
+                      activeLabel: 'Active',
+                      inactiveLabel: 'Inactive',
+                      activeColor: p.green,
+                      onTap: isSelf
+                          ? null
+                          : () => _confirmActiveToggle(
+                              context,
+                              user,
+                              !user.isActive,
+                            ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
     );
   }
 

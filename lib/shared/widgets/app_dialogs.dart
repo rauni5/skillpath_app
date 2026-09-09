@@ -102,6 +102,194 @@ Future<void> showErrorDialog(
   );
 }
 
+/// Confirmation dialog for destructive/important actions
+Future<bool> showConfirmationDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmText = 'Confirm',
+  String cancelText = 'Cancel',
+  bool isDestructive = true,
+  IconData icon = Icons.help_outline_rounded,
+}) async {
+  final p = AppPalette.of(context);
+  final accent = isDestructive ? p.red : p.indigo;
+
+  final result = await showGeneralDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: title,
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        const SizedBox.shrink(),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.95, end: 1.0).animate(curve),
+          child: _ConfirmationDialogCard(
+            icon: icon,
+            accentColor: accent,
+            title: title,
+            message: message,
+            confirmText: confirmText,
+            cancelText: cancelText,
+          ),
+        ),
+      );
+    },
+  );
+
+  return result ?? false;
+}
+
+class _ConfirmationDialogCard extends StatelessWidget {
+  const _ConfirmationDialogCard({
+    required this.icon,
+    required this.accentColor,
+    required this.title,
+    required this.message,
+    required this.confirmText,
+    required this.cancelText,
+  });
+
+  final IconData icon;
+  final Color accentColor;
+  final String title;
+  final String message;
+  final String confirmText;
+  final String cancelText;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 340),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        decoration: BoxDecoration(
+          color: p.surface2,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: p.textPrimary.withValues(alpha: 0.08),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accentColor.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.18),
+                  width: 1,
+                ),
+              ),
+              child: Icon(icon, color: accentColor, size: 26),
+            ),
+            const SizedBox(height: 16),
+
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: p.textPrimary,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: p.textSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: p.textPrimary,
+                        side: BorderSide(color: p.border, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: Text(
+                        cancelText,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: accentColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: Text(
+                        confirmText,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Primary animated dialog wrapper to keep all modals completely consistent.
 Future<void> _showBaseCustomDialog(
   BuildContext context, {

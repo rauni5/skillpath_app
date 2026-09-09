@@ -154,11 +154,13 @@ class MembershipStatusEntry {
   final int projectId;
   final String projectName;
   final MemberStatus status;
+  final bool invitedByOwner;
 
   MembershipStatusEntry({
     required this.projectId,
     required this.projectName,
     required this.status,
+    required this.invitedByOwner,
   });
 
   factory MembershipStatusEntry.fromJson(Map<String, dynamic> json) {
@@ -166,6 +168,7 @@ class MembershipStatusEntry {
       projectId: json['projectId'] as int,
       projectName: json['projectName'] as String? ?? '',
       status: memberStatusFromString(json['status'] as String?),
+      invitedByOwner: json['invitedByOwner'] as bool? ?? false,
     );
   }
 }

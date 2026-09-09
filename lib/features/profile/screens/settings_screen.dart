@@ -177,7 +177,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(24),
                   ),
                 ),
-                onPressed: () => context.read<AuthProvider>().signOut(),
+                onPressed: () async {
+                  final confirmed = await showConfirmationDialog(
+                    context,
+                    title: 'Sign out?',
+                    message:
+                        'You\'ll need to log back in to access your '
+                        'account, roadmap, and projects.',
+                    confirmText: 'Sign out',
+                    icon: Icons.logout_rounded,
+                  );
+                  if (!confirmed || !context.mounted) return;
+                  context.read<AuthProvider>().signOut();
+                },
                 icon: const Icon(Icons.logout, size: 18),
                 label: const Text(
                   'Sign out',
