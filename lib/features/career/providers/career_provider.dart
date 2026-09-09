@@ -38,6 +38,7 @@ class CareerProvider extends ChangeNotifier {
   DateTime? rolesCachedAt;
   bool isGapShowingCachedData = false;
   DateTime? gapCachedAt;
+  bool hasLoadedOnce = false;
 
   bool get isShowingCachedData =>
       isRolesShowingCachedData || isGapShowingCachedData;
@@ -88,6 +89,8 @@ class CareerProvider extends ChangeNotifier {
 
   Future<void> loadAll(int userId) async {
     await Future.wait([loadRoles(), loadGap(userId)]);
+    hasLoadedOnce = true;
+    notifyListeners();
   }
 
   /// Loads a role's specializations and, if the user has any current skills,
@@ -182,6 +185,7 @@ class CareerProvider extends ChangeNotifier {
     rolesCachedAt = null;
     isGapShowingCachedData = false;
     gapCachedAt = null;
+    hasLoadedOnce = false;
     branchesState = CareerLoadState.initial;
     branches = [];
     branchRecommendations = [];

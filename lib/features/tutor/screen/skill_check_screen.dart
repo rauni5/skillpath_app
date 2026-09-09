@@ -111,10 +111,7 @@ class _SkillCheckScreenState extends State<SkillCheckScreen> {
           onRetry: check.attemptId == null ? _start : _submit,
         );
       case SkillCheckPhase.inProgress:
-        return _QuizView(
-          key: ValueKey('question-${check.currentIndex}'),
-          onSubmit: _submit,
-        );
+        return _QuizView(key: const ValueKey('quizView'), onSubmit: _submit);
       case SkillCheckPhase.result:
         return _ResultView(
           key: const ValueKey('result'),
@@ -323,12 +320,18 @@ class _NotStartedView extends StatelessWidget {
   }
 }
 
-class _QuizView extends StatelessWidget {
+class _QuizView extends StatefulWidget {
   const _QuizView({super.key, required this.onSubmit});
 
   final VoidCallback onSubmit;
 
+  @override
+  State<_QuizView> createState() => _QuizViewState();
+}
+
+class _QuizViewState extends State<_QuizView> {
   static const _optionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
+  int _lastIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -337,6 +340,9 @@ class _QuizView extends StatelessWidget {
     final question = check.questions[check.currentIndex];
     final total = check.questions.length;
     final selected = check.answers[check.currentIndex];
+
+    final bool isForward = check.currentIndex >= _lastIndex;
+    _lastIndex = check.currentIndex;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -374,38 +380,68 @@ class _QuizView extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           AnimatedProgressBar(
-            value: (check.currentIndex + 1) / total,
+            value: check.answeredCount / total,
             valueColor: p.indigo,
             backgroundColor: p.border,
             height: 6,
           ),
           const SizedBox(height: 24),
-          Text(
-            question.question,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: p.textPrimary,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 20),
           Expanded(
-            child: ListView.separated(
-              itemCount: question.options.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, i) {
-                final isSelected = selected == i;
-                return _OptionTile(
-                  label: _optionLabels[i % _optionLabels.length],
-                  text: question.options[i],
-                  isSelected: isSelected,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    context.read<SkillCheckProvider>().selectAnswer(i);
-                  },
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final double beginX = isForward ? 0.15 : -0.15;
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: Offset(beginX, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
                 );
               },
+              child: KeyedSubtree(
+                key: ValueKey(check.currentIndex),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      question.question,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: p.textPrimary,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: question.options.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, i) {
+                          final isSelected = selected == i;
+                          return _OptionTile(
+                            label: _optionLabels[i % _optionLabels.length],
+                            text: question.options[i],
+                            isSelected: isSelected,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              context.read<SkillCheckProvider>().selectAnswer(
+                                i,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -441,7 +477,7 @@ class _QuizView extends StatelessWidget {
                   onPressed: selected == null
                       ? null
                       : check.isLastQuestion
-                      ? (check.answeredCount == total ? onSubmit : null)
+                      ? (check.answeredCount == total ? widget.onSubmit : null)
                       : () => context.read<SkillCheckProvider>().goNext(),
                   child: Text(
                     check.isLastQuestion ? 'Submit' : 'Next',
@@ -523,11 +559,6 @@ class _OptionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              // Font weight is now constant regardless of selection. It
-              // used to jump w400 -> w600 on select, which changes glyph
-              // widths and reflows the whole line - that was the
-              // "text moves when selected" bug. Color alone now carries
-              // the selected/unselected distinction here.
               Expanded(
                 child: Text(
                   text,
@@ -539,11 +570,6 @@ class _OptionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // Fixed-width slot that's always in the tree - only its
-              // opacity animates. Previously the checkmark Icon only
-              // existed in the widget tree when isSelected was true,
-              // which shrank the Expanded text's available width the
-              // instant you selected it, causing the same reflow shift.
               SizedBox(
                 width: 20,
                 child: AnimatedOpacity(
@@ -753,7 +779,7 @@ class _ResultViewState extends State<_ResultView>
                   ),
                 ),
                 onPressed: () => context.pop(passed),
-                child: Text("Return"),
+                child: const Text('Return'),
               ),
             ),
           ],
