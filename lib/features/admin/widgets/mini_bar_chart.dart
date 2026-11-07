@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/models/daily_count.dart';
 import '../../../core/theme/app_palette.dart';
 
-/// Small, dependency-free bar chart (custom-painted, no charting package)
-/// for showing a daily count trend — e.g. new signups over the last 30
-/// days. Bars animate in on first build.
+/// Dependency-free bar chart (custom-painted, no charting package) for a
+/// daily count trend — e.g. signups over the last 30 days. Zero-fills any
+/// missing days so the axis always spans [expectedDays] rather than only
+/// the days that happen to have data.
 class MiniBarChart extends StatelessWidget {
   const MiniBarChart({
     super.key,
@@ -18,11 +19,6 @@ class MiniBarChart extends StatelessWidget {
   final List<DailyCount> data;
   final double height;
   final Color? barColor;
-
-  /// If the data has gaps (e.g. days with zero signups omitted by the
-  /// backend), zero-fill so the chart still spans this many trailing
-  /// days ending today. Defaults to 30. Pass 0 to disable and render
-  /// exactly what was given.
   final int expectedDays;
 
   @override
@@ -87,8 +83,6 @@ class MiniBarChart extends StatelessWidget {
     );
   }
 
-  /// Builds a contiguous list of the last [days] days ending today,
-  /// filling in a count of 0 for any day missing from [source].
   List<DailyCount> _zeroFilled(List<DailyCount> source, int days) {
     final byDay = <DateTime, int>{
       for (final d in source)
@@ -111,18 +105,8 @@ class MiniBarChart extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}';
   }

@@ -116,4 +116,15 @@ class NotificationsProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    state = NotificationsLoadState.initial;
+    notifications = [];
+    unreadCount = 0;
+    errorMessage = null;
+    _page = 0;
+    hasMore = true;
+    isLoadingMore = false;
+    notifyListeners();
+  }
 }

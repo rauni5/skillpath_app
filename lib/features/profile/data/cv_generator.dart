@@ -66,14 +66,15 @@ Future<Uint8List> buildCvPdf(PortfolioData data) async {
           ...data.projects.map((project) => _projectEntry(project, data)),
           pw.SizedBox(height: 4),
         ],
-
+        /*
+        disabled because portfolio items are redundant with projects, which are already included in the CV.
         if (data.portfolioItems.isNotEmpty) ...[
           _sectionBar('PORTFOLIO'),
           pw.SizedBox(height: 10),
           ...data.portfolioItems.map(_portfolioItemEntry),
           pw.SizedBox(height: 4),
         ],
-
+        */
         if (data.certifications.isNotEmpty) ...[
           _sectionBar('CERTIFICATIONS'),
           pw.SizedBox(height: 8),
@@ -258,54 +259,58 @@ pw.Widget _projectEntry(Project project, PortfolioData data) {
     ),
   );
 
-  return pw.Padding(
-    padding: const pw.EdgeInsets.only(bottom: 10),
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            hasLink
-                ? pw.UrlLink(destination: project.link!, child: nameText)
-                : nameText,
-            pw.Text(
-              isOwner ? 'Owner' : 'Contributor',
-              style: const pw.TextStyle(fontSize: 9.5),
-            ),
-          ],
-        ),
-        if (project.requiredSkills.isNotEmpty)
-          pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 2),
-            child: pw.RichText(
-              text: pw.TextSpan(
-                children: [
-                  pw.TextSpan(
-                    text: 'Technologies used: ',
-                    style: pw.TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: pw.FontWeight.bold,
+  return pw.Inseparable(
+    child: pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 10),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              hasLink
+                  ? pw.UrlLink(destination: project.link!, child: nameText)
+                  : nameText,
+              pw.Text(
+                isOwner ? 'Owner' : 'Contributor',
+                style: const pw.TextStyle(fontSize: 9.5),
+              ),
+            ],
+          ),
+          if (project.requiredSkills.isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 2),
+              child: pw.RichText(
+                text: pw.TextSpan(
+                  children: [
+                    pw.TextSpan(
+                      text: 'Technologies used: ',
+                      style: pw.TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  pw.TextSpan(
-                    text: project.requiredSkills.map((s) => s.name).join(', '),
-                    style: const pw.TextStyle(fontSize: 9.5),
-                  ),
-                ],
+                    pw.TextSpan(
+                      text: project.requiredSkills
+                          .map((s) => s.name)
+                          .join(', '),
+                      style: const pw.TextStyle(fontSize: 9.5),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        if (project.description != null &&
-            project.description!.trim().isNotEmpty)
-          pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 3, left: 10),
-            child: pw.Bullet(
-              text: project.description!,
-              style: const pw.TextStyle(fontSize: 9.5),
+          if (project.description != null &&
+              project.description!.trim().isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 3, left: 10),
+              child: pw.Bullet(
+                text: project.description!,
+                style: const pw.TextStyle(fontSize: 9.5),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }
@@ -323,45 +328,49 @@ pw.Widget _educationEntry(Education edu) {
       : '${_formatDate(edu.startDate!)} - '
             '${edu.endDate == null ? 'Present' : _formatDate(edu.endDate!)}';
 
-  return pw.Padding(
-    padding: const pw.EdgeInsets.only(bottom: 8),
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
+  return pw.Inseparable(
+    child: pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                edu.institution,
+                style: pw.TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              if (dateRange.isNotEmpty)
+                pw.Text(dateRange, style: const pw.TextStyle(fontSize: 9.5)),
+            ],
+          ),
+          if (subtitleParts.isNotEmpty)
             pw.Text(
-              edu.institution,
-              style: pw.TextStyle(
-                fontSize: 10.5,
-                fontWeight: pw.FontWeight.bold,
+              subtitleParts.join(', '),
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          if (edu.description != null && edu.description!.trim().isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 2, left: 10),
+              child: pw.Bullet(
+                text: edu.description!,
+                style: const pw.TextStyle(fontSize: 9.5),
               ),
             ),
-            if (dateRange.isNotEmpty)
-              pw.Text(dateRange, style: const pw.TextStyle(fontSize: 9.5)),
-          ],
-        ),
-        if (subtitleParts.isNotEmpty)
-          pw.Text(
-            subtitleParts.join(', '),
-            style: const pw.TextStyle(fontSize: 10),
-          ),
-        if (edu.description != null && edu.description!.trim().isNotEmpty)
-          pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 2, left: 10),
-            child: pw.Bullet(
-              text: edu.description!,
-              style: const pw.TextStyle(fontSize: 9.5),
-            ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }
 
 //Portfolio items
 
+/*
+currently disabled because projects are already included in the CV, and portfolio items are redundant.
 pw.Widget _portfolioItemEntry(PortfolioItem item) {
   final link = PdfColor.fromInt(0xFF1D4ED8);
   final hasLink = item.githubUrl != null && item.githubUrl!.isNotEmpty;
@@ -376,27 +385,29 @@ pw.Widget _portfolioItemEntry(PortfolioItem item) {
     ),
   );
 
-  return pw.Padding(
-    padding: const pw.EdgeInsets.only(bottom: 8),
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        hasLink
-            ? pw.UrlLink(destination: item.githubUrl!, child: titleText)
-            : titleText,
-        if (item.description != null && item.description!.trim().isNotEmpty)
-          pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 2, left: 10),
-            child: pw.Bullet(
-              text: item.description!,
-              style: const pw.TextStyle(fontSize: 9.5),
+  return pw.Inseparable(
+    child: pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          hasLink
+              ? pw.UrlLink(destination: item.githubUrl!, child: titleText)
+              : titleText,
+          if (item.description != null && item.description!.trim().isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 2, left: 10),
+              child: pw.Bullet(
+                text: item.description!,
+                style: const pw.TextStyle(fontSize: 9.5),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }
-
+*/
 //Certifications
 
 pw.Widget _certificationLine(Certification cert) {

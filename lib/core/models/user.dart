@@ -81,6 +81,27 @@ class AppUser {
       isActive: json['active'] as bool? ?? true,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phoneNumber': phoneNumber,
+      'githubUrl': githubUrl,
+      'linkedinUrl': linkedinUrl,
+      'location': location,
+      'softSkills': softSkills,
+      'bio': bio,
+      'experienceLevel': experienceLevelToApiString(experienceLevel),
+      'availability': availability,
+      'avatarUrl': avatarUrl,
+      'createdAt': createdAt?.toIso8601String(),
+      'admin': isAdmin,
+      'active': isActive,
+    };
+  }
+
   String get initials {
     final parts = name
         .trim()

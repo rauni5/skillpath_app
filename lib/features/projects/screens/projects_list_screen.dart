@@ -70,12 +70,23 @@ class _ProjectsListScreenState extends State<ProjectsListScreen> {
     if (!mounted) return;
 
     for (final c in changes) {
-      final verb = c.status == MemberStatus.accepted ? 'accepted' : 'rejected';
-      showInfoDialog(
-        context,
-        title: 'Project Invitation',
-        message: 'Your request to join "${c.projectName}" was $verb.',
-      );
+      final accepted = c.status == MemberStatus.accepted;
+      if (c.invitedByOwner) {
+        showInfoDialog(
+          context,
+          title: accepted ? 'You joined the project' : 'Invite declined',
+          message: accepted
+              ? 'You successfully joined "${c.projectName}".'
+              : 'You declined the invite to join "${c.projectName}".',
+        );
+      } else {
+        final verb = accepted ? 'accepted' : 'rejected';
+        showInfoDialog(
+          context,
+          title: 'Project Invitation',
+          message: 'Your request to join "${c.projectName}" was $verb.',
+        );
+      }
     }
   }
 

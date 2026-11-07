@@ -5,9 +5,10 @@ import 'package:provider/provider.dart';
 import '../../../core/models/achievement.dart';
 import '../../../core/models/admin_achievement.dart';
 import '../../../core/theme/app_palette.dart';
-import '../../../shared/widgets/error_view.dart';
-import '../../../shared/widgets/loading_view.dart';
 import '../providers/admin_achievements_provider.dart';
+import '../widgets/admin_bits.dart';
+import '../widgets/admin_card.dart';
+import '../widgets/admin_page_header.dart';
 
 /// Create (achievementId == null) or edit (achievementId != null) an
 /// achievement. The unlock rule is always a (criteriaType, criteriaValue)
@@ -83,15 +84,28 @@ class _AdminAchievementFormScreenState
     final provider = context.watch<AdminAchievementsProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit Achievement' : 'New Achievement'),
+      backgroundColor: p.surface2,
+      body: Column(
+        children: [
+          AdminPageHeader(
+            icon: widget.isEditing
+                ? Icons.edit_outlined
+                : Icons.add_circle_outline,
+            title: widget.isEditing ? 'Edit Achievement' : 'New Achievement',
+            subtitle: widget.isEditing
+                ? 'Update this achievement\'s details and unlock criteria.'
+                : 'Define a new unlockable achievement for users.',
+          ),
+          Expanded(
+            child: widget.isEditing
+                ? AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _buildEditBody(context, p, provider),
+                  )
+                : _buildForm(context, p, provider, achievement: null),
+          ),
+        ],
       ),
-      body: widget.isEditing
-          ? AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: _buildEditBody(context, p, provider),
-            )
-          : _buildForm(context, p, provider, achievement: null),
     );
   }
 
@@ -103,9 +117,12 @@ class _AdminAchievementFormScreenState
     switch (provider.detailState) {
       case AdminAchievementDetailLoadState.initial:
       case AdminAchievementDetailLoadState.loading:
-        return const LoadingView(key: ValueKey('loading'));
+        return const Center(
+          key: ValueKey('loading'),
+          child: CircularProgressIndicator(),
+        );
       case AdminAchievementDetailLoadState.error:
-        return ErrorView(
+        return InlineErrorState(
           key: const ValueKey('error'),
           message: provider.detailError ?? 'Something went wrong.',
           onRetry: () => context.read<AdminAchievementsProvider>().loadDetail(
@@ -130,220 +147,330 @@ class _AdminAchievementFormScreenState
         ? provider.detailError
         : provider.createError;
 
-    return ListView(
+    return Center(
       key: const ValueKey('form'),
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-      children: [
-        Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _codeCtrl,
-                enabled: !widget.isEditing,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  labelText: 'Code',
-                  helperText: widget.isEditing
-                      ? "Can't be changed after creation."
-                      : 'Uppercase letters, numbers, underscores only — e.g. NIGHT_OWL',
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Required';
-                  if (!RegExp(r'^[A-Z0-9_]+$').hasMatch(v.trim())) {
-                    return 'Uppercase letters, numbers, underscores only';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  helperText: 'Shown to students — describe what to do.',
-                ),
-                maxLines: 2,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _categoryCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  helperText:
-                      'Free text grouping — e.g. roadmap, streak, project',
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'ICON',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: p.textMuted,
-                  letterSpacing: 0.5,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back, size: 16),
+                label: const Text('Back to achievements'),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.centerLeft,
                 ),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: achievementIconOptions.map((name) {
-                  final selected = name == _icon;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => setState(() => _icon = name),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: selected ? p.indigoLight : p.surface2,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: selected ? p.indigo : p.border,
+            ),
+            const SizedBox(height: 12),
+            AdminCard(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AdminSectionHeader(
+                      icon: Icons.emoji_events_outlined,
+                      title: 'Achievement details',
+                      subtitle: 'Code, title, and what it\'s for.',
+                      color: p.red,
+                    ),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: _codeCtrl,
+                      enabled: !widget.isEditing,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: 'Code',
+                        prefixIcon: const Icon(Icons.tag, size: 20),
+                        helperText: widget.isEditing
+                            ? "Can't be changed after creation."
+                            : 'Uppercase letters, numbers, underscores only — e.g. NIGHT_OWL',
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        if (!RegExp(r'^[A-Z0-9_]+$').hasMatch(v.trim())) {
+                          return 'Uppercase letters, numbers, underscores only';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        prefixIcon: Icon(Icons.title, size: 20),
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _descCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        prefixIcon: Icon(Icons.notes_outlined, size: 20),
+                        helperText: 'Shown to students — describe what to do.',
+                      ),
+                      maxLines: 2,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _categoryCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        prefixIcon: Icon(Icons.folder_outlined, size: 20),
+                        helperText:
+                            'Free text grouping — e.g. roadmap, streak, project',
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 24),
+                    Divider(height: 1, color: p.border),
+                    const SizedBox(height: 20),
+                    AdminSectionHeader(
+                      icon: Icons.emoji_events,
+                      title: 'Icon',
+                      subtitle: 'Shown on the achievement badge.',
+                      color: p.red,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: achievementIconOptions.map((name) {
+                        final selected = name == _icon;
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => setState(() => _icon = name),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: selected ? p.indigoLight : p.surface2,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selected ? p.indigo : p.border,
+                              ),
+                            ),
+                            child: Icon(
+                              Achievement.iconForName(name),
+                              size: 20,
+                              color: selected ? p.indigo : p.textMuted,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    Divider(height: 1, color: p.border),
+                    const SizedBox(height: 20),
+                    AdminSectionHeader(
+                      icon: Icons.flag_outlined,
+                      title: 'Unlock rule',
+                      subtitle: 'What a student must do to earn this.',
+                      color: p.green,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<AchievementCriteriaType>(
+                      initialValue: _criteriaType,
+                      decoration: const InputDecoration(
+                        labelText: 'Unlock rule',
+                        prefixIcon: Icon(Icons.rule_outlined, size: 20),
+                      ),
+                      items: AchievementCriteriaType.values
+                          .map(
+                            (t) => DropdownMenuItem(
+                              value: t,
+                              child: Text(t.label),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) =>
+                          setState(() => _criteriaType = v ?? _criteriaType),
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _valueCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText:
+                            _criteriaType ==
+                                AchievementCriteriaType.roadmapPercentComplete
+                            ? 'Threshold (%)'
+                            : 'Threshold',
+                        prefixIcon: const Icon(
+                          Icons.numbers_outlined,
+                          size: 20,
                         ),
                       ),
-                      child: Icon(
-                        Achievement.iconForName(name),
-                        size: 20,
-                        color: selected ? p.indigo : p.textMuted,
+                      onChanged: (_) => setState(() {}),
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        if (n == null || n < 1) {
+                          return 'Enter a whole number ≥ 1';
+                        }
+                        if (_criteriaType ==
+                                AchievementCriteriaType
+                                    .roadmapPercentComplete &&
+                            n > 100) {
+                          return 'Percent can\'t exceed 100';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: p.surface2,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: p.border),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline, size: 15, color: p.indigo),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _criteriaType.unlockHint(value),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: p.textSecondary,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 18),
-              DropdownButtonFormField<AchievementCriteriaType>(
-                initialValue: _criteriaType,
-                decoration: const InputDecoration(labelText: 'Unlock rule'),
-                items: AchievementCriteriaType.values
-                    .map(
-                      (t) => DropdownMenuItem(value: t, child: Text(t.label)),
-                    )
-                    .toList(),
-                onChanged: (v) =>
-                    setState(() => _criteriaType = v ?? _criteriaType),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _valueCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText:
-                      _criteriaType ==
-                          AchievementCriteriaType.roadmapPercentComplete
-                      ? 'Threshold (%)'
-                      : 'Threshold',
-                ),
-                onChanged: (_) => setState(() {}),
-                validator: (v) {
-                  final n = int.tryParse(v ?? '');
-                  if (n == null || n < 1) return 'Enter a whole number ≥ 1';
-                  if (_criteriaType ==
-                          AchievementCriteriaType.roadmapPercentComplete &&
-                      n > 100) {
-                    return 'Percent can\'t exceed 100';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _criteriaType.unlockHint(value),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  color: p.textMuted,
-                ),
-              ),
-              if (widget.isEditing) ...[
-                const SizedBox(height: 18),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Enabled'),
-                  subtitle: Text(
-                    _enabled
-                        ? 'Obtainable by anyone who meets the criteria.'
-                        : 'Hidden from anyone who hasn\'t already unlocked it.',
-                    style: TextStyle(fontSize: 12, color: p.textMuted),
-                  ),
-                  value: _enabled,
-                  onChanged: (v) => setState(() => _enabled = v),
-                ),
-                if (achievement != null && achievement.unlockedByCount > 0) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Earned by ${achievement.unlockedByCount} '
-                    '${achievement.unlockedByCount == 1 ? 'student' : 'students'} so far.',
-                    style: TextStyle(fontSize: 12, color: p.textMuted),
-                  ),
-                ],
-              ],
-              if (error != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  error,
-                  style: const TextStyle(color: Colors.red, fontSize: 12.5),
-                ),
-              ],
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 12,
-                children: [
-                  FilledButton(
-                    onPressed:
-                        (widget.isEditing
-                            ? provider.isSaving
-                            : provider.isCreating)
-                        ? null
-                        : () => widget.isEditing
-                              ? _save(context, achievement!.id)
-                              : _create(context),
-                    child:
-                        (widget.isEditing
-                            ? provider.isSaving
-                            : provider.isCreating)
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(widget.isEditing ? 'Save changes' : 'Create'),
-                  ),
-                  if (widget.isEditing)
-                    OutlinedButton(
-                      onPressed: provider.isDeleting
-                          ? null
-                          : () => _confirmDelete(context, achievement!),
-                      style: OutlinedButton.styleFrom(foregroundColor: p.red),
-                      child: provider.isDeleting
-                          ? SizedBox(
-                              height: 16,
-                              width: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: p.red,
+                    if (widget.isEditing) ...[
+                      const SizedBox(height: 24),
+                      Divider(height: 1, color: p.border),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Enabled'),
+                        subtitle: Text(
+                          _enabled
+                              ? 'Obtainable by anyone who meets the criteria.'
+                              : 'Hidden from anyone who hasn\'t already unlocked it.',
+                          style: TextStyle(fontSize: 12, color: p.textMuted),
+                        ),
+                        value: _enabled,
+                        onChanged: (v) => setState(() => _enabled = v),
+                      ),
+                      if (achievement != null &&
+                          achievement.unlockedByCount > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Earned by ${achievement.unlockedByCount} '
+                          '${achievement.unlockedByCount == 1 ? 'student' : 'students'} so far.',
+                          style: TextStyle(fontSize: 12, color: p.textMuted),
+                        ),
+                      ],
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        error,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Divider(height: 1, color: p.border),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            )
-                          : const Text('Delete achievement'),
+                            ),
+                            onPressed:
+                                (widget.isEditing
+                                    ? provider.isSaving
+                                    : provider.isCreating)
+                                ? null
+                                : () => widget.isEditing
+                                      ? _save(context, achievement!.id)
+                                      : _create(context),
+                            child:
+                                (widget.isEditing
+                                    ? provider.isSaving
+                                    : provider.isCreating)
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    widget.isEditing
+                                        ? 'Save changes'
+                                        : 'Create',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                          ),
+                        ),
+                        if (widget.isEditing) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: p.red,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                side: BorderSide(color: p.red),
+                              ),
+                              onPressed: provider.isDeleting
+                                  ? null
+                                  : () => _confirmDelete(context, achievement!),
+                              child: provider.isDeleting
+                                  ? SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: p.red,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Delete achievement',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                ],
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -360,7 +487,7 @@ class _AdminAchievementFormScreenState
       criteriaValue: int.parse(_valueCtrl.text),
     );
     if (created != null && context.mounted) {
-      context.go('/admin/achievements/${created.id}');
+      context.pushReplacement('/admin/achievements/${created.id}');
     }
   }
 
@@ -383,31 +510,21 @@ class _AdminAchievementFormScreenState
     AdminAchievement achievement,
   ) async {
     final hasEarners = achievement.unlockedByCount > 0;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          hasEarners ? 'Disable this achievement?' : 'Delete this achievement?',
-        ),
-        content: Text(
-          hasEarners
-              ? '${achievement.unlockedByCount} student(s) have already earned '
-                    '"${achievement.title}", so it can\'t be deleted outright — '
-                    'it\'ll be disabled instead, keeping their badge intact but '
-                    'hiding it from anyone who hasn\'t earned it yet.'
-              : 'Nobody has earned "${achievement.title}" yet, so this removes it completely.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(hasEarners ? 'Disable' : 'Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: hasEarners
+          ? 'Disable this achievement?'
+          : 'Delete this achievement?',
+      message: hasEarners
+          ? '${achievement.unlockedByCount} student(s) have already earned '
+                '"${achievement.title}", so it can\'t be deleted outright — '
+                'it\'ll be disabled instead, keeping their badge intact but '
+                'hiding it from anyone who hasn\'t earned it yet.'
+          : 'Nobody has earned "${achievement.title}" yet, so this removes it completely.',
+      confirmLabel: hasEarners ? 'Disable' : 'Delete',
+      icon: hasEarners
+          ? Icons.visibility_off_outlined
+          : Icons.warning_amber_rounded,
     );
     if (confirmed != true || !context.mounted) return;
 
@@ -428,7 +545,7 @@ class _AdminAchievementFormScreenState
       context,
     ).showSnackBar(SnackBar(content: Text(result.message)));
     if (result.deleted) {
-      context.go('/admin/achievements');
+      context.pop();
     }
   }
 }

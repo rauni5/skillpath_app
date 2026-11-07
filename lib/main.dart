@@ -6,8 +6,11 @@ import 'package:provider/provider.dart';
 
 import 'features/audio/sound_effects_service.dart';
 import 'core/router/app_router.dart';
+import 'core/router/navigation_keys.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'core/web/url_strategy.dart';
+import 'shared/widgets/app_dialogs.dart';
 import 'features/admin/providers/admin_dashboard_provider.dart';
 import 'features/admin/providers/admin_achievements_provider.dart';
 import 'features/admin/providers/admin_roles_provider.dart';
@@ -22,6 +25,7 @@ import 'features/dashboard/providers/gamification_provider.dart';
 import 'features/notifications/providers/notifications_provider.dart';
 import 'features/notifications/data/notification_service.dart';
 import 'features/profile/providers/portfolio_provider.dart';
+import 'features/profile/providers/public_profile_provider.dart';
 import 'features/projects/providers/discussion_provider.dart';
 import 'features/projects/providers/project_management_provider.dart';
 import 'features/projects/providers/projects_provider.dart';
@@ -34,6 +38,13 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // A no-op on every platform except web (see core/web/url_strategy.dart
+  // for why this has to be a compile-time conditional import, not a
+  // simple kIsWeb check). On web, this enables path-based URLs
+  // (yoursite.com/p/abc123) instead of the hash-based default
+  // (yoursite.com/#/p/abc123) — required for public profile links (and
+  // the Firebase Hosting rewrite rule that supports them) to work.
+  configureUrlStrategy();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.instance.initialize();
   await AudioPlayer.global.setAudioContext(
@@ -61,6 +72,7 @@ class SkillPathApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => PortfolioProvider()),
+        ChangeNotifierProvider(create: (_) => PublicProfileProvider()),
         ChangeNotifierProvider(create: (_) => RoadmapProvider()),
         ChangeNotifierProvider(create: (_) => SkillsProvider()),
         ChangeNotifierProvider(create: (_) => CareerProvider()),
@@ -95,20 +107,131 @@ class _RouterHost extends StatefulWidget {
 
 class _RouterHostState extends State<_RouterHost> {
   late final GoRouter _router;
+  late final AuthProvider _auth;
+  bool _hasShownOfflineDialog = false;
 
   @override
   void initState() {
     super.initState();
     final auth = context.read<AuthProvider>();
+    _auth = auth;
     _router = buildRouter(auth);
-    // Achievement "newly unlocked" tracking lives in GamificationProvider,
-    // which — like the other providers — is created once for the app's
-    // whole process lifetime, not per login. Without this, signing out and
-    // back in would diff fresh achievements against stale data from the
-    // previous session and re-show toasts for things already seen.
+    // Every provider below holds user-scoped data but — like
+    // GamificationProvider — is created once for the app's whole process
+    // lifetime, not per login. Without resetting them, signing out and
+    // back in (as the same or a different account) would show stale data
+    // from the previous session until each screen's own reload kicked in,
+    // or worse briefly leak one account's data into another's on a shared
+    // device.
     auth.registerSignOutListener(
       () => context.read<GamificationProvider>().reset(),
     );
+    auth.registerSignOutListener(
+      () => context.read<DashboardProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<PortfolioProvider>().reset(),
+    );
+    auth.registerSignOutListener(() => context.read<RoadmapProvider>().reset());
+    auth.registerSignOutListener(() => context.read<SkillsProvider>().reset());
+    auth.registerSignOutListener(() => context.read<CareerProvider>().reset());
+    auth.registerSignOutListener(
+      () => context.read<ProjectsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<ProjectManagementProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<DiscussionProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<UserSearchProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminUsersProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminDashboardProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminSkillsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminRolesProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AdminAchievementsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<TutorChatProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<SkillCheckProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<DashboardAiProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<NotificationsProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<AssistantChatProvider>().reset(),
+    );
+    auth.registerSignOutListener(
+      () => context.read<PublicProfileProvider>().reset(),
+    );
+
+    // Gamification/achievements are recomputed lazily by the backend
+    // whenever they're read, so there's no server event to react to — but
+    // the app itself already knows exactly when something that *might*
+    // affect them just happened, since it's the one that made the call.
+    // Wiring a direct refresh at each of those points is strictly better
+    // than polling on a timer: instant instead of up-to-30s-stale, and it
+    // doesn't burn a request when nothing actually changed. This covers
+    // the app's own actions; a project teammate's action still relies on
+    // the lighter resume/tab-visit check on the Dashboard itself.
+    final gamification = context.read<GamificationProvider>();
+    void refreshGamification() {
+      final userId = auth.currentUser?.id;
+      if (userId != null) gamification.load(userId);
+    }
+
+    context.read<SkillsProvider>().onProgressMade = refreshGamification;
+    context.read<SkillCheckProvider>().onProgressMade = refreshGamification;
+    context.read<ProjectManagementProvider>().onProgressMade =
+        refreshGamification;
+
+    // Tell the user once, the moment we fall back to a cached session or
+    // cached screen data — not on every rebuild, and again if they go
+    // offline a second time later in the same app session.
+    auth.addListener(_onAuthChanged);
+  }
+
+  void _onAuthChanged() {
+    if (_auth.isOffline && !_hasShownOfflineDialog) {
+      _hasShownOfflineDialog = true;
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null) {
+        showInfoDialog(
+          ctx,
+          title: "You're offline",
+          message:
+              "Showing your last saved data. Some screens may be out of "
+              "date, and anything that needs a connection — like sending "
+              "a message or saving changes — won't work until you're "
+              "back online.",
+          icon: Icons.cloud_off_rounded,
+        );
+      }
+    } else if (!_auth.isOffline) {
+      _hasShownOfflineDialog = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _auth.removeListener(_onAuthChanged);
+    super.dispose();
   }
 
   @override

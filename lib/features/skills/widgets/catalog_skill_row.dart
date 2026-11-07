@@ -13,6 +13,7 @@ class CatalogSkillRow extends StatelessWidget {
     this.onAddDirect,
     this.isSelected = false,
     this.onRemove,
+    this.onChat,
   }) : assert(
          onAdd != null || onAddDirect != null,
          'Provide either onAdd (proficiency sheet) or onAddDirect (custom tap handler).',
@@ -24,6 +25,11 @@ class CatalogSkillRow extends StatelessWidget {
   final VoidCallback? onAddDirect;
   final bool isSelected;
   final VoidCallback? onRemove;
+
+  /// Opens a tutor chat about this skill. Left `null` to hide the chat
+  /// button entirely — used during onboarding, where the point is picking
+  /// a starting skill set quickly, not branching into a conversation.
+  final VoidCallback? onChat;
 
   Future<void> _handleTap(BuildContext context) async {
     if (onAddDirect != null) {
@@ -61,7 +67,7 @@ class CatalogSkillRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(skill.category.icon, size: 17, color: p.indigo),
+            Icon(skill.categoryIcon, size: 17, color: p.indigo),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -77,7 +83,7 @@ class CatalogSkillRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    skill.category.label,
+                    skill.categoryLabel,
                     style: TextStyle(
                       fontSize: 11,
                       color: isSelected
@@ -89,6 +95,21 @@ class CatalogSkillRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
+            if (onChat != null) ...[
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: onChat,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.chat_bubble_outline,
+                    size: 18,
+                    color: isSelected ? p.indigo : p.textMuted,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             if (isPending)
               SizedBox(
                 width: 18,

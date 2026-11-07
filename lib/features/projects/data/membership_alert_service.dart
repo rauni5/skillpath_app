@@ -7,7 +7,12 @@ import 'projects_repository.dart';
 class MembershipStatusChange {
   final String projectName;
   final MemberStatus status;
-  MembershipStatusChange({required this.projectName, required this.status});
+  final bool invitedByOwner;
+  MembershipStatusChange({
+    required this.projectName,
+    required this.status,
+    required this.invitedByOwner,
+  });
 }
 
 class MembershipAlertService {
@@ -46,6 +51,7 @@ class MembershipAlertService {
           MembershipStatusChange(
             projectName: entry.projectName,
             status: entry.status,
+            invitedByOwner: entry.invitedByOwner,
           ),
         );
       }

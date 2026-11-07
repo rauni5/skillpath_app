@@ -28,6 +28,7 @@ class ApiException implements Exception {
   /// Convenience helper to check if the resource was not found.
   bool get isNotFound => statusCode == 404;
 
+  bool get isTransient => statusCode == null || statusCode! >= 500;
   @override
   String toString() => 'ApiException($statusCode): $message';
 }

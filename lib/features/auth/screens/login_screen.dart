@@ -20,6 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _passwordFocus = FocusNode();
+  bool _isEmailSubmitting = false;
+  bool _isGoogleSubmitting = false;
 
   @override
   void dispose() {
@@ -31,16 +33,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isEmailSubmitting = true);
     final auth = context.read<AuthProvider>();
     final ok = await auth.signIn(_emailCtrl.text.trim(), _passwordCtrl.text);
+    if (mounted) setState(() => _isEmailSubmitting = false);
     if (!ok && mounted && auth.errorMessage != null) {
       showErrorDialog(context, auth.errorMessage!, title: 'Could not log in');
     }
   }
 
   Future<void> _submitGoogle() async {
+    setState(() => _isGoogleSubmitting = true);
     final auth = context.read<AuthProvider>();
     final ok = await auth.signInWithGoogle();
+    if (mounted) setState(() => _isGoogleSubmitting = false);
     if (!ok && mounted && auth.errorMessage != null) {
       showErrorDialog(context, auth.errorMessage!, title: 'Could not log in');
     }
@@ -155,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 4),
                         ElevatedButton(
                           onPressed: auth.isLoading ? null : _submit,
-                          child: auth.isLoading
+                          child: _isEmailSubmitting
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
@@ -188,8 +194,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 18),
                         OutlinedButton.icon(
                           onPressed: auth.isLoading ? null : _submitGoogle,
-                          icon: const Icon(Icons.g_mobiledata, size: 22),
-                          label: const Text('Continue with Google'),
+                          icon: _isGoogleSubmitting
+                              ? SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: p.indigo,
+                                  ),
+                                )
+                              : const Icon(Icons.g_mobiledata, size: 22),
+                          label: Text(
+                            _isGoogleSubmitting
+                                ? 'Signing in…'
+                                : 'Continue with Google',
+                          ),
                         ),
                       ],
                     ),

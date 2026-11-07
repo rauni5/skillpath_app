@@ -66,8 +66,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       context.read<NotificationsProvider>().markRead(userId, notification);
     }
 
-    final route = notification.route;
-    if (route == null) return;
+    // Resolves the same as notification.route, except a notification that
+    // lands on a project screen is routed to the owner's "manage" screen
+    // instead of the member-facing "detail" screen when this user owns
+    // that project — the same ownership check the dashboard's project
+    // card tap handler uses.
+    final route = await resolveProjectAwareNotificationRoute(
+      notification.type,
+      {
+        if (notification.projectId != null) 'projectId': notification.projectId,
+        if (notification.postId != null) 'postId': notification.postId,
+      },
+      userId,
+    );
+    if (route == null || !mounted) return;
 
     // Navigate using context.go to ensure the AppShell and tab navigation context are active
     context.go(route);

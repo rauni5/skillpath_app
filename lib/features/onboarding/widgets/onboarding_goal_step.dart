@@ -67,60 +67,64 @@ class _OnboardingGoalStepState extends State<OnboardingGoalStep> {
   Widget build(BuildContext context) {
     final career = context.watch<CareerProvider>();
     final p = AppPalette.of(context);
+    final isSubmitting = _isProcessing || career.isSubmitting;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Where are you headed?',
-            style: TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w700,
-              color: p.textPrimary,
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Where are you headed?',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w700,
+                  color: p.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Pick a target role — we'll build a dependency-ordered roadmap and show you exactly what's missing.",
+                style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
+              ),
+              const SizedBox(height: 22),
+              Expanded(
+                child: career.rolesState == CareerLoadState.loading
+                    ? const LoadingView()
+                    : career.rolesState == CareerLoadState.error
+                    ? ErrorView(
+                        message:
+                            career.errorMessage ??
+                            'Could not load career roles.',
+                        onRetry: () =>
+                            context.read<CareerProvider>().loadRoles(),
+                      )
+                    : ListView(
+                        children: [
+                          for (final role in career.roles)
+                            RoleCard(
+                              role: role,
+                              isSelected: _selectedRoleId == role.id,
+                              onTap: isSubmitting
+                                  ? () {}
+                                  : () => _select(role.id),
+                            ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+        if (isSubmitting)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.15),
+              child: const LoadingView(),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            "Pick a target role — we'll build a dependency-ordered roadmap and show you exactly what's missing.",
-            style: TextStyle(fontSize: 13, color: p.textMuted, height: 1.4),
-          ),
-          const SizedBox(height: 22),
-          Expanded(
-            child: career.rolesState == CareerLoadState.loading
-                ? const LoadingView()
-                : career.rolesState == CareerLoadState.error
-                ? ErrorView(
-                    message:
-                        career.errorMessage ?? 'Could not load career roles.',
-                    onRetry: () => context.read<CareerProvider>().loadRoles(),
-                  )
-                : ListView(
-                    children: [
-                      for (final role in career.roles)
-                        RoleCard(
-                          role: role,
-                          isSelected: _selectedRoleId == role.id,
-                          onTap: _isProcessing || career.isSubmitting
-                              ? () {}
-                              : () => _select(role.id),
-                        ),
-                      if (career.isSubmitting)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: p.indigo,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

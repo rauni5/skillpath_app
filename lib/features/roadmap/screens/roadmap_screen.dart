@@ -8,6 +8,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../../shared/widgets/animated_progress_bar.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/roadmap_provider.dart';
 import '../widgets/roadmap_step_tile.dart';
@@ -185,6 +186,8 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
+              if (roadmap.isShowingCachedData)
+                OfflineBanner(cachedAt: roadmap.cachedAt),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(

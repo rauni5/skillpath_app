@@ -48,6 +48,10 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
     }
   }
 
+  void _openChat(int skillId, String skillName) {
+    context.push('/roadmap/skill/$skillId/chat', extra: skillName);
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -109,6 +113,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                   ),
                   const SizedBox(height: 10),
                   CategoryFilterRow(
+                    categories: skills.availableCategories,
                     selected: skills.categoryFilter,
                     onSelect: skills.setCategoryFilter,
                   ),
@@ -149,6 +154,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                           skill: s,
                           isPending: false,
                           onAddDirect: () => _startSkillCheck(s.id, s.name),
+                          onChat: () => _openChat(s.id, s.name),
                         );
                       },
                     ),

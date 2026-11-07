@@ -4,6 +4,7 @@ import '../../audio/sound_effects_service.dart';
 import '../../../core/models/achievement.dart';
 import '../../../core/models/streak.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/network/cached_result.dart';
 import '../data/gamification_repository.dart';
 
 enum GamificationLoadState { initial, loading, loaded, error }
@@ -20,21 +21,34 @@ class GamificationProvider extends ChangeNotifier {
   Streak? streak;
   String? errorMessage;
 
+  /// True if [achievements]/[streak] came from the on-device cache rather
+  /// than a live request.
+  bool isShowingCachedData = false;
+  DateTime? cachedAt;
+
   List<Achievement> newlyUnlocked = [];
 
   int get unlockedCount => achievements.where((a) => a.unlocked).length;
 
   Future<void> load(int userId) async {
-    state = GamificationLoadState.loading;
-    notifyListeners();
+    if (!_hasLoadedOnce) {
+      state = GamificationLoadState.loading;
+      notifyListeners();
+    }
+
     try {
       final results = await Future.wait([
         _repo.getAchievements(userId),
         _repo.getStreak(userId),
       ]);
-      final freshAchievements = results[0] as List<Achievement>;
+      final achievementsResult = results[0] as CachedResult<List<Achievement>>;
+      final streakResult = results[1] as CachedResult<Streak>;
+      final freshAchievements = achievementsResult.data;
 
-      newlyUnlocked = _hasLoadedOnce
+      // Only diff for "newly unlocked" against a live fetch — replaying a
+      // cached snapshot as if it were fresh would re-show the unlock toast
+      // for something the user already saw, possibly session(s) ago.
+      newlyUnlocked = (_hasLoadedOnce && !achievementsResult.fromCache)
           ? _diffNewlyUnlocked(previous: achievements, fresh: freshAchievements)
           : [];
 
@@ -43,14 +57,19 @@ class GamificationProvider extends ChangeNotifier {
       }
 
       achievements = freshAchievements;
-      streak = results[1] as Streak;
+      streak = streakResult.data;
+      isShowingCachedData =
+          achievementsResult.fromCache || streakResult.fromCache;
+      cachedAt = achievementsResult.cachedAt ?? streakResult.cachedAt;
       state = GamificationLoadState.loaded;
       _hasLoadedOnce = true;
     } catch (e) {
       errorMessage = e is ApiException
           ? e.message
           : 'Could not load your achievements.';
-      state = GamificationLoadState.error;
+      if (!_hasLoadedOnce) {
+        state = GamificationLoadState.error;
+      }
     }
     notifyListeners();
   }
@@ -80,6 +99,8 @@ class GamificationProvider extends ChangeNotifier {
     streak = null;
     errorMessage = null;
     newlyUnlocked = [];
+    isShowingCachedData = false;
+    cachedAt = null;
     _hasLoadedOnce = false;
     notifyListeners();
   }

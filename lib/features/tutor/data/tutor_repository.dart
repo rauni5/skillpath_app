@@ -1,19 +1,48 @@
+import 'dart:async';
+
+import '../../../core/cache/cache_store.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/skill_check_question.dart';
 import '../../../core/models/skill_check_result.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/cached_result.dart';
 
 class TutorRepository {
   final ApiClient _api = ApiClient.instance;
 
   /// GET /api/v1/users/{userId}/skills/{skillId}/chat
-  Future<List<ChatMessage>> getChatHistory(int userId, int skillId) {
-    return _api.unwrap(
-      (dio) => dio.get('/api/v1/users/$userId/skills/$skillId/chat'),
-      (data) => (data as List<dynamic>)
-          .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-          .toList(),
-    );
+  ///
+  /// Cached read-only, so a previous conversation can still be reviewed
+  /// offline — but nothing here can generate a *new* reply without a
+  /// connection, so [getIntro] and [sendChatMessage] stay online-only.
+  Future<CachedResult<List<ChatMessage>>> getChatHistory(
+    int userId,
+    int skillId,
+  ) async {
+    final cacheKey = 'tutor_chat:$userId:$skillId';
+    try {
+      final data = await _api.unwrap(
+        (dio) => dio.get('/api/v1/users/$userId/skills/$skillId/chat'),
+        (data) {
+          unawaited(CacheStore.instance.write(cacheKey, data));
+          return (data as List<dynamic>)
+              .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+              .toList();
+        },
+      );
+      return CachedResult.live(data);
+    } on ApiException catch (e) {
+      if (!e.isTransient) rethrow;
+      final cached = await CacheStore.instance.read(cacheKey);
+      if (cached == null) rethrow;
+      return CachedResult.cached(
+        (cached.value as List<dynamic>)
+            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        cachedAt: cached.cachedAt,
+      );
+    }
   }
 
   /// POST /api/v1/users/{userId}/skills/{skillId}/chat/intro — serves a

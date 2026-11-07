@@ -173,6 +173,7 @@ class _OnboardingSkillsStepState extends State<OnboardingSkillsStep>
               const SizedBox(height: 10),
 
               CategoryFilterRow(
+                categories: skills.availableCategories,
                 selected: skills.categoryFilter,
                 onSelect: skills.setCategoryFilter,
               ),

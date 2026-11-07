@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.skillpath.skillpath_app",
+      "sha256_cert_fingerprints": [
+        "B2:88:B9:3A:60:A9:2B:F3:92:E4:0B:A1:7F:65:B9:42:70:CC:E5:85:2F:1D:5C:F8:E3:50:24:7C:F0:3C:D5:6E"
+      ]
+    }
+  }
+]

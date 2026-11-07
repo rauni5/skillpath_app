@@ -63,6 +63,10 @@ class _LoadingViewState extends State<LoadingView>
       return _ProfileSkeleton(controller: _controller, palette: palette);
     }
 
+    if (route.startsWith('/p/')) {
+      return _ProfileSkeleton(controller: _controller, palette: palette);
+    }
+
     if (route == '/profile/skills') {
       return _SkillsSkeleton(controller: _controller, palette: palette);
     }

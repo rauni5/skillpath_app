@@ -54,6 +54,25 @@ class AdminUsersProvider extends ChangeNotifier {
     loadUsers();
   }
 
+  /// Sets any combination of filter/sort in one go and reloads once —
+  /// used by the Overview screen's analytics cards so clicking e.g.
+  /// "Admins" both navigates to Users *and* pre-selects the right filter,
+  /// instead of landing on an unfiltered list.
+  void applyQuickFilter({
+    UserStatusFilter? status,
+    UserSortBy? sortBy,
+    SortDir? sortDir,
+  }) {
+    final changed =
+        (status != null && status != statusFilter) ||
+        (sortBy != null && sortBy != this.sortBy) ||
+        (sortDir != null && sortDir != this.sortDir);
+    if (status != null) statusFilter = status;
+    if (sortBy != null) this.sortBy = sortBy;
+    if (sortDir != null) this.sortDir = sortDir;
+    if (changed) loadUsers();
+  }
+
   /// Tapping the same column again flips direction; a new column starts
   /// descending (newest/last first tends to be what admins want first).
   void setSort(UserSortBy column) {
@@ -194,6 +213,26 @@ class AdminUsersProvider extends ChangeNotifier {
           : 'Could not load user analytics.';
       analyticsState = AdminAnalyticsLoadState.error;
     }
+    notifyListeners();
+  }
+
+  void reset() {
+    _searchDebounce?.cancel();
+    state = AdminUsersLoadState.initial;
+    error = null;
+    users = [];
+    page = 0;
+    totalPages = 0;
+    totalElements = 0;
+    hasMore = true;
+    pendingUserIds.clear();
+    searchQuery = '';
+    statusFilter = UserStatusFilter.all;
+    sortBy = UserSortBy.createdAt;
+    sortDir = SortDir.desc;
+    analyticsState = AdminAnalyticsLoadState.initial;
+    analytics = null;
+    analyticsError = null;
     notifyListeners();
   }
 }

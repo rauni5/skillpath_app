@@ -10,6 +10,7 @@ import '../../../shared/widgets/animated_progress_bar.dart';
 import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../notifications/providers/notifications_provider.dart';
@@ -30,34 +31,89 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   final _alertService = MembershipAlertService();
+  Timer? _refreshTimer;
+  static const _refreshInterval = Duration(seconds: 30);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _startRefreshTimer();
+  }
+
+  // DashboardScreen lives inside a StatefulShellRoute.indexedStack (the
+  // bottom-nav tabs), so its State is kept alive across tab switches and
+  // initState only ever runs once. Without this, an achievement unlocked
+  // while on another tab (e.g. finishing a skill check) would never show
+  // its "unlocked" dialog until a manual pull-to-refresh — nothing else
+  // re-triggers a check when the user taps back to this tab.
+  //
+  // Only gamification is re-checked on the timer, not the full dashboard —
+  // most of what changes gamification is already caught instantly via
+  // onProgressMade call-site triggers (see main.dart), so this tick is
+  // just a cheap (2 GET requests) safety net for the remaining case: a
+  // teammate's action, not this device's own. The rest of the dashboard
+  // (summary, notifications, AI blurb) doesn't need re-fetching every 30s
+  // just because this screen happens to be open.
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      if (userId != null) _loadGamification(userId);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
+      _startRefreshTimer();
+    } else {
+      _refreshTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _load() async {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId == null) return;
+    unawaited(_loadAiSummary(userId));
+    unawaited(_loadGamification(userId));
     await Future.wait([
       context.read<DashboardProvider>().load(userId),
       context.read<NotificationsProvider>().refreshUnreadCount(userId),
     ]);
-    unawaited(_loadAiSummary(userId));
-    unawaited(_loadGamification(userId));
     final changes = await _alertService.checkForChanges(userId);
     for (final c in changes) {
       if (!mounted) return;
       final accepted = c.status == MemberStatus.accepted;
+      final String title;
+      final String message;
+      if (c.invitedByOwner) {
+        title = accepted ? 'You joined the project' : 'Invite declined';
+        message = accepted
+            ? 'You successfully joined "${c.projectName}".'
+            : 'You declined the invite to join "${c.projectName}".';
+      } else {
+        title = accepted ? 'Request accepted' : 'Request declined';
+        message =
+            'Your request to join "${c.projectName}" was '
+            '${accepted ? 'accepted' : 'declined'}.';
+      }
       await showOutcomeDialog(
         context,
-        title: accepted ? 'Request accepted' : 'Request declined',
-        message:
-            'Your request to join "${c.projectName}" was '
-            '${accepted ? 'accepted' : 'declined'}.',
+        title: title,
+        message: message,
         isPositive: accepted,
       );
     }
@@ -206,6 +262,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
+              if (dashboard.isShowingCachedData)
+                OfflineBanner(cachedAt: dashboard.cachedAt),
+
               Consumer<GamificationProvider>(
                 builder: (context, gami, _) {
                   if (gami.state == GamificationLoadState.error) {
@@ -545,7 +604,7 @@ class _InlineRetryRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              message,
+              message.,
               style: TextStyle(fontSize: 12, color: p.textMuted),
             ),
           ),

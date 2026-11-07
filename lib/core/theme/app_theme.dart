@@ -17,7 +17,7 @@ class AppTheme {
     );
 
     return base.copyWith(
-      textTheme: GoogleFonts.robotoTextTheme(base.textTheme),
+      textTheme: GoogleFonts.interTextTheme(base.textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surface0,
         foregroundColor: AppColors.textPrimary,
@@ -116,7 +116,7 @@ class AppTheme {
     );
 
     return base.copyWith(
-      textTheme: GoogleFonts.robotoTextTheme(base.textTheme).apply(
+      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
         bodyColor: AppColorsDark.textPrimary,
         displayColor: AppColorsDark.textPrimary,
       ),

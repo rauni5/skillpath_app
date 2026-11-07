@@ -162,4 +162,19 @@ class AssistantChatProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void reset() {
+    sessionsState = SessionsLoadState.initial;
+    sessions = [];
+    sessionsError = null;
+    messagesState = MessagesLoadState.initial;
+    currentSessionId = null;
+    currentSessionActive = true;
+    messages = [];
+    isSending = false;
+    messagesError = null;
+    hasError = false;
+    _lastFailedMessage = null;
+    notifyListeners();
+  }
 }

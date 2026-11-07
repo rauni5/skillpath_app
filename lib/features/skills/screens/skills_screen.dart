@@ -5,24 +5,14 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../shared/widgets/app_dialogs.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/skills_provider.dart';
 import '../widgets/owned_skill_tile.dart';
-
-const _categoryOrder = [
-  SkillCategory.frontend,
-  SkillCategory.backend,
-  SkillCategory.mobile,
-  SkillCategory.devops,
-  SkillCategory.cloud,
-  SkillCategory.database,
-  SkillCategory.dataEngineering,
-  SkillCategory.uiUx,
-  SkillCategory.unknown,
-];
 
 class SkillsScreen extends StatefulWidget {
   const SkillsScreen({super.key});
@@ -87,10 +77,29 @@ class _SkillsScreenState extends State<SkillsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
                     children: [
+                      if (skills.isCatalogShowingCachedData ||
+                          skills.isUserSkillsShowingCachedData)
+                        OfflineBanner(
+                          cachedAt:
+                              skills.userSkillsCachedAt ??
+                              skills.catalogCachedAt,
+                        ),
                       _YourSkillsSection(
                         skills: skills,
-                        onRemove: (id) {
+                        onRemove: (id, name) async {
                           HapticFeedback.lightImpact();
+                          final confirmed = await showConfirmationDialog(
+                            context,
+                            title: 'Remove skill?',
+                            message:
+                                'Are you sure you want to remove "$name" '
+                                'from your skills? This won\'t delete your '
+                                'progress history, but it will no longer '
+                                'count toward your roadmap.',
+                            confirmText: 'Remove',
+                            icon: Icons.delete_outline_rounded,
+                          );
+                          if (!confirmed) return;
                           final userId = _userId;
                           if (userId != null) skills.removeSkill(userId, id);
                         },
@@ -113,7 +122,7 @@ class _YourSkillsSection extends StatelessWidget {
   });
 
   final SkillsProvider skills;
-  final void Function(int skillId) onRemove;
+  final void Function(int skillId, String skillName) onRemove;
   final VoidCallback onBrowse;
 
   @override
@@ -121,11 +130,29 @@ class _YourSkillsSection extends StatelessWidget {
     final p = AppPalette.of(context);
     final owned = skills.userSkills;
 
-    final grouped = <SkillCategory, List<Skill>>{};
+    final grouped = <String, List<Skill>>{};
     for (final s in owned) {
-      grouped.putIfAbsent(s.category, () => []).add(s);
+      grouped.putIfAbsent(s.rawCategory, () => []).add(s);
     }
-    final orderedCategories = _categoryOrder.where(grouped.containsKey);
+    // Known categories keep their original display order; any new,
+    // admin-added category is appended alphabetically after them —
+    // nothing is ever silently dropped for not matching a fixed list
+    // (the old hardcoded order was missing Game Dev, Cybersecurity, QA &
+    // Testing, and AI & ML entirely, so skills in those categories never
+    // showed up here).
+    final orderedCategories = grouped.keys.toList()
+      ..sort((a, b) {
+        final aKnown = skillCategoryFromString(a) != SkillCategory.unknown;
+        final bKnown = skillCategoryFromString(b) != SkillCategory.unknown;
+        if (aKnown && bKnown) {
+          return skillCategoryFromString(
+            a,
+          ).index.compareTo(skillCategoryFromString(b).index);
+        }
+        if (aKnown) return -1;
+        if (bKnown) return 1;
+        return a.compareTo(b);
+      });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,10 +219,14 @@ class _YourSkillsSection extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  Icon(category.icon, size: 13, color: p.textMuted),
+                  Icon(
+                    grouped[category]!.first.categoryIcon,
+                    size: 13,
+                    color: p.textMuted,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    category.label,
+                    grouped[category]!.first.categoryLabel,
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -218,7 +249,11 @@ class _YourSkillsSection extends StatelessWidget {
                       child: OwnedSkillTile(
                         skill: s,
                         isPending: skills.pendingSkillIds.contains(s.id),
-                        onRemove: () => onRemove(s.id),
+                        onRemove: () => onRemove(s.id, s.name),
+                        onChat: () => context.push(
+                          '/roadmap/skill/${s.id}/chat',
+                          extra: s.name,
+                        ),
                       ),
                     ),
                   )

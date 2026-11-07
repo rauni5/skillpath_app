@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../../core/models/skill.dart';
 import '../../../core/theme/app_palette.dart';
-import '../../../shared/widgets/error_view.dart';
-import '../../../shared/widgets/loading_view.dart';
 import '../providers/admin_skills_provider.dart';
+import '../widgets/admin_bits.dart';
+import '../widgets/admin_card.dart';
+import '../widgets/admin_page_header.dart';
 
 class AdminSkillDetailScreen extends StatefulWidget {
   const AdminSkillDetailScreen({super.key, required this.skillId});
@@ -20,7 +21,7 @@ class AdminSkillDetailScreen extends StatefulWidget {
 class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  SkillCategory _category = SkillCategory.backend;
+  String _category = '';
   final _formKey = GlobalKey<FormState>();
   int? _loadedSkillId;
 
@@ -46,9 +47,7 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
     _loadedSkillId = skill.id;
     _nameCtrl.text = skill.name;
     _descCtrl.text = skill.description ?? '';
-    setState(() {
-      _category = skill.category;
-    });
+    setState(() => _category = skill.rawCategory);
   }
 
   @override
@@ -57,10 +56,21 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
     final skills = context.watch<AdminSkillsProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Skill')),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _buildBody(context, p, skills),
+      backgroundColor: p.surface2,
+      body: Column(
+        children: [
+          const AdminPageHeader(
+            icon: Icons.edit_outlined,
+            title: 'Edit Skill',
+            subtitle: 'Update this skill\'s name, category, and prerequisites.',
+          ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _buildBody(context, p, skills),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -73,9 +83,12 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
     switch (skills.detailState) {
       case AdminSkillDetailLoadState.initial:
       case AdminSkillDetailLoadState.loading:
-        return const LoadingView(key: ValueKey('loading'));
+        return const Center(
+          key: ValueKey('loading'),
+          child: CircularProgressIndicator(),
+        );
       case AdminSkillDetailLoadState.error:
-        return ErrorView(
+        return InlineErrorState(
           key: const ValueKey('error'),
           message: skills.detailError ?? 'Something went wrong.',
           onRetry: () =>
@@ -84,160 +97,192 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
       case AdminSkillDetailLoadState.loaded:
         final skill = skills.selectedSkill!;
         _hydrate(skill);
-        return ListView(
+        return Center(
           key: const ValueKey('loaded'),
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          children: [
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<SkillCategory>(
-                    initialValue: _category,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: SkillCategory.values
-                        .where((c) => c != SkillCategory.unknown)
-                        .map(
-                          (c) =>
-                              DropdownMenuItem(value: c, child: Text(c.label)),
-                        )
-                        .toList(),
-                    onChanged: (v) =>
-                        setState(() => _category = v ?? _category),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _descCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Description (optional)',
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Back to skills'),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      alignment: Alignment.centerLeft,
                     ),
-                    maxLines: 3,
                   ),
-                  if (skills.detailError != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      skills.detailError!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12.5),
+                ),
+                const SizedBox(height: 12),
+                AdminCard(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AdminSectionHeader(
+                          icon: Icons.psychology_outlined,
+                          title: 'Skill details',
+                          subtitle: 'Name, category, and description.',
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _nameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            prefixIcon: Icon(
+                              Icons.psychology_outlined,
+                              size: 20,
+                            ),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Required'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        CategoryInputField(
+                          knownCategories: skills.knownCategories,
+                          initialValue: _category,
+                          onChanged: (v) => _category = v,
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _descCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Description (optional)',
+                            prefixIcon: Icon(Icons.notes_outlined, size: 20),
+                          ),
+                          maxLines: 3,
+                        ),
+                        if (skills.detailError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            skills.detailError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        Divider(height: 1, color: p.border),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: skills.isSaving
+                                    ? null
+                                    : () => _save(context, skill.id),
+                                child: skills.isSaving
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Save changes',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: p.red,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  side: BorderSide(color: p.red),
+                                ),
+                                onPressed: skills.isDeleting
+                                    ? null
+                                    : () => _confirmDelete(context, skill),
+                                child: skills.isDeleting
+                                    ? SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: p.red,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Delete skill',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    children: [
-                      FilledButton(
-                        onPressed: skills.isSaving
-                            ? null
-                            : () => _save(context, skill.id),
-                        child: skills.isSaving
-                            ? const SizedBox(
-                                height: 16,
-                                width: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Save changes'),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton(
-                        onPressed: skills.isDeleting
-                            ? null
-                            : () => _confirmDelete(context, skill),
-                        style: OutlinedButton.styleFrom(foregroundColor: p.red),
-                        child: skills.isDeleting
-                            ? SizedBox(
-                                height: 16,
-                                width: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: p.red,
-                                ),
-                              )
-                            : const Text('Delete skill'),
-                      ),
-                    ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'PREREQUISITES',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: p.textMuted,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Skills a learner must know before this one.',
-              style: TextStyle(fontSize: 12, color: p.textMuted),
-            ),
-            const SizedBox(height: 12),
-            if (skills.dependencies.isEmpty)
-              Text(
-                'No prerequisites set.',
-                style: TextStyle(fontSize: 12.5, color: p.textMuted),
-              )
-            else
-              ...skills.dependencies.map((dep) {
-                final isPending = skills.pendingDependencyIds.contains(dep.id);
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                ),
+                const SizedBox(height: 24),
+                const SectionLabel('Prerequisites'),
+                const SizedBox(height: 4),
+                Text(
+                  'Skills a learner must know before this one.',
+                  style: TextStyle(fontSize: 12, color: p.textMuted),
+                ),
+                const SizedBox(height: 12),
+                if (skills.dependencies.isEmpty)
+                  AdminCard(
+                    child: Text(
+                      'No prerequisites set.',
+                      style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                    ),
+                  )
+                else
+                  AdminCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        for (final dep in skills.dependencies) ...[
+                          _DependencyRow(
+                            skill: dep,
+                            isPending: skills.pendingDependencyIds.contains(
+                              dep.id,
+                            ),
+                            onRemove: () => context
+                                .read<AdminSkillsProvider>()
+                                .removeDependency(skill.id, dep.id),
+                            p: p,
+                          ),
+                          if (dep != skills.dependencies.last)
+                            Divider(height: 1, color: p.border),
+                        ],
+                      ],
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: p.surface2,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: p.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(dep.categoryIcon, size: 16, color: p.indigo),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          dep.name,
-                          style: TextStyle(fontSize: 13, color: p.textPrimary),
-                        ),
-                      ),
-                      if (isPending)
-                        const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        IconButton(
-                          tooltip: 'Remove',
-                          icon: Icon(Icons.close, size: 18, color: p.textMuted),
-                          onPressed: () => context
-                              .read<AdminSkillsProvider>()
-                              .removeDependency(skill.id, dep.id),
-                        ),
-                    ],
-                  ),
-                );
-              }),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _showAddDependencyDialog(context, skill, skills),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add prerequisite'),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      _showAddDependencyDialog(context, skill, skills),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add prerequisite'),
+                ),
+              ],
             ),
-          ],
+          ),
         );
     }
   }
@@ -253,40 +298,23 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
   }
 
   Future<void> _confirmDelete(BuildContext context, Skill skill) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete this skill?'),
-        content: Text(
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: 'Delete this skill?',
+      message:
           'This removes "${skill.name}" from every user\'s skill inventory and every career '
           "role that requires it. If any project currently requires it, deletion will be blocked "
           'until it\'s removed from that project.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
     if (confirmed == true && context.mounted) {
       final ok = await context.read<AdminSkillsProvider>().deleteSkill(
         skill.id,
       );
       if (ok && context.mounted) {
-        context.go('/admin/skills');
+        context.pop();
       } else if (context.mounted) {
         final err = context.read<AdminSkillsProvider>().detailError;
-        if (err != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(err)));
-        }
+        if (err != null) {}
       }
     }
   }
@@ -313,7 +341,28 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
                     .where((s) => s.name.toLowerCase().contains(query))
                     .toList();
           return AlertDialog(
-            title: const Text('Add prerequisite'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppPalette.of(ctx).indigoLight,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    Icons.link,
+                    size: 16,
+                    color: AppPalette.of(ctx).indigo,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text('Add prerequisite'),
+              ],
+            ),
             content: SizedBox(
               width: 380,
               height: 400,
@@ -361,6 +410,47 @@ class _AdminSkillDetailScreenState extends State<AdminSkillDetailScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _DependencyRow extends StatelessWidget {
+  const _DependencyRow({
+    required this.skill,
+    required this.isPending,
+    required this.onRemove,
+    required this.p,
+  });
+
+  final Skill skill;
+  final bool isPending;
+  final VoidCallback onRemove;
+  final AppPalette p;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Icon(skill.categoryIcon, size: 16, color: p.indigo),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              skill.name,
+              style: TextStyle(fontSize: 13, color: p.textPrimary),
+            ),
+          ),
+          if (isPending)
+            const MiniSpinner(size: 16)
+          else
+            IconButton(
+              tooltip: 'Remove',
+              icon: Icon(Icons.close, size: 18, color: p.textMuted),
+              onPressed: onRemove,
+            ),
+        ],
       ),
     );
   }
