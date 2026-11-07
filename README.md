@@ -17,7 +17,7 @@ The Flutter application provides the user-facing mobile experience, including au
 *  Project discovery and management
 *  Project collaboration and team features
 *  Project discussions
-*  Notifications
+​*  In-app notifications & Push Notifications (Firebase Cloud Messaging)
 *  AI learning/career assistant
 *  Skeleton loading states for improved user experience
 *  Light and dark theme support
@@ -153,8 +153,7 @@ flutter run
 ---
 
 ## Backend Connection
-
-The Flutter application communicates with the SkillPath backend through REST APIs.
+The Flutter application communicates with the [SkillPath Spring Boot Backend](https://github.com/rauni5/SkillPath-Backend) (100+ REST endpoints, PostgreSQL, Firebase Auth, Gemini AI) via Dio.
 
 Before running the application, make sure the backend server is running and that the API base URL configured in the Flutter project points to the correct backend environment.
 
