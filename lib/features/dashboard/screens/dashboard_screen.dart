@@ -604,7 +604,7 @@ class _InlineRetryRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              message,
+              message.,
               style: TextStyle(fontSize: 12, color: p.textMuted),
             ),
           ),
